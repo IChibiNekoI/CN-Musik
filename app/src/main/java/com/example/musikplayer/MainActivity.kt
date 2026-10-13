@@ -74,6 +74,9 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -956,6 +959,8 @@ fun NowPlayingSheet(
     c: MediaController,
     showAudioInfo: Boolean = false,
     origin: MiniOrigin? = null,
+    onGoToAlbum: () -> Unit = {},
+    onAddToPlaylist: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     // Der Player ist immer dunkel -> Statusleisten-Icons hell halten
@@ -975,7 +980,7 @@ fun NowPlayingSheet(
         }
     }
     CoverTheme(song, dark = true) {
-        NowPlayingSheetContent(song, isPlaying, shuffle, repeat, c, showAudioInfo, origin, onDismiss)
+        NowPlayingSheetContent(song, isPlaying, shuffle, repeat, c, showAudioInfo, origin, onGoToAlbum, onAddToPlaylist, onDismiss)
     }
 }
 
@@ -988,8 +993,11 @@ private fun NowPlayingSheetContent(
     c: MediaController,
     showAudioInfo: Boolean,
     origin: MiniOrigin?,
+    onGoToAlbum: () -> Unit,
+    onAddToPlaylist: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    var menuOpen by remember { mutableStateOf(false) }
     val infoCtx = LocalContext.current
     val audioInfo by produceState<String?>(null, song.id, showAudioInfo) {
         value = if (!showAudioInfo) null
@@ -1092,9 +1100,43 @@ private fun NowPlayingSheetContent(
                     Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Row(Modifier.fillMaxWidth().reveal({ open.value }, 0.30f, 0.75f, 0.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth().reveal({ open.value }, 0.30f, 0.75f, 0.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         IconButton(onClick = onDismiss) {
                             Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Schließen")
+                        }
+                        Box {
+                            IconButton(onClick = { menuOpen = true }) {
+                                Icon(Icons.Filled.MoreVert, contentDescription = "Mehr")
+                            }
+                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Zum Album gehen") },
+                                    leadingIcon = { Icon(Icons.Filled.Album, contentDescription = null) },
+                                    onClick = { menuOpen = false; onGoToAlbum() }
+                                )
+                                // Albumname in der Schrift der Audio-Infos (kbps usw.)
+                                Text(
+                                    song.album.ifBlank { "Unbekanntes Album" },
+                                    modifier = Modifier
+                                        .widthIn(max = 220.dp)
+                                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Zu Playlist hinzufügen") },
+                                    leadingIcon = {
+                                        Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null)
+                                    },
+                                    onClick = { menuOpen = false; onAddToPlaylist() }
+                                )
+                            }
                         }
                     }
                     Spacer(Modifier.weight(1.25f))   // Abstand oben: kleiner = Cover weiter oben
