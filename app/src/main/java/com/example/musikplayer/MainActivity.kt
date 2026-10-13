@@ -109,7 +109,8 @@ data class Song(
         val folder: String,
     val album: String = "",
     val dateAdded: Long = 0L,
-    val track: Int = 0
+    val track: Int = 0,
+    val fileName: String = ""
 )
 
 private object CoverCache : LruCache<String, Bitmap>(60)
