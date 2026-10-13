@@ -13,8 +13,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -55,6 +57,8 @@ fun MusikApp(openPlayerSignal: Int = 0) {
     var selected by remember { mutableStateOf(readFolderSet(ctx)) }
     var sort by remember { mutableStateOf(readSort(ctx)) }
     var playlists by remember { mutableStateOf(readPlaylists(ctx)) }
+    var albumStyle by remember { mutableStateOf(readAlbumStyle(ctx)) }
+    var playlistStyle by remember { mutableStateOf(readPlaylistStyle(ctx)) }
     var showSettings by remember { mutableStateOf(false) }
     var albumRequest by remember { mutableStateOf<String?>(null) }
     var playlistRequest by remember { mutableStateOf<Song?>(null) }
@@ -119,6 +123,8 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                     sort = sort,
                     currentId = currentId,
                     playlists = playlists,
+                    albumStyle = albumStyle,
+                    playlistStyle = playlistStyle,
                     onPlaylistsChange = { playlists = it; savePlaylists(ctx, it) },
                     onPlay = { list, index ->
                         controller?.let { c ->
@@ -157,6 +163,10 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                 onSort = { sort = it; saveSort(ctx, it) },
                 showAudioInfo = showInfo,
                 onShowAudioInfo = { showInfo = it; saveShowAudioInfo(ctx, it) },
+                albumStyle = albumStyle,
+                onAlbumStyle = { albumStyle = it; saveAlbumStyle(ctx, it) },
+                playlistStyle = playlistStyle,
+                onPlaylistStyle = { playlistStyle = it; savePlaylistStyle(ctx, it) },
                 onDismiss = { showSettings = false }
             )
         }
@@ -184,6 +194,19 @@ private fun SortOption(title: String, subtitle: String, selected: Boolean, onCli
     )
 }
 
+@Composable
+private fun ViewStyleOptions(style: ViewStyle, onChange: (ViewStyle) -> Unit) {
+    SortOption("Liste", "Cover links, Titel daneben", !style.grid) {
+        onChange(style.copy(grid = false))
+    }
+    SortOption("Kacheln", "2 nebeneinander, große Cover", style.grid && style.cols == 2) {
+        onChange(ViewStyle(grid = true, cols = 2))
+    }
+    SortOption("Kacheln", "3 nebeneinander, kompakter", style.grid && style.cols == 3) {
+        onChange(ViewStyle(grid = true, cols = 3))
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppSettingsSheet(
@@ -194,6 +217,10 @@ fun AppSettingsSheet(
     onSort: (SortMode) -> Unit,
     showAudioInfo: Boolean,
     onShowAudioInfo: (Boolean) -> Unit,
+    albumStyle: ViewStyle,
+    onAlbumStyle: (ViewStyle) -> Unit,
+    playlistStyle: ViewStyle,
+    onPlaylistStyle: (ViewStyle) -> Unit,
     onDismiss: () -> Unit
 ) {
     var page by remember { mutableStateOf("main") }
@@ -243,6 +270,26 @@ fun AppSettingsSheet(
                     modifier = Modifier.clickable { page = "folders" }
                 )
                 ListItem(
+                    headlineContent = { Text("Alben-Ansicht") },
+                    supportingContent = { Text(albumStyle.label()) },
+                    leadingContent = { Icon(Icons.Filled.Album, contentDescription = null) },
+                    trailingContent = {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                    },
+                    colors = clear,
+                    modifier = Modifier.clickable { page = "albumView" }
+                )
+                ListItem(
+                    headlineContent = { Text("Playlist-Ansicht") },
+                    supportingContent = { Text(playlistStyle.label()) },
+                    leadingContent = { Icon(Icons.Filled.GridView, contentDescription = null) },
+                    trailingContent = {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                    },
+                    colors = clear,
+                    modifier = Modifier.clickable { page = "playlistView" }
+                )
+                ListItem(
                     headlineContent = { Text("Audioinfos im Player") },
                     supportingContent = { Text("Format, Bitrate und Abtastrate unten anzeigen") },
                     leadingContent = { Icon(Icons.Filled.Info, contentDescription = null) },
@@ -262,6 +309,16 @@ fun AppSettingsSheet(
                 SortOption("Name", "A bis Z", sort == SortMode.NAME) {
                     onSort(SortMode.NAME)
                 }
+                Spacer(Modifier.height(32.dp))
+            }
+            "albumView" -> {
+                SheetHeader("Alben-Ansicht") { page = "main" }
+                ViewStyleOptions(albumStyle, onAlbumStyle)
+                Spacer(Modifier.height(32.dp))
+            }
+            "playlistView" -> {
+                SheetHeader("Playlist-Ansicht") { page = "main" }
+                ViewStyleOptions(playlistStyle, onPlaylistStyle)
                 Spacer(Modifier.height(32.dp))
             }
             else -> {
