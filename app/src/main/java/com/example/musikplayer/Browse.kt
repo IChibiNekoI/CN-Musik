@@ -1,6 +1,14 @@
 package com.example.musikplayer
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -114,6 +122,23 @@ fun LibraryScreen(
     var query by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
     val searchFocus = remember { FocusRequester() }
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val m3uLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            val r = withContext(Dispatchers.IO) { importM3u(ctx, uri, songs) }
+            if (r == null || r.ids.isEmpty()) {
+                Toast.makeText(ctx, "Keine passenden Titel in der Playlist gefunden", Toast.LENGTH_LONG).show()
+            } else {
+                onPlaylistsChange(
+                    playlists + Playlist(System.currentTimeMillis().toString(), r.name, r.ids)
+                )
+                Toast.makeText(
+                    ctx, "${r.name}: ${r.ids.size} von ${r.total} Titeln importiert", Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
 
     val sorted = remember(songs, sort) { sortSongs(songs, sort) }
     val albums = remember(songs) {
@@ -284,6 +309,14 @@ fun LibraryScreen(
                                 leadingContent = { Icon(Icons.Filled.Add, contentDescription = null) },
                                 colors = clearColors(),
                                 modifier = Modifier.clickable { pendingSong = null; creating = true }
+                            )
+                        }
+                        item {
+                            ListItem(
+                                headlineContent = { Text("M3U-Playlist importieren") },
+                                leadingContent = { Icon(Icons.Filled.FolderOpen, contentDescription = null) },
+                                colors = clearColors(),
+                                modifier = Modifier.clickable { m3uLauncher.launch(arrayOf("*/*")) }
                             )
                         }
                         items(playlists, key = { it.id }) { p ->
