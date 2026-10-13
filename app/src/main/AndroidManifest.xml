@@ -10,6 +10,8 @@
 
     <application
         android:label="Musik"
+                android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
