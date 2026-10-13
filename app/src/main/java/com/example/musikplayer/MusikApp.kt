@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -88,49 +89,51 @@ fun MusikApp() {
     }
     val current = allSongs.find { it.id.toString() == currentId }
 
-    Scaffold(
-        bottomBar = {
-            if (current != null && controller != null) {
-                MiniPlayer(current, isPlaying, controller) { showNow = true }
+    CoverTheme(current, isSystemInDarkTheme()) {
+        Scaffold(
+            bottomBar = {
+                if (current != null && controller != null) {
+                    MiniPlayer(current, isPlaying, controller) { showNow = true }
+                }
+            }
+        ) { pad ->
+            if (!granted) {
+                Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.Center) {
+                    Text("Bitte erlaube den Zugriff auf deine Musik.")
+                }
+            } else {
+                LibraryScreen(
+                    pad = pad,
+                    songs = songs,
+                    sort = sort,
+                    currentId = currentId,
+                    playlists = playlists,
+                    onPlaylistsChange = { playlists = it; savePlaylists(ctx, it) },
+                    onPlay = { list, index ->
+                        controller?.let { c ->
+                            c.setMediaItems(toMediaItems(list), index, 0L)
+                            c.prepare()
+                            c.play()
+                        }
+                    },
+                    onSettings = { showSettings = true }
+                )
             }
         }
-    ) { pad ->
-        if (!granted) {
-            Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.Center) {
-                Text("Bitte erlaube den Zugriff auf deine Musik.")
-            }
-        } else {
-            LibraryScreen(
-                pad = pad,
-                songs = songs,
+
+        if (showNow && current != null && controller != null) {
+            NowPlayingSheet(current, isPlaying, shuffle, repeat, controller) { showNow = false }
+        }
+        if (showSettings) {
+            AppSettingsSheet(
+                allSongs = allSongs,
+                selected = selected,
                 sort = sort,
-                currentId = currentId,
-                playlists = playlists,
-                onPlaylistsChange = { playlists = it; savePlaylists(ctx, it) },
-                onPlay = { list, index ->
-                    controller?.let { c ->
-                        c.setMediaItems(toMediaItems(list), index, 0L)
-                        c.prepare()
-                        c.play()
-                    }
-                },
-                onSettings = { showSettings = true }
+                onFolders = { selected = it; saveFolderSet(ctx, it) },
+                onSort = { sort = it; saveSort(ctx, it) },
+                onDismiss = { showSettings = false }
             )
         }
-    }
-
-    if (showNow && current != null && controller != null) {
-        NowPlayingSheet(current, isPlaying, shuffle, repeat, controller) { showNow = false }
-    }
-    if (showSettings) {
-        AppSettingsSheet(
-            allSongs = allSongs,
-            selected = selected,
-            sort = sort,
-            onFolders = { selected = it; saveFolderSet(ctx, it) },
-            onSort = { sort = it; saveSort(ctx, it) },
-            onDismiss = { showSettings = false }
-        )
     }
 }
 
