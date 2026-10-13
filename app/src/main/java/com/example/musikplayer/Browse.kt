@@ -14,6 +14,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -41,6 +49,91 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 private fun clearColors() = ListItemDefaults.colors(containerColor = Color.Transparent)
+
+/** Playlist-Cover: 2x2-Raster aus den Covern der ersten 4 Titel. */
+@Composable
+fun PlaylistCover(songs: List<Song>, size: Dp, corner: Dp = 12.dp) {
+    val first = songs.take(4)
+    Box(
+        Modifier.size(size).clip(RoundedCornerShape(corner))
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center
+    ) {
+        when {
+            first.isEmpty() -> Icon(
+                Icons.Filled.MusicNote, contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            first.size == 1 -> Cover(first[0], size, corner = 0.dp)
+            else -> {
+                val half = size / 2
+                Column {
+                    for (row in 0..1) {
+                        Row {
+                            for (col in 0..1) {
+                                val s = first.getOrNull(row * 2 + col)
+                                if (s != null) {
+                                    Cover(s, half, corner = 0.dp)
+                                } else {
+                                    Box(Modifier.size(half), contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            Icons.Filled.MusicNote, contentDescription = null,
+                                            modifier = Modifier.size(half * 0.5f),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Kachel für die Rasteransicht: Cover in voller Kachelbreite, darunter Titel und Untertitel. */
+@Composable
+private fun GridTile(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    onDelete: (() -> Unit)? = null,
+    cover: @Composable (Dp) -> Unit
+) {
+    BoxWithConstraints(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onClick() }
+    ) {
+        val w = maxWidth
+        Column(Modifier.fillMaxWidth()) {
+            cover(w)
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (onDelete != null) {
+                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            Icons.Filled.Delete, contentDescription = "Löschen",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun DetailHeader(title: String, onBack: () -> Unit) {
@@ -107,6 +200,8 @@ fun LibraryScreen(
     sort: SortMode,
     currentId: String?,
     playlists: List<Playlist>,
+    albumStyle: ViewStyle = ViewStyle(),
+    playlistStyle: ViewStyle = ViewStyle(),
     onPlaylistsChange: (List<Playlist>) -> Unit,
     onPlay: (List<Song>, Int) -> Unit,
     onSettings: () -> Unit,
@@ -292,7 +387,24 @@ fun LibraryScreen(
             }
             1 -> {
                 val name = openAlbum
-                if (name == null) {
+                if (name == null && albumStyle.grid) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(albumStyle.cols),
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        gridItems(albums, key = { it.first }) { (albumName, list) ->
+                            GridTile(
+                                title = albumName,
+                                subtitle = list.first().artist,
+                                onClick = { openAlbum = albumName },
+                                cover = { w -> Cover(list.first(), w) }
+                            )
+                        }
+                    }
+                } else if (name == null) {
                     LazyColumn(Modifier.weight(1f)) {
                         items(albums, key = { it.first }) { (albumName, list) ->
                             ListItem(
@@ -326,7 +438,44 @@ fun LibraryScreen(
             }
             else -> {
                 val pl = playlists.firstOrNull { it.id == openPlaylist }
-                if (pl == null) {
+                if (pl == null && playlistStyle.grid) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(playlistStyle.cols),
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            ListItem(
+                                headlineContent = { Text("Neue Playlist") },
+                                leadingContent = { Icon(Icons.Filled.Add, contentDescription = null) },
+                                colors = clearColors(),
+                                modifier = Modifier.clickable { pendingSong = null; creating = true }
+                            )
+                        }
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            ListItem(
+                                headlineContent = { Text("M3U-Playlist importieren") },
+                                leadingContent = { Icon(Icons.Filled.FolderOpen, contentDescription = null) },
+                                colors = clearColors(),
+                                modifier = Modifier.clickable { m3uLauncher.launch(arrayOf("*/*")) }
+                            )
+                        }
+                        gridItems(playlists, key = { it.id }) { p ->
+                            val covers = remember(p.songIds, byId) {
+                                p.songIds.asSequence().mapNotNull { byId[it] }.take(4).toList()
+                            }
+                            GridTile(
+                                title = p.name,
+                                subtitle = "${p.songIds.size} Titel",
+                                onClick = { openPlaylist = p.id },
+                                onDelete = { deleteTarget = p },
+                                cover = { w -> PlaylistCover(covers, w) }
+                            )
+                        }
+                    }
+                } else if (pl == null) {
                     LazyColumn(Modifier.weight(1f)) {
                         item {
                             ListItem(
@@ -351,7 +500,10 @@ fun LibraryScreen(
                                 },
                                 supportingContent = { Text("${p.songIds.size} Titel") },
                                 leadingContent = {
-                                    Icon(Icons.Filled.MusicNote, contentDescription = null)
+                                    val covers = remember(p.songIds, byId) {
+                                        p.songIds.asSequence().mapNotNull { byId[it] }.take(4).toList()
+                                    }
+                                    PlaylistCover(covers, 56.dp)
                                 },
                                 trailingContent = {
                                     IconButton(onClick = { deleteTarget = p }) {
