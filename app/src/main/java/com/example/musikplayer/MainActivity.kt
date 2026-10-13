@@ -1108,6 +1108,14 @@ private fun NowPlayingSheetContent(
                         IconButton(onClick = onDismiss) {
                             Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Schließen")
                         }
+                        Text(
+                            song.album.ifBlank { "Unbekanntes Album" },
+                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                            style = MaterialTheme.typography.titleMedium,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                         Box {
                             IconButton(onClick = { menuOpen = true }) {
                                 Icon(Icons.Filled.MoreVert, contentDescription = "Mehr")
@@ -1117,17 +1125,6 @@ private fun NowPlayingSheetContent(
                                     text = { Text("Zum Album gehen") },
                                     leadingIcon = { Icon(Icons.Filled.Album, contentDescription = null) },
                                     onClick = { menuOpen = false; onGoToAlbum() }
-                                )
-                                // Albumname in der Schrift der Audio-Infos (kbps usw.)
-                                Text(
-                                    song.album.ifBlank { "Unbekanntes Album" },
-                                    modifier = Modifier
-                                        .widthIn(max = 220.dp)
-                                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Zu Playlist hinzufügen") },
