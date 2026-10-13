@@ -163,7 +163,8 @@ fun loadAudioInfo(ctx: Context, song: Song): String? {
             "flac" -> "FLAC"
             "vorbis" -> "OGG"
             "opus" -> "OPUS"
-            "raw" -> "WAV"
+            // "raw" meldet das Gerät auch für andere Dateien (z. B. FLAC) -> Endung entscheidet
+            "raw" -> if (ext.isNotEmpty() && ext.length <= 5) ext else "WAV"
             else -> if (ext.isNotEmpty() && ext.length <= 5) ext
             else mime.removePrefix("audio/").uppercase()
         }
