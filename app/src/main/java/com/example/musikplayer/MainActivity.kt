@@ -62,7 +62,6 @@ import androidx.media3.session.SessionToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.animation.animateColorAsState
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.WindowCompat
 import androidx.compose.animation.core.Animatable
@@ -688,20 +687,16 @@ fun PillProgress(
     }
 }
 
-private class CoverPalette(
-    val bg: Color,
-    val surfaceVariant: Color,
-    val text: Color,
-    val textDim: Color,
-    val accent: Color,
-    val onAccent: Color
-)
+/** Dominanter Farbton eines Covers (HSL). */
+private class CoverSeed(val h: Float, val s: Float, val neutral: Boolean)
+
+private object SeedCache : LruCache<Long, CoverSeed>(100)
 
 private fun hsl(h: Float, s: Float, l: Float): Color =
     Color(ColorUtils.HSLToColor(floatArrayOf(h, s.coerceIn(0f, 1f), l.coerceIn(0f, 1f))))
 
-/** Ermittelt die dominante, kräftige Farbe des Covers und leitet daraus ein dunkles Farbschema ab. */
-private fun paletteFromBitmap(src: Bitmap): CoverPalette? {
+/** Ermittelt den dominanten, kräftigen Farbton des Covers. */
+private fun seedFromBitmap(src: Bitmap): CoverSeed? {
     return try {
         val n = 48
         val bmp = Bitmap.createScaledBitmap(src, n, n, true)
@@ -725,22 +720,116 @@ private fun paletteFromBitmap(src: Bitmap): CoverPalette? {
         val neutral = weight[best] < 20f
         val h = (best + 0.5f) * (360f / buckets)
         val s = if (neutral) 0f else satSum[best] / weight[best]
-        CoverPalette(
-            bg = hsl(h, (s * 0.55f).coerceAtMost(0.5f), 0.10f),
-            surfaceVariant = hsl(h, (s * 0.4f).coerceAtMost(0.4f), 0.20f),
-            text = hsl(h, (s * 0.5f).coerceAtMost(0.5f), 0.94f),
-            textDim = hsl(h, (s * 0.4f).coerceAtMost(0.4f), 0.78f),
-            accent = hsl(h, if (neutral) 0f else s.coerceIn(0.5f, 0.95f), 0.78f),
-            onAccent = hsl(h, if (neutral) 0f else (s * 0.8f).coerceAtMost(0.9f), 0.12f)
-        )
+        CoverSeed(h, s, neutral)
     } catch (e: Exception) {
         null
     }
 }
 
+/** Alle Farben, die das Cover-Theme überschreibt (feste Reihenfolge, damit man sie überblenden kann). */
+private class Tones(val v: List<Color>)
+
+private fun lerpTones(a: Tones, b: Tones, f: Float) =
+    Tones(List(a.v.size) { androidx.compose.ui.graphics.lerp(a.v[it], b.v[it], f) })
+
+private fun tonesOf(c: ColorScheme) = Tones(
+    listOf(
+        c.surface, c.onSurface, c.onSurfaceVariant, c.surfaceVariant,
+        c.surfaceContainerLowest, c.surfaceContainerLow, c.surfaceContainer,
+        c.surfaceContainerHigh, c.surfaceContainerHighest,
+        c.primary, c.onPrimary, c.primaryContainer, c.onPrimaryContainer,
+        c.secondary, c.onSecondary, c.secondaryContainer, c.onSecondaryContainer,
+        c.outline, c.outlineVariant
+    )
+)
+
+private fun Tones.applyTo(base: ColorScheme): ColorScheme = base.copy(
+    background = v[0], surface = v[0], onBackground = v[1], onSurface = v[1],
+    onSurfaceVariant = v[2], surfaceVariant = v[3],
+    surfaceContainerLowest = v[4], surfaceContainerLow = v[5], surfaceContainer = v[6],
+    surfaceContainerHigh = v[7], surfaceContainerHighest = v[8],
+    primary = v[9], onPrimary = v[10], primaryContainer = v[11], onPrimaryContainer = v[12],
+    secondary = v[13], onSecondary = v[14],
+    secondaryContainer = v[15], onSecondaryContainer = v[16],
+    outline = v[17], outlineVariant = v[18]
+)
+
+private fun tonesFromSeed(seed: CoverSeed, dark: Boolean): Tones {
+    val h = seed.h
+    val s = seed.s
+    val sp = if (seed.neutral) 0f else s.coerceIn(0.5f, 0.95f)
+    return if (dark) {
+        val sb = (s * 0.55f).coerceAtMost(0.5f)
+        val sm = (s * 0.4f).coerceAtMost(0.4f)
+        Tones(
+            listOf(
+                hsl(h, sb, 0.10f), hsl(h, sm, 0.94f), hsl(h, sm, 0.78f), hsl(h, sm, 0.20f),
+                hsl(h, sb, 0.07f), hsl(h, sb, 0.12f), hsl(h, sb, 0.14f),
+                hsl(h, sb, 0.18f), hsl(h, sb, 0.22f),
+                hsl(h, sp, 0.78f), hsl(h, sp * 0.8f, 0.12f), hsl(h, sp * 0.6f, 0.28f), hsl(h, sm, 0.90f),
+                hsl(h, sm, 0.78f), hsl(h, sm, 0.15f), hsl(h, sm, 0.26f), hsl(h, sm, 0.92f),
+                hsl(h, sm, 0.50f), hsl(h, sm, 0.30f)
+            )
+        )
+    } else {
+        val sb = (s * 0.6f).coerceAtMost(0.6f)
+        val sm = (s * 0.4f).coerceAtMost(0.4f)
+        Tones(
+            listOf(
+                hsl(h, sb, 0.96f), hsl(h, sm, 0.10f), hsl(h, sm, 0.30f), hsl(h, sb, 0.88f),
+                hsl(h, sb, 0.995f), hsl(h, sb, 0.95f), hsl(h, sb, 0.93f),
+                hsl(h, sb, 0.91f), hsl(h, sb, 0.89f),
+                hsl(h, sp, 0.38f), hsl(h, sp, 0.98f), hsl(h, sp, 0.88f), hsl(h, sm, 0.15f),
+                hsl(h, sm, 0.35f), hsl(h, sm, 0.98f), hsl(h, sm, 0.86f), hsl(h, sm, 0.15f),
+                hsl(h, sm, 0.45f), hsl(h, sm, 0.80f)
+            )
+        )
+    }
+}
+
+/**
+ * Färbt den Inhalt passend zum Cover von [song] ein (weiche Überblendung beim Wechsel).
+ * Ohne Song bleibt das normale Theme erhalten.
+ */
 @Composable
-private fun animColor(target: Color): Color =
-    animateColorAsState(target, androidx.compose.animation.core.tween(500), label = "cover").value
+fun CoverTheme(song: Song?, dark: Boolean, content: @Composable () -> Unit) {
+    val ctx = LocalContext.current
+    val seed by produceState<CoverSeed?>(null, song?.id) {
+        val sg = song
+        value = if (sg == null) null else SeedCache.get(sg.id) ?: withContext(Dispatchers.IO) {
+            if (Build.VERSION.SDK_INT >= 29) {
+                try {
+                    seedFromBitmap(ctx.contentResolver.loadThumbnail(sg.uri, Size(96, 96), null))
+                } catch (e: Exception) {
+                    null
+                }
+            } else null
+        }?.also { SeedCache.put(sg.id, it) }
+    }
+
+    val base = MaterialTheme.colorScheme
+    val sd = seed
+    val target = remember(sd, dark, base) {
+        if (sd != null) tonesFromSeed(sd, dark) else tonesOf(base)
+    }
+    var from by remember { mutableStateOf(target) }
+    var to by remember { mutableStateOf(target) }
+    val t = remember { Animatable(1f) }
+    LaunchedEffect(target) {
+        from = lerpTones(from, to, t.value)
+        to = target
+        t.snapTo(0f)
+        t.animateTo(1f, androidx.compose.animation.core.tween(500))
+    }
+    val shown = lerpTones(from, to, t.value)
+
+    MaterialTheme(
+        colorScheme = shown.applyTo(base),
+        typography = MaterialTheme.typography,
+        shapes = MaterialTheme.shapes,
+        content = content
+    )
+}
 
 @Composable
 fun NowPlayingSheet(
@@ -751,19 +840,6 @@ fun NowPlayingSheet(
     c: MediaController,
     onDismiss: () -> Unit
 ) {
-    val ctx = LocalContext.current
-    val palette by produceState<CoverPalette?>(null, song.id) {
-        value = withContext(Dispatchers.IO) {
-            if (Build.VERSION.SDK_INT >= 29) {
-                try {
-                    paletteFromBitmap(ctx.contentResolver.loadThumbnail(song.uri, Size(96, 96), null))
-                } catch (e: Exception) {
-                    null
-                }
-            } else null
-        }
-    }
-
     // Der Player ist immer dunkel -> Statusleisten-Icons hell halten
     val view = androidx.compose.ui.platform.LocalView.current
     DisposableEffect(view) {
@@ -780,35 +856,10 @@ fun NowPlayingSheet(
             }
         }
     }
-
-    val base = MaterialTheme.colorScheme
-    val p = palette
-    val bg = animColor(p?.bg ?: base.surface)
-    val text = animColor(p?.text ?: base.onSurface)
-    val textDim = animColor(p?.textDim ?: base.onSurfaceVariant)
-    val accent = animColor(p?.accent ?: base.primary)
-    val onAccent = animColor(p?.onAccent ?: base.onPrimary)
-    val surfVar = animColor(p?.surfaceVariant ?: base.surfaceVariant)
-
-    val scheme = base.copy(
-        surface = bg,
-        background = bg,
-        onSurface = text,
-        onBackground = text,
-        surfaceVariant = surfVar,
-        onSurfaceVariant = textDim,
-        primary = accent,
-        onPrimary = onAccent
-    )
-    MaterialTheme(
-        colorScheme = scheme,
-        typography = MaterialTheme.typography,
-        shapes = MaterialTheme.shapes
-    ) {
+    CoverTheme(song, dark = true) {
         NowPlayingSheetContent(song, isPlaying, shuffle, repeat, c, onDismiss)
     }
 }
-
 
 @Composable
 private fun NowPlayingSheetContent(
