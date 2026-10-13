@@ -1112,6 +1112,7 @@ private fun NowPlayingSheetContent(
                             song.album.ifBlank { "Unbekanntes Album" },
                             modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
                             style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),   // wie die Audio-Infos
                             textAlign = TextAlign.Center,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
