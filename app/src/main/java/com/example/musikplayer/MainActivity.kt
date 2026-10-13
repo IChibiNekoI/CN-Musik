@@ -760,16 +760,16 @@ private fun tonesFromSeed(seed: CoverSeed, dark: Boolean): Tones {
     val s = seed.s
     val sp = if (seed.neutral) 0f else s.coerceIn(0.5f, 0.95f)
     return if (dark) {
-        val sb = (s * 0.55f).coerceAtMost(0.5f)
+        val sb = (s * 0.6f).coerceAtMost(0.55f)
         val sm = (s * 0.4f).coerceAtMost(0.4f)
         Tones(
             listOf(
-                hsl(h, sb, 0.10f), hsl(h, sm, 0.94f), hsl(h, sm, 0.78f), hsl(h, sm, 0.20f),
-                hsl(h, sb, 0.07f), hsl(h, sb, 0.12f), hsl(h, sb, 0.14f),
-                hsl(h, sb, 0.18f), hsl(h, sb, 0.22f),
-                hsl(h, sp, 0.78f), hsl(h, sp * 0.8f, 0.12f), hsl(h, sp * 0.6f, 0.28f), hsl(h, sm, 0.90f),
-                hsl(h, sm, 0.78f), hsl(h, sm, 0.15f), hsl(h, sm, 0.26f), hsl(h, sm, 0.92f),
-                hsl(h, sm, 0.50f), hsl(h, sm, 0.30f)
+                hsl(h, sb, 0.18f), hsl(h, sm, 0.95f), hsl(h, sm, 0.80f), hsl(h, sm, 0.28f),
+                hsl(h, sb, 0.14f), hsl(h, sb, 0.20f), hsl(h, sb, 0.22f),
+                hsl(h, sb, 0.26f), hsl(h, sb, 0.30f),
+                hsl(h, sp, 0.80f), hsl(h, sp * 0.8f, 0.12f), hsl(h, sp * 0.6f, 0.34f), hsl(h, sm, 0.92f),
+                hsl(h, sm, 0.80f), hsl(h, sm, 0.15f), hsl(h, sm, 0.34f), hsl(h, sm, 0.94f),
+                hsl(h, sm, 0.55f), hsl(h, sm, 0.38f)
             )
         )
     } else {
