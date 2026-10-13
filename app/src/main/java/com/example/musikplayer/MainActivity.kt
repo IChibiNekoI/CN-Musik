@@ -62,6 +62,7 @@ import androidx.media3.session.SessionToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.ui.text.style.TextAlign
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.WindowCompat
 import androidx.compose.animation.core.Animatable
@@ -963,13 +964,17 @@ private fun NowPlayingSheetContent(
                     Spacer(Modifier.height(32.dp))
                     Text(
                         song.title,
-                        style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.headlineSmall,
+                        textAlign = TextAlign.Start,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         song.artist,
-                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Start,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
