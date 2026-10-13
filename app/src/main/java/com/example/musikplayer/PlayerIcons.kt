@@ -105,12 +105,15 @@ fun PlayPauseButton(
             val s = this.size.minDimension
             val stroke = outline(s * 0.09f, s * 0.14f)
             if (isPlaying) {
-                val barW = s * 0.17f
-                val barH = s * 0.66f
+                // ausgefüllte, schmale Balken mit voll gerundeten Enden
+                val barW = s * 0.26f
+                val gap = s * 0.08f
+                val barH = s * 0.74f
+                val left = (s - (2 * barW + gap)) / 2f
                 val top = (s - barH) / 2f
                 val corner = CornerRadius(barW / 2f)
-                drawRoundRect(iconColor, Offset(s * 0.27f, top), Size(barW, barH), corner, style = stroke)
-                drawRoundRect(iconColor, Offset(s * 0.56f, top), Size(barW, barH), corner, style = stroke)
+                drawRoundRect(iconColor, Offset(left, top), Size(barW, barH), corner)
+                drawRoundRect(iconColor, Offset(left + barW + gap, top), Size(barW, barH), corner)
             } else {
                 // etwas nach rechts versetzt, damit das Dreieck optisch mittig sitzt
                 roundedTriangle(s * 0.24f, s * 0.90f, s * 0.13f, s * 0.87f, iconColor, stroke)
