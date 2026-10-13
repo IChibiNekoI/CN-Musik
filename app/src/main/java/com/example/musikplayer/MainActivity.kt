@@ -1002,7 +1002,7 @@ private fun NowPlayingSheetContent(
             open.animateTo(
                 1f,
                 androidx.compose.animation.core.tween(
-                    durationMillis = 450,
+                    durationMillis = 360,
                     easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)
                 )
             )
