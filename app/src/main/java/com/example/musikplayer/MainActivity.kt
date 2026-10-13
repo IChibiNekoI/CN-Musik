@@ -63,6 +63,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlin.math.max
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -471,7 +479,7 @@ fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: () ->
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NowPlayingSheet(
+fun NowPlayingSheetOld(
     song: Song,
     isPlaying: Boolean,
     shuffle: Boolean,
@@ -580,6 +588,195 @@ fun NowPlayingSheet(
                         tint = if (repeat != Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
+        }
+    }
+}
+@Composable
+fun PillProgress(
+    progress: Float,
+    onChange: (Float) -> Unit,
+    onFinished: () -> Unit
+) {
+    val trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)
+    val fillColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+    val change = rememberUpdatedState(onChange)
+    val finished = rememberUpdatedState(onFinished)
+    var width by remember { mutableFloatStateOf(1f) }
+
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(36.dp)
+            .onSizeChanged { width = it.width.toFloat().coerceAtLeast(1f) }
+            .pointerInput(Unit) {
+                detectTapGestures { pos ->
+                    change.value((pos.x / width).coerceIn(0f, 1f))
+                    finished.value()
+                }
+            }
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragStart = { pos -> change.value((pos.x / width).coerceIn(0f, 1f)) },
+                    onDragEnd = { finished.value() },
+                    onDragCancel = { finished.value() },
+                    onHorizontalDrag = { ch, _ ->
+                        ch.consume()
+                        change.value((ch.position.x / width).coerceIn(0f, 1f))
+                    }
+                )
+            },
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(12.dp)
+                .clip(CircleShape)
+                .background(trackColor)
+        )
+        Box(
+            Modifier
+                .widthIn(min = 24.dp)
+                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                .height(12.dp)
+                .clip(CircleShape)
+                .background(fillColor)
+        )
+    }
+}
+
+@Composable
+fun NowPlayingSheet(
+    song: Song,
+    isPlaying: Boolean,
+    shuffle: Boolean,
+    repeat: Int,
+    c: MediaController,
+    onDismiss: () -> Unit
+) {
+    var position by remember { mutableLongStateOf(0L) }
+    var duration by remember { mutableLongStateOf(0L) }
+    var dragging by remember { mutableStateOf(false) }
+    var dragFraction by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(c) {
+        while (true) {
+            position = c.currentPosition
+            duration = max(c.duration, 0L)
+            delay(250)
+        }
+    }
+    val fraction = if (duration > 0) position.toFloat() / duration else 0f
+    val shownFraction = if (dragging) dragFraction else fraction
+    val shownMs = (shownFraction * duration).toLong()
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Surface(Modifier.fillMaxSize()) {
+            BoxWithConstraints(
+                Modifier
+                    .fillMaxSize()
+                    .systemBarsPadding()
+                    .padding(horizontal = 24.dp)
+            ) {
+                val coverSize = minOf(maxWidth, maxHeight * 0.4f, 380.dp)
+                Column(
+                    Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(Modifier.fillMaxWidth()) {
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Schließen")
+                        }
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Cover(song, coverSize)
+                    Spacer(Modifier.height(32.dp))
+                    Text(
+                        song.title,
+                        style = MaterialTheme.typography.headlineMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        song.artist,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(28.dp))
+
+                    PillProgress(
+                        progress = shownFraction,
+                        onChange = { dragging = true; dragFraction = it },
+                        onFinished = {
+                            val target = (dragFraction * duration).toLong()
+                            c.seekTo(target)
+                            position = target
+                            dragging = false
+                        }
+                    )
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(fmt(shownMs), style = MaterialTheme.typography.labelMedium)
+                        Text(fmt(duration), style = MaterialTheme.typography.labelMedium)
+                    }
+                    Spacer(Modifier.height(12.dp))
+
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { c.shuffleModeEnabled = !shuffle }) {
+                            Icon(
+                                Icons.Filled.Shuffle, contentDescription = "Zufall",
+                                tint = if (shuffle) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        IconButton(onClick = { c.seekToPreviousMediaItem() }) {
+                            Icon(Icons.Filled.SkipPrevious, contentDescription = "Zurück")
+                        }
+                        FilledIconButton(
+                            onClick = { if (isPlaying) c.pause() else c.play() },
+                            modifier = Modifier.size(72.dp)
+                        ) {
+                            Icon(
+                                if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                contentDescription = if (isPlaying) "Pause" else "Abspielen",
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+                        IconButton(onClick = { c.seekToNextMediaItem() }) {
+                            Icon(Icons.Filled.SkipNext, contentDescription = "Weiter")
+                        }
+                        IconButton(onClick = {
+                            c.repeatMode = when (repeat) {
+                                Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                                Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+                                else -> Player.REPEAT_MODE_OFF
+                            }
+                        }) {
+                            Icon(
+                                if (repeat == Player.REPEAT_MODE_ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
+                                contentDescription = "Wiederholen",
+                                tint = if (repeat != Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Spacer(Modifier.weight(1f))
                 }
             }
         }
