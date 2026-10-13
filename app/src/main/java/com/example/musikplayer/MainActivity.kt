@@ -62,6 +62,9 @@ import androidx.media3.session.SessionToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.animation.animateColorAsState
+import androidx.core.graphics.ColorUtils
+import androidx.core.view.WindowCompat
 import androidx.compose.animation.core.Animatable
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
@@ -685,8 +688,130 @@ fun PillProgress(
     }
 }
 
+private class CoverPalette(
+    val bg: Color,
+    val surfaceVariant: Color,
+    val text: Color,
+    val textDim: Color,
+    val accent: Color,
+    val onAccent: Color
+)
+
+private fun hsl(h: Float, s: Float, l: Float): Color =
+    Color(ColorUtils.HSLToColor(floatArrayOf(h, s.coerceIn(0f, 1f), l.coerceIn(0f, 1f))))
+
+/** Ermittelt die dominante, kräftige Farbe des Covers und leitet daraus ein dunkles Farbschema ab. */
+private fun paletteFromBitmap(src: Bitmap): CoverPalette? {
+    return try {
+        val n = 48
+        val bmp = Bitmap.createScaledBitmap(src, n, n, true)
+        val pixels = IntArray(n * n)
+        bmp.getPixels(pixels, 0, n, 0, 0, n, n)
+        val buckets = 24
+        val weight = FloatArray(buckets)
+        val satSum = FloatArray(buckets)
+        val buf = FloatArray(3)
+        for (px in pixels) {
+            ColorUtils.colorToHSL(px, buf)
+            val l = buf[2]
+            if (l < 0.08f || l > 0.96f) continue
+            val w = buf[1] * (1f - kotlin.math.abs(2f * l - 1f))
+            val b = ((buf[0] / 360f) * buckets).toInt().coerceIn(0, buckets - 1)
+            weight[b] += w
+            satSum[b] += buf[1] * w
+        }
+        var best = 0
+        for (i in 1 until buckets) if (weight[i] > weight[best]) best = i
+        val neutral = weight[best] < 20f
+        val h = (best + 0.5f) * (360f / buckets)
+        val s = if (neutral) 0f else satSum[best] / weight[best]
+        CoverPalette(
+            bg = hsl(h, (s * 0.55f).coerceAtMost(0.5f), 0.10f),
+            surfaceVariant = hsl(h, (s * 0.4f).coerceAtMost(0.4f), 0.20f),
+            text = hsl(h, (s * 0.5f).coerceAtMost(0.5f), 0.94f),
+            textDim = hsl(h, (s * 0.4f).coerceAtMost(0.4f), 0.78f),
+            accent = hsl(h, if (neutral) 0f else s.coerceIn(0.5f, 0.95f), 0.78f),
+            onAccent = hsl(h, if (neutral) 0f else (s * 0.8f).coerceAtMost(0.9f), 0.12f)
+        )
+    } catch (e: Exception) {
+        null
+    }
+}
+
+@Composable
+private fun animColor(target: Color): Color =
+    animateColorAsState(target, androidx.compose.animation.core.tween(500), label = "cover").value
+
 @Composable
 fun NowPlayingSheet(
+    song: Song,
+    isPlaying: Boolean,
+    shuffle: Boolean,
+    repeat: Int,
+    c: MediaController,
+    onDismiss: () -> Unit
+) {
+    val ctx = LocalContext.current
+    val palette by produceState<CoverPalette?>(null, song.id) {
+        value = withContext(Dispatchers.IO) {
+            if (Build.VERSION.SDK_INT >= 29) {
+                try {
+                    paletteFromBitmap(ctx.contentResolver.loadThumbnail(song.uri, Size(96, 96), null))
+                } catch (e: Exception) {
+                    null
+                }
+            } else null
+        }
+    }
+
+    // Der Player ist immer dunkel -> Statusleisten-Icons hell halten
+    val view = androidx.compose.ui.platform.LocalView.current
+    DisposableEffect(view) {
+        val window = (view.context as? android.app.Activity)?.window
+        val ctrl = window?.let { WindowCompat.getInsetsController(it, view) }
+        val prevStatus = ctrl?.isAppearanceLightStatusBars
+        val prevNav = ctrl?.isAppearanceLightNavigationBars
+        ctrl?.isAppearanceLightStatusBars = false
+        ctrl?.isAppearanceLightNavigationBars = false
+        onDispose {
+            if (ctrl != null) {
+                if (prevStatus != null) ctrl.isAppearanceLightStatusBars = prevStatus
+                if (prevNav != null) ctrl.isAppearanceLightNavigationBars = prevNav
+            }
+        }
+    }
+
+    val base = MaterialTheme.colorScheme
+    val p = palette
+    val bg = animColor(p?.bg ?: base.surface)
+    val text = animColor(p?.text ?: base.onSurface)
+    val textDim = animColor(p?.textDim ?: base.onSurfaceVariant)
+    val accent = animColor(p?.accent ?: base.primary)
+    val onAccent = animColor(p?.onAccent ?: base.onPrimary)
+    val surfVar = animColor(p?.surfaceVariant ?: base.surfaceVariant)
+
+    val scheme = base.copy(
+        surface = bg,
+        background = bg,
+        onSurface = text,
+        onBackground = text,
+        surfaceVariant = surfVar,
+        onSurfaceVariant = textDim,
+        primary = accent,
+        onPrimary = onAccent
+    )
+    MaterialTheme(
+        colorScheme = scheme,
+        typography = MaterialTheme.typography,
+        shapes = MaterialTheme.shapes
+    ) {
+        NowPlayingSheetContent(song, isPlaying, shuffle, repeat, c, onDismiss)
+    }
+}
+
+
+@Composable
+private fun NowPlayingSheetContent(
     song: Song,
     isPlaying: Boolean,
     shuffle: Boolean,
