@@ -710,7 +710,7 @@ fun NowPlayingSheet(
     val dragState = rememberDraggableState { delta ->
         offsetY = (offsetY + delta).coerceAtLeast(0f)
     }
-    val corner = (offsetY / 200f).coerceIn(0f, 1f) * 28.dp
+    val corner = 28.dp * (offsetY / 200f).coerceIn(0f, 1f)
 
     Surface(
         modifier = Modifier
