@@ -741,7 +741,7 @@ fun NowPlayingSheet(
                     .systemBarsPadding()
                     .padding(horizontal = 24.dp)
             ) {
-                val coverSize = minOf(maxWidth, maxHeight * 0.4f, 380.dp)
+                val coverSize = minOf(maxWidth, maxHeight * 0.55f)
                 Column(
                     Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally
