@@ -10,8 +10,8 @@ android {
         applicationId = "com.example.musikplayer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
+        versionName = "0.3"
     }
     buildFeatures { compose = true }
     compileOptions {
