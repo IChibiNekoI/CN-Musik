@@ -842,6 +842,7 @@ fun NowPlayingSheet(
     shuffle: Boolean,
     repeat: Int,
     c: MediaController,
+    showAudioInfo: Boolean = false,
     onDismiss: () -> Unit
 ) {
     // Der Player ist immer dunkel -> Statusleisten-Icons hell halten
@@ -861,7 +862,7 @@ fun NowPlayingSheet(
         }
     }
     CoverTheme(song, dark = true) {
-        NowPlayingSheetContent(song, isPlaying, shuffle, repeat, c, onDismiss)
+        NowPlayingSheetContent(song, isPlaying, shuffle, repeat, c, showAudioInfo, onDismiss)
     }
 }
 
@@ -872,8 +873,14 @@ private fun NowPlayingSheetContent(
     shuffle: Boolean,
     repeat: Int,
     c: MediaController,
+    showAudioInfo: Boolean,
     onDismiss: () -> Unit
 ) {
+    val infoCtx = LocalContext.current
+    val audioInfo by produceState<String?>(null, song.id, showAudioInfo) {
+        value = if (!showAudioInfo) null
+        else withContext(Dispatchers.IO) { loadAudioInfo(infoCtx, song) }
+    }
     var position by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
     var dragging by remember { mutableStateOf(false) }
@@ -1046,7 +1053,20 @@ private fun NowPlayingSheetContent(
                             )
                         }
                     }
-                    Spacer(Modifier.weight(1.95f))   // Abstand unten
+                    Box(
+                        Modifier.fillMaxWidth().weight(1.95f),   // Abstand unten
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        audioInfo?.let {
+                            Text(
+                                it,
+                                modifier = Modifier.padding(bottom = 8.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                                maxLines = 1
+                            )
+                        }
+                    }
                 }
             }
         }
