@@ -435,7 +435,7 @@ fun SettingsSheet(
 
 @Composable
 fun FloatingMiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: () -> Unit) {
-   val view = androidx.compose.ui.platform.LocalView.current
+    val view = androidx.compose.ui.platform.LocalView.current
     val density = LocalDensity.current
     val margin = 12.dp
     val deviceCorner: Dp = remember(view) {
@@ -497,6 +497,8 @@ fun FloatingMiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpe
                 Icon(Icons.Filled.SkipNext, contentDescription = "Weiter")
             }
         }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
