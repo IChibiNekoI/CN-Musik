@@ -75,14 +75,17 @@ fun MusikApp() {
         isPlaying = c.isPlaying
         currentId = c.currentMediaItem?.mediaId
         shuffle = c.shuffleModeEnabled
-        repeat = c.repeatMode
+        // gespeicherten Wiederholmodus wiederherstellen
+        val savedRepeat = readRepeat(ctx)
+        if (c.repeatMode != savedRepeat) c.repeatMode = savedRepeat
+        repeat = savedRepeat
         val l = object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                 currentId = item?.mediaId
             }
             override fun onShuffleModeEnabledChanged(enabled: Boolean) { shuffle = enabled }
-            override fun onRepeatModeChanged(mode: Int) { repeat = mode }
+            override fun onRepeatModeChanged(mode: Int) { repeat = mode; saveRepeat(ctx, mode) }
         }
         c.addListener(l)
         onDispose { c.removeListener(l) }
