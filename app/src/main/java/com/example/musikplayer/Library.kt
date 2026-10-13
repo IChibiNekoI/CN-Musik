@@ -23,6 +23,13 @@ fun saveSort(ctx: Context, mode: SortMode) {
     prefs(ctx).edit().putString("sort", if (mode == SortMode.NAME) "name" else "date").apply()
 }
 
+fun readRepeat(ctx: Context): Int =
+    prefs(ctx).getInt("repeat", androidx.media3.common.Player.REPEAT_MODE_OFF)
+
+fun saveRepeat(ctx: Context, mode: Int) {
+    prefs(ctx).edit().putInt("repeat", mode).apply()
+}
+
 fun readFolderSet(ctx: Context): Set<String>? =
     prefs(ctx).getStringSet("folders", null)?.toSet()
 
