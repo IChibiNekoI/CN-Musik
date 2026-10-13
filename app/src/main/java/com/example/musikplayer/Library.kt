@@ -154,15 +154,18 @@ fun loadAudioInfo(ctx: Context, song: Song): String? {
             }
         }
 
+        // Format nach Codec bestimmen (z. B. AAC statt M4A), Dateiendung nur als Fallback
         val ext = name?.substringAfterLast('.', "")?.uppercase().orEmpty()
-        val format = if (ext.isNotEmpty() && ext.length <= 5) ext else when (mime.removePrefix("audio/")) {
-            "mpeg" -> "MP3"
+        val format = when (mime.removePrefix("audio/")) {
             "mp4a-latm" -> "AAC"
+            "alac" -> "ALAC"
+            "mpeg" -> "MP3"
             "flac" -> "FLAC"
-            "vorbis", "ogg" -> "OGG"
+            "vorbis" -> "OGG"
             "opus" -> "OPUS"
             "raw" -> "WAV"
-            else -> mime.removePrefix("audio/").uppercase()
+            else -> if (ext.isNotEmpty() && ext.length <= 5) ext
+            else mime.removePrefix("audio/").uppercase()
         }
 
         var bitrate = if (fmt.containsKey(MediaFormat.KEY_BIT_RATE)) fmt.getInteger(MediaFormat.KEY_BIT_RATE) else 0
