@@ -76,6 +76,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.gestures.draggable
@@ -490,7 +494,7 @@ fun SettingsSheet(
 }
 
 @Composable
-fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: () -> Unit) {
+fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: (MiniOrigin?) -> Unit) {
       val view = androidx.compose.ui.platform.LocalView.current
     val density = LocalDensity.current
     val margin = 12.dp
@@ -503,13 +507,17 @@ fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: () ->
         } else 0.dp
     }
     val radius = if (deviceCorner > 0.dp) maxOf(deviceCorner - margin, 20.dp) else 28.dp
+    val miniColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    // merkt sich die Position des Miniplayers, damit der Player daraus aufklappen kann
+    val coordsRef = remember { arrayOfNulls<LayoutCoordinates>(1) }
 
     Surface(
         modifier = Modifier
             .navigationBarsPadding()
-            .padding(start = margin, end = margin, bottom = margin),
+            .padding(start = margin, end = margin, bottom = margin)
+            .onGloballyPositioned { coordsRef[0] = it },
         shape = RoundedCornerShape(radius),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = miniColor,
         tonalElevation = 6.dp,
         shadowElevation = 12.dp
     ) {
@@ -519,7 +527,12 @@ fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: () ->
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
-                Modifier.weight(1f).clickable { onOpen() },
+                Modifier.weight(1f).clickable {
+                    onOpen(
+                        coordsRef[0]?.takeIf { it.isAttached }
+                            ?.let { MiniOrigin(it.boundsInRoot(), radius, miniColor) }
+                    )
+                },
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Cover(song, 56.dp)
@@ -873,6 +886,54 @@ fun CoverTheme(song: Song?, dark: Boolean, content: @Composable () -> Unit) {
     )
 }
 
+/** Position, Eckenrundung und Farbe des Miniplayers - Startpunkt der Öffnen-Animation */
+data class MiniOrigin(
+    val bounds: androidx.compose.ui.geometry.Rect,
+    val radius: Dp,
+    val color: Color
+)
+
+/** Zeigt den Player als Ausschnitt, der vom Miniplayer-Rechteck auf Vollbild aufgeht */
+private class SheetRevealShape(
+    private val origin: MiniOrigin?,
+    private val progress: Float,
+    private val topCornerDp: Float
+) : androidx.compose.ui.graphics.Shape {
+    override fun createOutline(
+        size: androidx.compose.ui.geometry.Size,
+        layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+        density: androidx.compose.ui.unit.Density
+    ): androidx.compose.ui.graphics.Outline {
+        val d = density.density
+        val topEnd = topCornerDp * d
+        if (origin == null || progress >= 1f) {
+            val full = androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height)
+            val top = androidx.compose.ui.geometry.CornerRadius(topEnd)
+            return androidx.compose.ui.graphics.Outline.Rounded(
+                androidx.compose.ui.geometry.RoundRect(
+                    full, top, top,
+                    androidx.compose.ui.geometry.CornerRadius.Zero,
+                    androidx.compose.ui.geometry.CornerRadius.Zero
+                )
+            )
+        }
+        val b = origin.bounds
+        val e = progress
+        val rect = androidx.compose.ui.geometry.Rect(
+            androidx.compose.ui.util.lerp(b.left, 0f, e),
+            androidx.compose.ui.util.lerp(b.top, 0f, e),
+            androidx.compose.ui.util.lerp(b.right, size.width, e),
+            androidx.compose.ui.util.lerp(b.bottom, size.height, e)
+        )
+        val mini = origin.radius.value * d
+        val top = androidx.compose.ui.geometry.CornerRadius(androidx.compose.ui.util.lerp(mini, topEnd, e))
+        val bottom = androidx.compose.ui.geometry.CornerRadius(androidx.compose.ui.util.lerp(mini, 0f, e))
+        return androidx.compose.ui.graphics.Outline.Rounded(
+            androidx.compose.ui.geometry.RoundRect(rect, top, top, bottom, bottom)
+        )
+    }
+}
+
 @Composable
 fun NowPlayingSheet(
     song: Song,
@@ -881,6 +942,7 @@ fun NowPlayingSheet(
     repeat: Int,
     c: MediaController,
     showAudioInfo: Boolean = false,
+    origin: MiniOrigin? = null,
     onDismiss: () -> Unit
 ) {
     // Der Player ist immer dunkel -> Statusleisten-Icons hell halten
@@ -900,7 +962,7 @@ fun NowPlayingSheet(
         }
     }
     CoverTheme(song, dark = true) {
-        NowPlayingSheetContent(song, isPlaying, shuffle, repeat, c, showAudioInfo, onDismiss)
+        NowPlayingSheetContent(song, isPlaying, shuffle, repeat, c, showAudioInfo, origin, onDismiss)
     }
 }
 
@@ -912,6 +974,7 @@ private fun NowPlayingSheetContent(
     repeat: Int,
     c: MediaController,
     showAudioInfo: Boolean,
+    origin: MiniOrigin?,
     onDismiss: () -> Unit
 ) {
     val infoCtx = LocalContext.current
@@ -945,6 +1008,24 @@ private fun NowPlayingSheetContent(
     // Ecken werden beim Runterziehen nach und nach rund (bis 30.dp)
     val density = LocalDensity.current.density
     val cornerDp = ((offsetY / density) / 24f).coerceIn(0f, 1f) * 30f
+    // Öffnen-Animation: der Miniplayer wächst zum Vollbild-Player (0 = Miniplayer, 1 = Vollbild)
+    val open = remember { Animatable(if (origin == null) 1f else 0f) }
+    LaunchedEffect(Unit) {
+        if (origin != null) {
+            open.animateTo(
+                1f,
+                androidx.compose.animation.core.tween(
+                    durationMillis = 340,
+                    easing = androidx.compose.animation.core.FastOutSlowInEasing
+                )
+            )
+        }
+    }
+    val p = open.value
+    val sheetColor = MaterialTheme.colorScheme.surface
+    val bgColor = if (origin == null) sheetColor else
+        androidx.compose.ui.graphics.lerp(origin.color, sheetColor, p)
+            .copy(alpha = (p / 0.3f).coerceIn(0f, 1f))
     run {
         Surface(
             Modifier
@@ -968,10 +1049,13 @@ private fun NowPlayingSheetContent(
                     }
                 )
                 .pointerInput(Unit) {},
-            shape = RoundedCornerShape(topStart = cornerDp.dp, topEnd = cornerDp.dp)
+            shape = SheetRevealShape(origin, p, cornerDp),
+            color = bgColor,
+            contentColor = MaterialTheme.colorScheme.onSurface
         ) {
             BoxWithConstraints(
                 Modifier
+                    .graphicsLayer { alpha = ((open.value - 0.35f) / 0.45f).coerceIn(0f, 1f) }
                     .fillMaxSize()
                     .systemBarsPadding()
                     .padding(horizontal = 24.dp)
