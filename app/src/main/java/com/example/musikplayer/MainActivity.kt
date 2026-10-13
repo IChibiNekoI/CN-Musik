@@ -45,6 +45,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -61,6 +62,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.compose.ui.text.style.TextAlign
 import androidx.core.graphics.ColorUtils
@@ -989,14 +991,35 @@ private fun NowPlayingSheetContent(
     onAddToPlaylist: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    // Öffnen-Animation: der Miniplayer wächst zum Vollbild-Player (0 = Miniplayer, 1 = Vollbild)
+    val open = remember { Animatable(if (origin == null) 1f else 0f) }
+    LaunchedEffect(Unit) {
+        if (origin != null) {
+            // Das erste Layout des Players ist teuer. Zwei Frames abwarten, damit es nicht
+            // in die Animation fällt und sie am Anfang nicht ruckelt.
+            withFrameNanos { }
+            withFrameNanos { }
+            open.animateTo(
+                1f,
+                androidx.compose.animation.core.tween(
+                    durationMillis = 450,
+                    easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)
+                )
+            )
+        }
+    }
     var menuOpen by remember { mutableStateOf(false) }
     val infoCtx = LocalContext.current
     val audioInfo by produceState<String?>(null, song.id, showAudioInfo) {
         value = if (!showAudioInfo) null
-        else withContext(Dispatchers.IO) { loadAudioInfo(infoCtx, song) }
+        else {
+            // erst nach der Öffnen-Animation laden, sonst löst das Ergebnis mittendrin eine Neuzeichnung aus
+            if (open.value < 1f) snapshotFlow { open.value }.first { it >= 1f }
+            withContext(Dispatchers.IO) { loadAudioInfo(infoCtx, song) }
+        }
     }
-    var position by remember { mutableLongStateOf(0L) }
-    var duration by remember { mutableLongStateOf(0L) }
+    var position by remember { mutableLongStateOf(c.currentPosition) }
+    var duration by remember { mutableLongStateOf(max(c.duration, 0L)) }
     var dragging by remember { mutableStateOf(false) }
     var dragFraction by remember { mutableFloatStateOf(0f) }
     val coverOffset = remember { Animatable(0f) }
@@ -1004,8 +1027,11 @@ private fun NowPlayingSheetContent(
 
     LaunchedEffect(c) {
         while (true) {
-            position = c.currentPosition
-            duration = max(c.duration, 0L)
+            // während der Öffnen-Animation nicht aktualisieren (vermeidet Neuzeichnen mitten in der Animation)
+            if (open.value >= 1f) {
+                position = c.currentPosition
+                duration = max(c.duration, 0L)
+            }
             delay(250)
         }
     }
@@ -1020,29 +1046,13 @@ private fun NowPlayingSheetContent(
     androidx.activity.compose.BackHandler { onDismiss() }
     // Ecken werden beim Runterziehen nach und nach rund (bis 30.dp)
     val density = LocalDensity.current.density
-    val cornerDp = ((offsetY / density) / 24f).coerceIn(0f, 1f) * 30f
-    // Öffnen-Animation: der Miniplayer wächst zum Vollbild-Player (0 = Miniplayer, 1 = Vollbild)
-    val open = remember { Animatable(if (origin == null) 1f else 0f) }
-    LaunchedEffect(Unit) {
-        if (origin != null) {
-            open.animateTo(
-                1f,
-                androidx.compose.animation.core.tween(
-                    durationMillis = 420,
-                    easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)
-                )
-            )
-        }
-    }
-    val p = open.value
     // Endposition des großen Covers (für die Flug-Animation) und ob geflogen wird
     var finalCover by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     val hasFly = origin?.coverBounds != null
     val dens = LocalDensity.current
     val sheetColor = MaterialTheme.colorScheme.surface
-    val bgColor = if (origin == null) sheetColor else
-        androidx.compose.ui.graphics.lerp(origin.color, sheetColor, p)
-            .copy(alpha = (p / 0.3f).coerceIn(0f, 1f))
+    // open.value wird nur in Lambdas der Zeichenphase gelesen; der Inhalt wird pro Frame nicht neu komponiert
+    val flying by remember { derivedStateOf { open.value < 1f } }
     Box(Modifier.fillMaxSize()) {
         // Abdunkelung der Liste hinter dem aufgehenden Player
         if (origin != null) {
@@ -1076,9 +1086,21 @@ private fun NowPlayingSheetContent(
                         }
                     }
                 )
-                .pointerInput(Unit) {},
-            shape = SheetRevealShape(origin, p, cornerDp),
-            color = bgColor,
+                .pointerInput(Unit) {}
+                .graphicsLayer {
+                    // Ecken werden beim Runterziehen nach und nach rund (bis 30.dp)
+                    val corner = ((offsetY / density) / 24f).coerceIn(0f, 1f) * 30f
+                    shape = SheetRevealShape(origin, open.value, corner)
+                    clip = true
+                }
+                .drawBehind {
+                    val color = if (origin == null) sheetColor else
+                        androidx.compose.ui.graphics.lerp(origin.color, sheetColor, open.value)
+                            .copy(alpha = (open.value / 0.3f).coerceIn(0f, 1f))
+                    drawRect(color)
+                },
+            shape = androidx.compose.ui.graphics.RectangleShape,
+            color = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.onSurface
         ) {
             BoxWithConstraints(
@@ -1248,7 +1270,7 @@ private fun NowPlayingSheetContent(
         // Das Cover fliegt vom Miniplayer an seinen Platz im Player
         val fb = origin?.coverBounds
         val fin = finalCover
-        if (fb != null && fin != null && open.value < 1f) {
+        if (fb != null && fin != null && flying) {
             val finalDp = with(dens) { fin.width.toDp() }
             Box(
                 Modifier
