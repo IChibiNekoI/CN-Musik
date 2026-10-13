@@ -33,6 +33,31 @@ fun saveSort(ctx: Context, mode: SortMode) {
     prefs(ctx).edit().putString("sort", if (mode == SortMode.NAME) "name" else "date").apply()
 }
 
+/** Darstellung einer Übersicht: Liste oder Kacheln (2 oder 3 nebeneinander). */
+data class ViewStyle(val grid: Boolean = false, val cols: Int = 2)
+
+fun ViewStyle.label(): String = if (!grid) "Liste" else "Kacheln · $cols nebeneinander"
+
+private fun encodeStyle(v: ViewStyle): String = if (!v.grid) "list" else "grid${v.cols}"
+
+private fun decodeStyle(s: String?): ViewStyle = when (s) {
+    "grid2" -> ViewStyle(true, 2)
+    "grid3" -> ViewStyle(true, 3)
+    else -> ViewStyle()
+}
+
+fun readAlbumStyle(ctx: Context): ViewStyle = decodeStyle(prefs(ctx).getString("album_style", null))
+
+fun saveAlbumStyle(ctx: Context, v: ViewStyle) {
+    prefs(ctx).edit().putString("album_style", encodeStyle(v)).apply()
+}
+
+fun readPlaylistStyle(ctx: Context): ViewStyle = decodeStyle(prefs(ctx).getString("playlist_style", null))
+
+fun savePlaylistStyle(ctx: Context, v: ViewStyle) {
+    prefs(ctx).edit().putString("playlist_style", encodeStyle(v)).apply()
+}
+
 fun readRepeat(ctx: Context): Int =
     prefs(ctx).getInt("repeat", androidx.media3.common.Player.REPEAT_MODE_OFF)
 
