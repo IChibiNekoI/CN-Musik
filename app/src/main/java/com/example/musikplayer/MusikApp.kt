@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -68,6 +69,7 @@ fun MusikApp() {
     var shuffle by remember { mutableStateOf(false) }
     var repeat by remember { mutableIntStateOf(Player.REPEAT_MODE_OFF) }
     var showNow by remember { mutableStateOf(false) }
+    var showInfo by remember { mutableStateOf(readShowAudioInfo(ctx)) }
 
     DisposableEffect(controller) {
         val c = controller
@@ -125,7 +127,7 @@ fun MusikApp() {
         }
 
         if (showNow && current != null && controller != null) {
-            NowPlayingSheet(current, isPlaying, shuffle, repeat, controller) { showNow = false }
+            NowPlayingSheet(current, isPlaying, shuffle, repeat, controller, showAudioInfo = showInfo) { showNow = false }
         }
         if (showSettings) {
             AppSettingsSheet(
@@ -134,6 +136,8 @@ fun MusikApp() {
                 sort = sort,
                 onFolders = { selected = it; saveFolderSet(ctx, it) },
                 onSort = { sort = it; saveSort(ctx, it) },
+                showAudioInfo = showInfo,
+                onShowAudioInfo = { showInfo = it; saveShowAudioInfo(ctx, it) },
                 onDismiss = { showSettings = false }
             )
         }
@@ -169,6 +173,8 @@ fun AppSettingsSheet(
     sort: SortMode,
     onFolders: (Set<String>) -> Unit,
     onSort: (SortMode) -> Unit,
+    showAudioInfo: Boolean,
+    onShowAudioInfo: (Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
     var page by remember { mutableStateOf("main") }
@@ -216,6 +222,16 @@ fun AppSettingsSheet(
                     },
                     colors = clear,
                     modifier = Modifier.clickable { page = "folders" }
+                )
+                ListItem(
+                    headlineContent = { Text("Audioinfos im Player") },
+                    supportingContent = { Text("Format, Bitrate und Abtastrate unten anzeigen") },
+                    leadingContent = { Icon(Icons.Filled.Info, contentDescription = null) },
+                    trailingContent = {
+                        Switch(checked = showAudioInfo, onCheckedChange = null)
+                    },
+                    colors = clear,
+                    modifier = Modifier.clickable { onShowAudioInfo(!showAudioInfo) }
                 )
                 Spacer(Modifier.height(32.dp))
             }
