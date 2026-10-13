@@ -145,6 +145,12 @@ data class Song(
 
 private object CoverCache : LruCache<String, Bitmap>(60)
 
+/** Leert die Cover-Zwischenspeicher, damit geänderte Cover nach einem Neu-Einlesen neu geladen werden. */
+fun clearCoverCaches() {
+    CoverCache.evictAll()
+    SeedCache.evictAll()
+}
+
 private fun readFolders(ctx: Context): Set<String>? =
     ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
         .getStringSet("folders", null)?.toSet()
