@@ -10,8 +10,8 @@ android {
         applicationId = "com.example.musikplayer"
         minSdk = 26
         targetSdk = 35
-        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1.1").toInt()
-        versionName = "0.3.8"
+        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "0.4").toInt()
+        versionName = "0.4.0"
     }
     signingConfigs {
         create("musik") {
