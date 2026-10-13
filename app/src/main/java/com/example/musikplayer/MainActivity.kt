@@ -942,6 +942,9 @@ private fun NowPlayingSheetContent(
         offsetY = (offsetY + delta).coerceAtLeast(0f)
     }
     androidx.activity.compose.BackHandler { onDismiss() }
+    // Ecken werden beim Runterziehen nach und nach rund (bis 30.dp)
+    val density = LocalDensity.current.density
+    val cornerDp = ((offsetY / density) / 24f).coerceIn(0f, 1f) * 30f
     run {
         Surface(
             Modifier
@@ -964,7 +967,8 @@ private fun NowPlayingSheetContent(
                         }
                     }
                 )
-                .pointerInput(Unit) {}
+                .pointerInput(Unit) {},
+            shape = RoundedCornerShape(topStart = cornerDp.dp, topEnd = cornerDp.dp)
         ) {
             BoxWithConstraints(
                 Modifier
