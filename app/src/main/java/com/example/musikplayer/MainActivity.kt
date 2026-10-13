@@ -565,21 +565,13 @@ fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: (Mini
                     )
                 }
             }
-            IconButton(onClick = { skipPrev(c) }) {
-                Icon(Icons.Filled.SkipPrevious, contentDescription = "Zurück")
-            }
-            FilledIconButton(
+            SkipButton(forward = false, onClick = { skipPrev(c) }, iconSize = 24.dp)
+            PlayPauseButton(
+                isPlaying = isPlaying,
                 onClick = { if (isPlaying) c.pause() else c.play() },
-                modifier = Modifier.size(52.dp)
-            ) {
-                Icon(
-                    if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Abspielen"
-                )
-            }
-            IconButton(onClick = { skipNext(c) }) {
-                Icon(Icons.Filled.SkipNext, contentDescription = "Weiter")
-            }
+                buttonSize = 48.dp
+            )
+            SkipButton(forward = true, onClick = { skipNext(c) }, iconSize = 24.dp)
         }
     }
 }
@@ -1223,22 +1215,13 @@ private fun NowPlayingSheetContent(
                                 else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        IconButton(onClick = { skipPrev(c) }) {
-                            Icon(Icons.Filled.SkipPrevious, contentDescription = "Zurück")
-                        }
-                        FilledIconButton(
+                        SkipButton(forward = false, onClick = { skipPrev(c) })
+                        PlayPauseButton(
+                            isPlaying = isPlaying,
                             onClick = { if (isPlaying) c.pause() else c.play() },
-                            modifier = Modifier.size(72.dp)
-                        ) {
-                            Icon(
-                                if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                                contentDescription = if (isPlaying) "Pause" else "Abspielen",
-                                modifier = Modifier.size(36.dp)
-                            )
-                        }
-                        IconButton(onClick = { skipNext(c) }) {
-                            Icon(Icons.Filled.SkipNext, contentDescription = "Weiter")
-                        }
+                            buttonSize = 76.dp
+                        )
+                        SkipButton(forward = true, onClick = { skipNext(c) })
                         IconButton(onClick = {
                             c.repeatMode = when (repeat) {
                                 Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
