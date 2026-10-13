@@ -13,11 +13,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
@@ -83,7 +81,7 @@ fun SkipButton(
     }
 }
 
-/* ---------- Play / Pause im leuchtenden Kreis ---------- */
+/* ---------- Play / Pause im Kreis ---------- */
 
 @Composable
 fun PlayPauseButton(
@@ -97,18 +95,6 @@ fun PlayPauseButton(
     Box(
         modifier = modifier
             .size(buttonSize)
-            // weicher Schein um den Kreis
-            .drawBehind {
-                val r = this.size.minDimension * 0.85f
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(circleColor.copy(alpha = 0.40f), Color.Transparent),
-                        center = center,
-                        radius = r
-                    ),
-                    radius = r
-                )
-            }
             .clip(CircleShape)
             .background(circleColor.copy(alpha = 0.45f))
             .clickable(role = Role.Button, onClick = onClick)
