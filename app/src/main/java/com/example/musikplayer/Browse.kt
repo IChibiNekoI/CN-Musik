@@ -219,6 +219,7 @@ fun LibraryScreen(
     var deleteTarget by remember { mutableStateOf<Playlist?>(null) }
     var searching by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
+    var plusMenu by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     val searchFocus = remember { FocusRequester() }
     val ctx = LocalContext.current
@@ -326,6 +327,32 @@ fun LibraryScreen(
                     style = MaterialTheme.typography.headlineLarge,
                     modifier = Modifier.weight(1f)
                 )
+                if (tab == 2) {
+                    Box {
+                        IconButton(onClick = { plusMenu = true }) {
+                            Icon(Icons.Filled.Add, contentDescription = "Playlist hinzufügen")
+                        }
+                        DropdownMenu(expanded = plusMenu, onDismissRequest = { plusMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Neue Playlist") },
+                                leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                                onClick = {
+                                    plusMenu = false
+                                    pendingSong = null
+                                    creating = true
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("M3U-Playlist importieren") },
+                                leadingIcon = { Icon(Icons.Filled.FolderOpen, contentDescription = null) },
+                                onClick = {
+                                    plusMenu = false
+                                    m3uLauncher.launch(arrayOf("*/*"))
+                                }
+                            )
+                        }
+                    }
+                }
                 IconButton(onClick = { searching = true }) {
                     Icon(Icons.Filled.Search, contentDescription = "Suchen")
                 }
@@ -438,6 +465,13 @@ fun LibraryScreen(
             }
             else -> {
                 val pl = playlists.firstOrNull { it.id == openPlaylist }
+                if (pl == null && playlists.isEmpty()) {
+                    Text(
+                        "Noch keine Playlists. Tippe oben auf +, um eine zu erstellen oder zu importieren.",
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 if (pl == null && playlistStyle.grid) {
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(playlistStyle.cols),
@@ -446,22 +480,6 @@ fun LibraryScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            ListItem(
-                                headlineContent = { Text("Neue Playlist") },
-                                leadingContent = { Icon(Icons.Filled.Add, contentDescription = null) },
-                                colors = clearColors(),
-                                modifier = Modifier.clickable { pendingSong = null; creating = true }
-                            )
-                        }
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            ListItem(
-                                headlineContent = { Text("M3U-Playlist importieren") },
-                                leadingContent = { Icon(Icons.Filled.FolderOpen, contentDescription = null) },
-                                colors = clearColors(),
-                                modifier = Modifier.clickable { m3uLauncher.launch(arrayOf("*/*")) }
-                            )
-                        }
                         gridItems(playlists, key = { it.id }) { p ->
                             val covers = remember(p.songIds, byId) {
                                 p.songIds.asSequence().mapNotNull { byId[it] }.take(4).toList()
@@ -477,22 +495,6 @@ fun LibraryScreen(
                     }
                 } else if (pl == null) {
                     LazyColumn(Modifier.weight(1f)) {
-                        item {
-                            ListItem(
-                                headlineContent = { Text("Neue Playlist") },
-                                leadingContent = { Icon(Icons.Filled.Add, contentDescription = null) },
-                                colors = clearColors(),
-                                modifier = Modifier.clickable { pendingSong = null; creating = true }
-                            )
-                        }
-                        item {
-                            ListItem(
-                                headlineContent = { Text("M3U-Playlist importieren") },
-                                leadingContent = { Icon(Icons.Filled.FolderOpen, contentDescription = null) },
-                                colors = clearColors(),
-                                modifier = Modifier.clickable { m3uLauncher.launch(arrayOf("*/*")) }
-                            )
-                        }
                         items(playlists, key = { it.id }) { p ->
                             ListItem(
                                 headlineContent = {
