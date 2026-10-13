@@ -9,6 +9,7 @@ import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 import java.text.Normalizer
 import android.media.MediaExtractor
+import android.media.MediaScannerConnection
 import android.media.MediaFormat
 import android.provider.OpenableColumns
 import java.util.Locale
@@ -16,6 +17,13 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.coroutines.resume
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -109,6 +117,41 @@ fun toMediaItems(songs: List<Song>): List<MediaItem> = songs.map {
             MediaMetadata.Builder().setTitle(it.title).setArtist(it.artist).build()
         )
         .build()
+}
+
+/**
+ * Lässt Android die Tags geänderter Dateien neu einlesen (MediaStore speichert sie sonst nur beim ersten Scan).
+ * force = true prüft alle Dateien, sonst nur Dateien, die seit dem letzten Durchlauf geändert wurden.
+ * Liefert die Anzahl der neu eingelesenen Dateien.
+ */
+suspend fun rescanChanged(ctx: Context, force: Boolean): Int = withContext(Dispatchers.IO) {
+    val p = prefs(ctx)
+    val last = if (force) 0L else p.getLong("last_scan", 0L)
+    val started = System.currentTimeMillis()
+    val paths = mutableListOf<String>()
+    ctx.contentResolver.query(
+        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+        arrayOf(MediaStore.Audio.Media.DATA),
+        "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, null
+    )?.use { c ->
+        while (c.moveToNext()) {
+            val path = c.getString(0) ?: continue
+            if (force || File(path).lastModified() > last) paths += path
+        }
+    }
+    if (paths.isNotEmpty()) {
+        withTimeoutOrNull(120_000L) {
+            suspendCancellableCoroutine<Unit> { cont ->
+                val left = AtomicInteger(paths.size)
+                MediaScannerConnection.scanFile(ctx, paths.toTypedArray(), null) { _, _ ->
+                    if (left.decrementAndGet() == 0 && cont.isActive) cont.resume(Unit)
+                }
+            }
+        }
+        clearCoverCaches()
+    }
+    p.edit().putLong("last_scan", started).apply()
+    paths.size
 }
 
 fun loadLibrary(ctx: Context): List<Song> {
