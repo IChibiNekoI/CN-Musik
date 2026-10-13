@@ -2,6 +2,8 @@ name: Build APK
 on:
   push:
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -11,6 +13,18 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+      - name: Signaturschluessel bereitstellen
+        run: |
+          if [ ! -f keystore.b64 ]; then
+            keytool -genkeypair -keystore ks.jks -storepass musikpass -keypass musikpass -alias musik -keyalg RSA -keysize 2048 -validity 36500 -dname "CN=Musik"
+            base64 -w0 ks.jks > keystore.b64
+            git config user.name "github-actions"
+            git config user.email "actions@github.com"
+            git add keystore.b64
+            git commit -m "Add signing key"
+            git push
+          fi
+          base64 -d keystore.b64 > "$GITHUB_WORKSPACE/musik.jks"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.9
