@@ -178,6 +178,21 @@ fun rememberController(): MediaController? {
     return controller
 }
 
+/** Zum nächsten/vorherigen Titel springen und dabei auch aus der Pause heraus abspielen. */
+fun skipNext(c: MediaController) {
+    if (c.hasNextMediaItem()) {
+        c.seekToNextMediaItem()
+        c.play()
+    }
+}
+
+fun skipPrev(c: MediaController) {
+    if (c.hasPreviousMediaItem()) {
+        c.seekToPreviousMediaItem()
+        c.play()
+    }
+}
+
 @Composable
 fun Cover(song: Song, size: Dp, corner: Dp = 12.dp) {
     val ctx = LocalContext.current
@@ -502,7 +517,7 @@ fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: () ->
                     )
                 }
             }
-            IconButton(onClick = { c.seekToPreviousMediaItem() }) {
+            IconButton(onClick = { skipPrev(c) }) {
                 Icon(Icons.Filled.SkipPrevious, contentDescription = "Zurück")
             }
             FilledIconButton(
@@ -514,7 +529,7 @@ fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: () ->
                     contentDescription = if (isPlaying) "Pause" else "Abspielen"
                 )
             }
-            IconButton(onClick = { c.seekToNextMediaItem() }) {
+            IconButton(onClick = { skipNext(c) }) {
                 Icon(Icons.Filled.SkipNext, contentDescription = "Weiter")
             }
         }
@@ -602,7 +617,7 @@ fun NowPlayingSheetOld(
                         else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                IconButton(onClick = { c.seekToPreviousMediaItem() }) {
+                IconButton(onClick = { skipPrev(c) }) {
                     Icon(Icons.Filled.SkipPrevious, contentDescription = "Zurück")
                 }
                 FilledIconButton(
@@ -615,7 +630,7 @@ fun NowPlayingSheetOld(
                         modifier = Modifier.size(36.dp)
                     )
                 }
-                IconButton(onClick = { c.seekToNextMediaItem() }) {
+                IconButton(onClick = { skipNext(c) }) {
                     Icon(Icons.Filled.SkipNext, contentDescription = "Weiter")
                 }
                 IconButton(onClick = {
@@ -955,8 +970,8 @@ private fun NowPlayingSheetContent(
                                 detectHorizontalDragGestures(
                                     onDragEnd = {
                                         val dx = coverOffset.value
-                                        if (dx < -threshold) c.seekToNextMediaItem()
-                                        else if (dx > threshold) c.seekToPreviousMediaItem()
+                                        if (dx < -threshold) skipNext(c)
+                                        else if (dx > threshold) skipPrev(c)
                                         coverScope.launch { coverOffset.animateTo(0f) }
                                     },
                                     onDragCancel = {
@@ -1024,7 +1039,7 @@ private fun NowPlayingSheetContent(
                                 else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        IconButton(onClick = { c.seekToPreviousMediaItem() }) {
+                        IconButton(onClick = { skipPrev(c) }) {
                             Icon(Icons.Filled.SkipPrevious, contentDescription = "Zurück")
                         }
                         FilledIconButton(
@@ -1037,7 +1052,7 @@ private fun NowPlayingSheetContent(
                                 modifier = Modifier.size(36.dp)
                             )
                         }
-                        IconButton(onClick = { c.seekToNextMediaItem() }) {
+                        IconButton(onClick = { skipNext(c) }) {
                             Icon(Icons.Filled.SkipNext, contentDescription = "Weiter")
                         }
                         IconButton(onClick = {
