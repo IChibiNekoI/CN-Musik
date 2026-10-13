@@ -13,6 +13,24 @@ android {
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
         versionName = "0.3.5"
     }
+    signingConfigs {
+        create("musik") {
+            val ks = file("../musik.jks")
+            if (ks.exists()) {
+                storeFile = ks
+                storePassword = "musikpass"
+                keyAlias = "musik"
+                keyPassword = "musikpass"
+            }
+        }
+    }
+    buildTypes {
+        getByName("debug") {
+            if (file("../musik.jks").exists()) {
+                signingConfig = signingConfigs.getByName("musik")
+            }
+        }
+    }
     buildFeatures { compose = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
