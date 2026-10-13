@@ -1208,13 +1208,7 @@ private fun NowPlayingSheetContent(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = { c.shuffleModeEnabled = !shuffle }) {
-                            Icon(
-                                Icons.Filled.Shuffle, contentDescription = "Zufall",
-                                tint = if (shuffle) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        ShuffleButton(active = shuffle, onClick = { c.shuffleModeEnabled = !shuffle })
                         SkipButton(forward = false, onClick = { skipPrev(c) })
                         PlayPauseButton(
                             isPlaying = isPlaying,
@@ -1222,20 +1216,17 @@ private fun NowPlayingSheetContent(
                             buttonSize = 76.dp
                         )
                         SkipButton(forward = true, onClick = { skipNext(c) })
-                        IconButton(onClick = {
-                            c.repeatMode = when (repeat) {
-                                Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
-                                Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
-                                else -> Player.REPEAT_MODE_OFF
+                        RepeatButton(
+                            active = repeat != Player.REPEAT_MODE_OFF,
+                            repeatOne = repeat == Player.REPEAT_MODE_ONE,
+                            onClick = {
+                                c.repeatMode = when (repeat) {
+                                    Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                                    Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+                                    else -> Player.REPEAT_MODE_OFF
+                                }
                             }
-                        }) {
-                            Icon(
-                                if (repeat == Player.REPEAT_MODE_ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
-                                contentDescription = "Wiederholen",
-                                tint = if (repeat != Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        )
                     }
                     Box(
                         Modifier.fillMaxWidth().weight(1.95f).reveal({ open.value }, 0.60f, 1.0f, 16.dp),   // Abstand unten
