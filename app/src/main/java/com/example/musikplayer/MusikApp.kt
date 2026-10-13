@@ -56,6 +56,8 @@ fun MusikApp(openPlayerSignal: Int = 0) {
     var sort by remember { mutableStateOf(readSort(ctx)) }
     var playlists by remember { mutableStateOf(readPlaylists(ctx)) }
     var showSettings by remember { mutableStateOf(false) }
+    var albumRequest by remember { mutableStateOf<String?>(null) }
+    var playlistRequest by remember { mutableStateOf<Song?>(null) }
     LaunchedEffect(granted) {
         if (granted) allSongs = withContext(Dispatchers.IO) { loadLibrary(ctx) }
     }
@@ -125,13 +127,26 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                             c.play()
                         }
                     },
-                    onSettings = { showSettings = true }
+                    onSettings = { showSettings = true },
+                    albumRequest = albumRequest,
+                    onAlbumRequestHandled = { albumRequest = null },
+                    playlistRequest = playlistRequest,
+                    onPlaylistRequestHandled = { playlistRequest = null }
                 )
             }
         }
 
         if (showNow && current != null && controller != null) {
-            NowPlayingSheet(current, isPlaying, shuffle, repeat, controller, showAudioInfo = showInfo, origin = origin) { showNow = false }
+            NowPlayingSheet(
+                current, isPlaying, shuffle, repeat, controller,
+                showAudioInfo = showInfo,
+                origin = origin,
+                onGoToAlbum = {
+                    albumRequest = current.album.ifBlank { "Unbekanntes Album" }
+                    showNow = false
+                },
+                onAddToPlaylist = { playlistRequest = current }
+            ) { showNow = false }
         }
         if (showSettings) {
             AppSettingsSheet(
