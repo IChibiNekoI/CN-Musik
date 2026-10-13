@@ -1044,7 +1044,7 @@ private fun NowPlayingSheetContent(
         offsetY = (offsetY + delta).coerceAtLeast(0f)
     }
     androidx.activity.compose.BackHandler { onDismiss() }
-    // Ecken werden beim Runterziehen nach und nach rund (bis 30.dp)
+    // Ecken werden beim Runterziehen nach und nach rund (bis 38.dp)
     val density = LocalDensity.current.density
     // Endposition des großen Covers (für die Flug-Animation) und ob geflogen wird
     var finalCover by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
@@ -1088,8 +1088,8 @@ private fun NowPlayingSheetContent(
                 )
                 .pointerInput(Unit) {}
                 .graphicsLayer {
-                    // Ecken werden beim Runterziehen nach und nach rund (bis 30.dp)
-                    val corner = ((offsetY / density) / 24f).coerceIn(0f, 1f) * 30f
+                    // Ecken werden beim Runterziehen nach und nach rund (bis 38.dp)
+                    val corner = ((offsetY / density) / 24f).coerceIn(0f, 1f) * 38f
                     shape = SheetRevealShape(origin, open.value, corner)
                     clip = true
                 }
