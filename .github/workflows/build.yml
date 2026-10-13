@@ -29,7 +29,14 @@ jobs:
         with:
           gradle-version: 8.9
       - run: gradle assembleDebug
+      - name: APK umbenennen (Name + Version)
+        id: apk
+        run: |
+          VERSION=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
+          NAME="Musik $VERSION"
+          cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/$NAME.apk"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
-          name: musikplayer-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: ${{ steps.apk.outputs.name }}
+          path: app/build/outputs/apk/debug/${{ steps.apk.outputs.name }}.apk
