@@ -81,10 +81,31 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.gestures.draggable
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        const val EXTRA_OPEN_PLAYER = "open_player"
+    }
+
+    // zählt hoch, sobald der Player geöffnet werden soll (Tipp auf die Benachrichtigung)
+    private var openPlayerSignal by mutableIntStateOf(0)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-                setContent { AppTheme { MusikApp() } }
+        handleOpenPlayer(intent)
+        setContent { AppTheme { MusikApp(openPlayerSignal) } }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleOpenPlayer(intent)
+    }
+
+    private fun handleOpenPlayer(intent: android.content.Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_OPEN_PLAYER, false) == true) {
+            openPlayerSignal++
+            intent.removeExtra(EXTRA_OPEN_PLAYER)
+        }
     }
 }
 
