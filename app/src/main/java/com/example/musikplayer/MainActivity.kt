@@ -443,28 +443,59 @@ fun SettingsSheet(
 
 @Composable
 fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: () -> Unit) {
+      val view = androidx.compose.ui.platform.LocalView.current
+    val density = LocalDensity.current
+    val margin = 12.dp
+    val deviceCorner: Dp = remember(view) {
+        if (Build.VERSION.SDK_INT >= 31) {
+            val px = view.rootWindowInsets
+                ?.getRoundedCorner(android.view.RoundedCorner.POSITION_BOTTOM_LEFT)
+                ?.radius ?: 0
+            with(density) { px.toDp() }
+        } else 0.dp
+    }
+    val radius = if (deviceCorner > 0.dp) maxOf(deviceCorner - margin, 20.dp) else 28.dp
+
     Surface(
-        tonalElevation = 10.dp,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        modifier = Modifier
+            .navigationBarsPadding()
+            .padding(start = margin, end = margin, bottom = margin),
+        shape = RoundedCornerShape(radius),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 6.dp,
+        shadowElevation = 12.dp
     ) {
         Row(
-            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
                 Modifier.weight(1f).clickable { onOpen() },
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Cover(song, 44.dp)
-                Column(Modifier.padding(start = 12.dp)) {
-                    Text(song.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(song.artist, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Cover(song, 56.dp)
+                Column(Modifier.padding(start = 14.dp)) {
+                    Text(
+                        song.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        song.artist,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
             IconButton(onClick = { c.seekToPreviousMediaItem() }) {
                 Icon(Icons.Filled.SkipPrevious, contentDescription = "Zurück")
             }
-            FilledIconButton(onClick = { if (isPlaying) c.pause() else c.play() }) {
+            FilledIconButton(
+                onClick = { if (isPlaying) c.pause() else c.play() },
+                modifier = Modifier.size(52.dp)
+            ) {
                 Icon(
                     if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                     contentDescription = if (isPlaying) "Pause" else "Abspielen"
@@ -476,7 +507,6 @@ fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: () ->
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NowPlayingSheetOld(
