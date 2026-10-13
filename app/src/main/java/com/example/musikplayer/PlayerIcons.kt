@@ -121,3 +121,88 @@ fun PlayPauseButton(
         }
     }
 }
+
+/* ---------- Zufall & Wiederholen im gleichen Umriss-Stil ---------- */
+
+/** Kleiner Pfeilkopf (Winkel) mit Spitze bei (tipX, tipY); dir = +1 zeigt nach rechts, -1 nach links. */
+private fun DrawScope.chevron(tipX: Float, tipY: Float, dir: Float, size: Float, color: Color, style: Stroke) {
+    val p = Path().apply {
+        moveTo(tipX - dir * size, tipY - size)
+        lineTo(tipX, tipY)
+        lineTo(tipX - dir * size, tipY + size)
+    }
+    drawPath(p, color, style = style)
+}
+
+@Composable
+fun ShuffleButton(
+    active: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    iconSize: Dp = 26.dp
+) {
+    val tint = if (active) MaterialTheme.colorScheme.primary
+    else MaterialTheme.colorScheme.onSurfaceVariant
+    IconButton(
+        onClick = onClick,
+        modifier = modifier.semantics { contentDescription = "Zufall" }
+    ) {
+        Canvas(Modifier.size(iconSize)) {
+            val s = this.size.minDimension
+            val w = s * 0.085f
+            val line = outline(w, s * 0.10f)
+            val head = outline(w, s * 0.03f)
+            val a = Path().apply {
+                moveTo(s * 0.10f, s * 0.30f); lineTo(s * 0.30f, s * 0.30f)
+                lineTo(s * 0.64f, s * 0.70f); lineTo(s * 0.86f, s * 0.70f)
+            }
+            val b = Path().apply {
+                moveTo(s * 0.10f, s * 0.70f); lineTo(s * 0.30f, s * 0.70f)
+                lineTo(s * 0.64f, s * 0.30f); lineTo(s * 0.86f, s * 0.30f)
+            }
+            drawPath(a, tint, style = line)
+            drawPath(b, tint, style = line)
+            chevron(s * 0.88f, s * 0.70f, 1f, s * 0.11f, tint, head)
+            chevron(s * 0.88f, s * 0.30f, 1f, s * 0.11f, tint, head)
+        }
+    }
+}
+
+@Composable
+fun RepeatButton(
+    active: Boolean,
+    repeatOne: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    iconSize: Dp = 26.dp
+) {
+    val tint = if (active) MaterialTheme.colorScheme.primary
+    else MaterialTheme.colorScheme.onSurfaceVariant
+    IconButton(
+        onClick = onClick,
+        modifier = modifier.semantics { contentDescription = "Wiederholen" }
+    ) {
+        Canvas(Modifier.size(iconSize)) {
+            val s = this.size.minDimension
+            val w = s * 0.085f
+            val line = outline(w, s * 0.14f)
+            val head = outline(w, s * 0.03f)
+            // oben: von links unten hoch, dann nach rechts
+            val top = Path().apply {
+                moveTo(s * 0.14f, s * 0.58f); lineTo(s * 0.14f, s * 0.30f); lineTo(s * 0.80f, s * 0.30f)
+            }
+            // unten: von rechts oben runter, dann nach links
+            val bottom = Path().apply {
+                moveTo(s * 0.86f, s * 0.42f); lineTo(s * 0.86f, s * 0.70f); lineTo(s * 0.20f, s * 0.70f)
+            }
+            drawPath(top, tint, style = line)
+            drawPath(bottom, tint, style = line)
+            chevron(s * 0.82f, s * 0.30f, 1f, s * 0.11f, tint, head)
+            chevron(s * 0.18f, s * 0.70f, -1f, s * 0.11f, tint, head)
+            if (repeatOne) {
+                drawLine(tint, Offset(s * 0.52f, s * 0.40f), Offset(s * 0.52f, s * 0.60f), strokeWidth = w, cap = StrokeCap.Round)
+                drawLine(tint, Offset(s * 0.52f, s * 0.40f), Offset(s * 0.44f, s * 0.46f), strokeWidth = w, cap = StrokeCap.Round)
+            }
+        }
+    }
+}
