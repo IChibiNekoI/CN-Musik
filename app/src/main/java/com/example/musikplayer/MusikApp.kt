@@ -69,6 +69,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
     var shuffle by remember { mutableStateOf(false) }
     var repeat by remember { mutableIntStateOf(Player.REPEAT_MODE_OFF) }
     var showNow by remember { mutableStateOf(false) }
+    var origin by remember { mutableStateOf<MiniOrigin?>(null) }
     var showInfo by remember { mutableStateOf(readShowAudioInfo(ctx)) }
     LaunchedEffect(openPlayerSignal) {
         if (openPlayerSignal > 0) showNow = true
@@ -101,7 +102,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
         Scaffold(
             bottomBar = {
                 if (current != null && controller != null) {
-                    MiniPlayer(current, isPlaying, controller) { showNow = true }
+                    MiniPlayer(current, isPlaying, controller) { o -> origin = o; showNow = true }
                 }
             }
         ) { pad ->
@@ -130,7 +131,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
         }
 
         if (showNow && current != null && controller != null) {
-            NowPlayingSheet(current, isPlaying, shuffle, repeat, controller, showAudioInfo = showInfo) { showNow = false }
+            NowPlayingSheet(current, isPlaying, shuffle, repeat, controller, showAudioInfo = showInfo, origin = origin) { showNow = false }
         }
         if (showSettings) {
             AppSettingsSheet(
