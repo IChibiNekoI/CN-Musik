@@ -30,7 +30,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-fun MusikApp() {
+fun MusikApp(openPlayerSignal: Int = 0) {
     val ctx = LocalContext.current
     val audioPerm = if (Build.VERSION.SDK_INT >= 33)
         Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
@@ -70,6 +70,9 @@ fun MusikApp() {
     var repeat by remember { mutableIntStateOf(Player.REPEAT_MODE_OFF) }
     var showNow by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(readShowAudioInfo(ctx)) }
+    LaunchedEffect(openPlayerSignal) {
+        if (openPlayerSignal > 0) showNow = true
+    }
 
     DisposableEffect(controller) {
         val c = controller
