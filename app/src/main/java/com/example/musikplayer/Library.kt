@@ -2,6 +2,10 @@ package com.example.musikplayer
 
 import android.content.ContentUris
 import android.content.Context
+import android.media.MediaExtractor
+import android.media.MediaFormat
+import android.provider.OpenableColumns
+import java.util.Locale
 import android.os.Build
 import android.provider.MediaStore
 import androidx.media3.common.MediaItem
@@ -117,4 +121,69 @@ fun loadLibrary(ctx: Context): List<Song> {
         }
     }
     return list
+}
+
+fun readShowAudioInfo(ctx: Context): Boolean =
+    prefs(ctx).getBoolean("audio_info", true)
+
+fun saveShowAudioInfo(ctx: Context, value: Boolean) {
+    prefs(ctx).edit().putBoolean("audio_info", value).apply()
+}
+
+/** Liefert z. B. "FLAC · 912 kbps · 44.1 kHz" oder null, wenn nichts ermittelt werden konnte. */
+fun loadAudioInfo(ctx: Context, song: Song): String? {
+    val ex = MediaExtractor()
+    try {
+        ex.setDataSource(ctx, song.uri, null)
+        var fmt: MediaFormat? = null
+        for (i in 0 until ex.trackCount) {
+            val f = ex.getTrackFormat(i)
+            if (f.getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true) { fmt = f; break }
+        }
+        if (fmt == null) return null
+        val mime = fmt.getString(MediaFormat.KEY_MIME) ?: ""
+
+        var name: String? = null
+        var size = -1L
+        ctx.contentResolver.query(
+            song.uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null
+        )?.use { c ->
+            if (c.moveToFirst()) {
+                name = c.getString(0)
+                size = c.getLong(1)
+            }
+        }
+
+        val ext = name?.substringAfterLast('.', "")?.uppercase().orEmpty()
+        val format = if (ext.isNotEmpty() && ext.length <= 5) ext else when (mime.removePrefix("audio/")) {
+            "mpeg" -> "MP3"
+            "mp4a-latm" -> "AAC"
+            "flac" -> "FLAC"
+            "vorbis", "ogg" -> "OGG"
+            "opus" -> "OPUS"
+            "raw" -> "WAV"
+            else -> mime.removePrefix("audio/").uppercase()
+        }
+
+        var bitrate = if (fmt.containsKey(MediaFormat.KEY_BIT_RATE)) fmt.getInteger(MediaFormat.KEY_BIT_RATE) else 0
+        if (bitrate <= 0 && size > 0 && fmt.containsKey(MediaFormat.KEY_DURATION)) {
+            val sec = fmt.getLong(MediaFormat.KEY_DURATION) / 1_000_000.0
+            if (sec > 0) bitrate = (size * 8 / sec).toInt()
+        }
+
+        val parts = mutableListOf(format)
+        if (bitrate > 0) parts.add("${(bitrate + 500) / 1000} kbps")
+        if (fmt.containsKey(MediaFormat.KEY_SAMPLE_RATE)) {
+            val sr = fmt.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+            parts.add(
+                if (sr % 1000 == 0) "${sr / 1000} kHz"
+                else String.format(Locale.US, "%.1f kHz", sr / 1000.0)
+            )
+        }
+        return parts.joinToString(" · ")
+    } catch (e: Exception) {
+        return null
+    } finally {
+        ex.release()
+    }
 }
