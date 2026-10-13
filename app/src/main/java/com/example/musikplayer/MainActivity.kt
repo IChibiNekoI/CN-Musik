@@ -702,9 +702,35 @@ fun NowPlayingSheet(
     val shownFraction = if (dragging) dragFraction else fraction
     val shownMs = (shownFraction * duration).toLong()
 
-        androidx.activity.compose.BackHandler { onDismiss() }
+          var offsetY by remember { mutableFloatStateOf(0f) }
+    val dragState = androidx.compose.foundation.gestures.rememberDraggableState { delta ->
+        offsetY = (offsetY + delta).coerceAtLeast(0f)
+    }
+    androidx.activity.compose.BackHandler { onDismiss() }
     run {
-        Surface(Modifier.fillMaxSize().pointerInput(Unit) {}) {
+        Surface(
+            Modifier
+                .fillMaxSize()
+                .offset { androidx.compose.ui.unit.IntOffset(0, offsetY.toInt()) }
+                .draggable(
+                    state = dragState,
+                    orientation = androidx.compose.foundation.gestures.Orientation.Vertical,
+                    onDragStopped = { velocity ->
+                        if (offsetY > 400f || velocity > 1200f) {
+                            androidx.compose.animation.core.animate(
+                                offsetY, 3000f,
+                                animationSpec = androidx.compose.animation.core.tween(200)
+                            ) { value, _ -> offsetY = value }
+                            onDismiss()
+                        } else {
+                            androidx.compose.animation.core.animate(offsetY, 0f) { value, _ ->
+                                offsetY = value
+                            }
+                        }
+                    }
+                )
+                .pointerInput(Unit) {}
+        ) {
             BoxWithConstraints(
                 Modifier
                     .fillMaxSize()
