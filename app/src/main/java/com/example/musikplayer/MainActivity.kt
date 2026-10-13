@@ -28,11 +28,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
@@ -81,17 +85,35 @@ fun AppTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = colors, content = content)
 }
 
-data class Song(val id: Long, val title: String, val artist: String, val uri: Uri)
+data class Song(
+    val id: Long,
+    val title: String,
+    val artist: String,
+    val uri: Uri,
+    val folder: String
+)
 
 private object CoverCache : LruCache<String, Bitmap>(60)
+
+private fun readFolders(ctx: Context): Set<String>? =
+    ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        .getStringSet("folders", null)?.toSet()
+
+private fun saveFolders(ctx: Context, set: Set<String>) {
+    ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        .edit().putStringSet("folders", set).apply()
+}
 
 private fun loadSongs(ctx: Context): List<Song> {
     val list = mutableListOf<Song>()
     val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+    val folderField = if (Build.VERSION.SDK_INT >= 29)
+        MediaStore.Audio.Media.RELATIVE_PATH else MediaStore.Audio.Media.DATA
     val proj = arrayOf(
         MediaStore.Audio.Media._ID,
         MediaStore.Audio.Media.TITLE,
-        MediaStore.Audio.Media.ARTIST
+        MediaStore.Audio.Media.ARTIST,
+        folderField
     )
     ctx.contentResolver.query(
         collection, proj,
@@ -101,13 +123,17 @@ private fun loadSongs(ctx: Context): List<Song> {
         val idCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
         val titleCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
         val artistCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+        val folderCol = c.getColumnIndexOrThrow(folderField)
         while (c.moveToNext()) {
             val id = c.getLong(idCol)
+            val raw = c.getString(folderCol) ?: ""
+            val folder = if (Build.VERSION.SDK_INT >= 29) raw else raw.substringBeforeLast('/', "")
             list += Song(
                 id,
                 c.getString(titleCol) ?: "Unbekannt",
                 c.getString(artistCol) ?: "Unbekannt",
-                ContentUris.withAppendedId(collection, id)
+                ContentUris.withAppendedId(collection, id),
+                folder
             )
         }
     }
@@ -199,9 +225,14 @@ fun PlayerScreen() {
         if (needed.isNotEmpty()) launcher.launch(needed.toTypedArray())
     }
 
-    var songs by remember { mutableStateOf<List<Song>>(emptyList()) }
+    var allSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
+    var selected by remember { mutableStateOf(readFolders(ctx)) }
+    var showSettings by remember { mutableStateOf(false) }
     LaunchedEffect(granted) {
-        if (granted) songs = withContext(Dispatchers.IO) { loadSongs(ctx) }
+        if (granted) allSongs = withContext(Dispatchers.IO) { loadSongs(ctx) }
+    }
+    val songs = remember(allSongs, selected) {
+        selected?.let { sel -> allSongs.filter { it.folder in sel } } ?: allSongs
     }
     val items = remember(songs) {
         songs.map {
@@ -240,7 +271,7 @@ fun PlayerScreen() {
         c.addListener(l)
         onDispose { c.removeListener(l) }
     }
-    val current = songs.find { it.id.toString() == currentId }
+    val current = allSongs.find { it.id.toString() == currentId }
 
     Scaffold(
         bottomBar = {
@@ -256,13 +287,230 @@ fun PlayerScreen() {
         } else {
             LazyColumn(contentPadding = pad) {
                 item {
-                    Text(
-                        "Musik",
-                        style = MaterialTheme.typography.headlineLarge,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                    )
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Musik",
+                            style = MaterialTheme.typography.headlineLarge,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { showSettings = true }) {
+                            Icon(Icons.Filled.Settings, contentDescription = "Einstellungen")
+                        }
+                    }
+                }
+                if (songs.isEmpty() && allSongs.isNotEmpty()) {
+                    item {
+                        Text(
+                            "Keine Songs in den ausgewählten Ordnern.",
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
                 }
                 itemsIndexed(songs, key = { _, s -> s.id }) { i, s ->
+                    ListItem(
+                        headlineContent = { Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        supportingContent = { Text(s.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        leadingContent = { Cover(s, 48.dp) },
+                        colors = ListItemDefaults.colors(
+                            containerColor = if (s.id.toString() == currentId)
+                                MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+                        ),
+                        modifier = Modifier.clickable {
+                            controller?.let {
+                                it.setMediaItems(items, i, 0L)
+                                it.prepare()
+                                it.play()
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    if (showNow && current != null && controller != null) {
+        NowPlayingSheet(current, isPlaying, shuffle, repeat, controller) { showNow = false }
+    }
+    if (showSettings) {
+        SettingsSheet(
+            allSongs = allSongs,
+            selected = selected,
+            onChange = { set ->
+                selected = set
+                saveFolders(ctx, set)
+            },
+            onDismiss = { showSettings = false }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsSheet(
+    allSongs: List<Song>,
+    selected: Set<String>?,
+    onChange: (Set<String>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var page by remember { mutableStateOf("main") }
+    val counts = remember(allSongs) {
+        allSongs.groupingBy { it.folder }.eachCount().toList().sortedBy { it.first.lowercase() }
+    }
+    val all = counts.map { it.first }.toSet()
+    val current = selected ?: all
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ) {
+        if (page == "main") {
+            Text(
+                "Einstellungen",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+            )
+            ListItem(
+                headlineContent = { Text("Musikordner") },
+                supportingContent = {
+                    Text(
+                        if (selected == null) "Alle Ordner"
+                        else "${all.count { it in current }} von ${all.size} Ordnern"
+                    )
+                },
+                leadingContent = { Icon(Icons.Filled.FolderOpen, contentDescription = null) },
+                trailingContent = {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                modifier = Modifier.clickable { page = "folders" }
+            )
+            Spacer(Modifier.height(32.dp))
+        } else {
+            Row(
+                Modifier.padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { page = "main" }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+                }
+                Text("Musikordner", style = MaterialTheme.typography.titleLarge)
+            }
+            Text(
+                "Nur Songs aus angehakten Ordnern werden angezeigt.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 24.dp)
+            )
+            Row(Modifier.padding(horizontal = 16.dp)) {
+                TextButton(onClick = { onChange(all) }) { Text("Alle") }
+                TextButton(onClick = { onChange(emptySet()) }) { Text("Keine") }
+            }
+            Column(
+                Modifier
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 32.dp)
+            ) {
+                counts.forEach { (folder, n) ->
+                    ListItem(
+                        headlineContent = { Text(folder.trimEnd('/').ifEmpty { "Hauptverzeichnis" }) },
+                        supportingContent = { Text("$n Songs") },
+                        trailingContent = {
+                            Checkbox(checked = folder in current, onCheckedChange = null)
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable {
+                            onChange(if (folder in current) current - folder else current + folder)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: () -> Unit) {
+    Surface(
+        tonalElevation = 3.dp,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Row(
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                Modifier.weight(1f).clickable { onOpen() },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Cover(song, 44.dp)
+                Column(Modifier.padding(start = 12.dp)) {
+                    Text(song.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(song.artist, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            IconButton(onClick = { c.seekToPreviousMediaItem() }) {
+                Icon(Icons.Filled.SkipPrevious, contentDescription = "Zurück")
+            }
+            FilledIconButton(onClick = { if (isPlaying) c.pause() else c.play() }) {
+                Icon(
+                    if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = if (isPlaying) "Pause" else "Abspielen"
+                )
+            }
+            IconButton(onClick = { c.seekToNextMediaItem() }) {
+                Icon(Icons.Filled.SkipNext, contentDescription = "Weiter")
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NowPlayingSheet(
+    song: Song,
+    isPlaying: Boolean,
+    shuffle: Boolean,
+    repeat: Int,
+    c: MediaController,
+    onDismiss: () -> Unit
+) {
+    var position by remember { mutableLongStateOf(0L) }
+    var duration by remember { mutableLongStateOf(0L) }
+    var dragging by remember { mutableStateOf(false) }
+    var dragValue by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(c) {
+        while (true) {
+            position = c.currentPosition
+            duration = max(c.duration, 0L)
+            delay(300)
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Cover(song, 280.dp)
+            Spacer(Modifier.height(24.dp))
+            Text(
+                song.title,
+                style = MaterialTheme.typography.headlineSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellip itemsIndexed(songs, key = { _, s -> s.id }) { i, s ->
                     ListItem(
                         headlineContent = { Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         supportingContent = { Text(s.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
