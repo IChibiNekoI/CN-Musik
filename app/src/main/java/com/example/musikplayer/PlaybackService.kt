@@ -1,5 +1,7 @@
 package com.example.musikplayer
 
+import android.app.PendingIntent
+import android.content.Intent
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.exoplayer.ExoPlayer
@@ -19,7 +21,18 @@ class PlaybackService : MediaSessionService() {
             .setAudioAttributes(attrs, true)
             .setHandleAudioBecomingNoisy(true)
             .build()
-        session = MediaSession.Builder(this, player).build()
+        // Tipp auf die Benachrichtigung / das Sperrbildschirm-Widget öffnet den Player
+        val openIntent = Intent(this, MainActivity::class.java).apply {
+            putExtra(MainActivity.EXTRA_OPEN_PLAYER, true)
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val openPending = PendingIntent.getActivity(
+            this, 0, openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        session = MediaSession.Builder(this, player)
+            .setSessionActivity(openPending)
+            .build()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
