@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,6 +27,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
+import android.widget.Toast
+import kotlinx.coroutines.launch
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import kotlinx.coroutines.Dispatchers
@@ -62,8 +68,28 @@ fun MusikApp(openPlayerSignal: Int = 0) {
     var showSettings by remember { mutableStateOf(false) }
     var albumRequest by remember { mutableStateOf<String?>(null) }
     var playlistRequest by remember { mutableStateOf<Song?>(null) }
-    LaunchedEffect(granted) {
-        if (granted) allSongs = withContext(Dispatchers.IO) { loadLibrary(ctx) }
+    var refreshTick by remember { mutableIntStateOf(0) }
+    var rescanning by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    // Beim Zurückkehren in die App prüfen, ob sich Dateien (z. B. Tags) geändert haben
+    val lifecycleOwner = ctx as? LifecycleOwner
+    DisposableEffect(lifecycleOwner) {
+        var skipFirst = true
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                if (skipFirst) skipFirst = false else refreshTick++
+            }
+        }
+        lifecycleOwner?.lifecycle?.addObserver(observer)
+        onDispose { lifecycleOwner?.lifecycle?.removeObserver(observer) }
+    }
+    LaunchedEffect(granted, refreshTick) {
+        if (!granted) return@LaunchedEffect
+        // erst sofort anzeigen, dann geänderte Dateien neu einlesen lassen und erneut laden
+        allSongs = withContext(Dispatchers.IO) { loadLibrary(ctx) }
+        if (rescanChanged(ctx, force = false) > 0) {
+            allSongs = withContext(Dispatchers.IO) { loadLibrary(ctx) }
+        }
     }
     val songs = remember(allSongs, selected) {
         selected?.let { sel -> allSongs.filter { it.folder in sel } } ?: allSongs
@@ -167,6 +193,16 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                 onAlbumStyle = { albumStyle = it; saveAlbumStyle(ctx, it) },
                 playlistStyle = playlistStyle,
                 onPlaylistStyle = { playlistStyle = it; savePlaylistStyle(ctx, it) },
+                rescanning = rescanning,
+                onRescan = {
+                    if (!rescanning) scope.launch {
+                        rescanning = true
+                        val n = rescanChanged(ctx, force = true)
+                        allSongs = withContext(Dispatchers.IO) { loadLibrary(ctx) }
+                        rescanning = false
+                        Toast.makeText(ctx, "Bibliothek aktualisiert ($n Dateien geprüft)", Toast.LENGTH_SHORT).show()
+                    }
+                },
                 onDismiss = { showSettings = false }
             )
         }
@@ -221,6 +257,8 @@ fun AppSettingsSheet(
     onAlbumStyle: (ViewStyle) -> Unit,
     playlistStyle: ViewStyle,
     onPlaylistStyle: (ViewStyle) -> Unit,
+    rescanning: Boolean,
+    onRescan: () -> Unit,
     onDismiss: () -> Unit
 ) {
     var page by remember { mutableStateOf("main") }
@@ -288,6 +326,18 @@ fun AppSettingsSheet(
                     },
                     colors = clear,
                     modifier = Modifier.clickable { page = "playlistView" }
+                )
+                ListItem(
+                    headlineContent = { Text("Bibliothek neu einlesen") },
+                    supportingContent = {
+                        Text(if (rescanning) "Wird eingelesen …" else "Geänderte Tags und Cover übernehmen")
+                    },
+                    leadingContent = { Icon(Icons.Filled.Refresh, contentDescription = null) },
+                    trailingContent = {
+                        if (rescanning) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                    },
+                    colors = clear,
+                    modifier = Modifier.clickable { onRescan() }
                 )
                 ListItem(
                     headlineContent = { Text("Audioinfos im Player") },
