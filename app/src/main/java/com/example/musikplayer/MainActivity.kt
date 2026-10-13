@@ -179,7 +179,7 @@ fun rememberController(): MediaController? {
 }
 
 @Composable
-fun Cover(song: Song, size: Dp) {
+fun Cover(song: Song, size: Dp, corner: Dp = 12.dp) {
     val ctx = LocalContext.current
     val px = with(LocalDensity.current) { size.roundToPx() }
     val bmp by produceState<Bitmap?>(null, song.id, px) {
@@ -200,7 +200,7 @@ fun Cover(song: Song, size: Dp) {
         value = b
     }
     Box(
-        Modifier.size(size).clip(RoundedCornerShape(12.dp)),
+        Modifier.size(size).clip(RoundedCornerShape(corner)),
         contentAlignment = Alignment.Center
     ) {
         val b = bmp
@@ -478,7 +478,8 @@ fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: () ->
         shadowElevation = 12.dp
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            // rechts kein Innenabstand: die Tasten sitzen dadurch ca. 14 dp weiter rechts
+            Modifier.fillMaxWidth().padding(start = 14.dp, end = 0.dp, top = 12.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
@@ -970,7 +971,7 @@ private fun NowPlayingSheetContent(
                                 )
                             }
                     ) {
-                        Cover(song, coverSize)
+                        Cover(song, coverSize, corner = 20.dp)
                     }
                     Spacer(Modifier.weight(1.7f))    // Abstand Cover -> Titel
                     Text(
