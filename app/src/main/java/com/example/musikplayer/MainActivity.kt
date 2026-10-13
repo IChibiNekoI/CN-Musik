@@ -937,7 +937,7 @@ private fun NowPlayingSheetContent(
                             Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Schließen")
                         }
                     }
-                    Spacer(Modifier.weight(0.5f))    // Abstand oben: kleiner = Cover weiter oben
+                    Spacer(Modifier.weight(1.25f))   // Abstand oben: kleiner = Cover weiter oben
                     Box(
                         Modifier
                             .offset { IntOffset(coverOffset.value.roundToInt(), 0) }
@@ -964,7 +964,7 @@ private fun NowPlayingSheetContent(
                     ) {
                         Cover(song, coverSize)
                     }
-                    Spacer(Modifier.weight(0.7f))    // gleich groß wie der Abstand unter dem Titel -> Titel exakt mittig
+                    Spacer(Modifier.weight(1.7f))    // Abstand Cover -> Titel
                     Text(
                         song.title,
                         modifier = Modifier.fillMaxWidth(),
@@ -982,7 +982,7 @@ private fun NowPlayingSheetContent(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(Modifier.weight(0.7f))    // gleich groß wie der Abstand über dem Titel
+                    Spacer(Modifier.weight(0.8f))    // Abstand Künstler -> Fortschrittsbalken
 
                     PillProgress(
                         progress = shownFraction,
@@ -1001,7 +1001,7 @@ private fun NowPlayingSheetContent(
                         Text(fmt(shownMs), style = MaterialTheme.typography.labelMedium)
                         Text(fmt(duration), style = MaterialTheme.typography.labelMedium)
                     }
-                    Spacer(Modifier.weight(0.8f))    // Abstand Balken -> Tasten
+                    Spacer(Modifier.weight(1.0f))    // Abstand Balken -> Tasten
 
                     Row(
                         Modifier.fillMaxWidth(),
@@ -1046,7 +1046,7 @@ private fun NowPlayingSheetContent(
                             )
                         }
                     }
-                    Spacer(Modifier.weight(0.6f))    // Abstand unten
+                    Spacer(Modifier.weight(1.95f))   // Abstand unten
                 }
             }
         }
