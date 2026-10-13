@@ -13,13 +13,21 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -102,6 +110,10 @@ fun LibraryScreen(
     var creating by remember { mutableStateOf(false) }
     var pendingSong by remember { mutableStateOf<Song?>(null) }
     var deleteTarget by remember { mutableStateOf<Playlist?>(null) }
+    var searching by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    val focusManager = LocalFocusManager.current
+    val searchFocus = remember { FocusRequester() }
 
     val sorted = remember(songs, sort) { sortSongs(songs, sort) }
     val albums = remember(songs) {
@@ -114,22 +126,93 @@ fun LibraryScreen(
         openAlbum = null
         openPlaylist = null
     }
+    BackHandler(enabled = searching) {
+        searching = false
+        query = ""
+    }
+    LaunchedEffect(searching) {
+        if (searching) searchFocus.requestFocus()
+    }
+    val results = remember(sorted, query) {
+        val q = query.trim()
+        if (q.isEmpty()) emptyList<Song>()
+        else sorted.filter {
+            it.title.contains(q, ignoreCase = true) ||
+                it.artist.contains(q, ignoreCase = true) ||
+                it.album.contains(q, ignoreCase = true)
+        }
+    }
 
     Column(Modifier.fillMaxSize().padding(pad)) {
         Row(
             Modifier.fillMaxWidth()
-                .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
+                .padding(start = if (searching) 8.dp else 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "Musik",
-                style = MaterialTheme.typography.headlineLarge,
-                modifier = Modifier.weight(1f)
-            )
-            IconButton(onClick = onSettings) {
-                Icon(Icons.Filled.Settings, contentDescription = "Einstellungen")
+            if (searching) {
+                IconButton(onClick = { searching = false; query = "" }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Suche schließen")
+                }
+                TextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    modifier = Modifier.weight(1f).focusRequester(searchFocus),
+                    placeholder = { Text("Titel, Künstler oder Album") },
+                    singleLine = true,
+                    trailingIcon = {
+                        if (query.isNotEmpty()) {
+                            IconButton(onClick = { query = "" }) {
+                                Icon(Icons.Filled.Close, contentDescription = "Leeren")
+                            }
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    )
+                )
+            } else {
+                Text(
+                    "Musik",
+                    style = MaterialTheme.typography.headlineLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = { searching = true }) {
+                    Icon(Icons.Filled.Search, contentDescription = "Suchen")
+                }
+                IconButton(onClick = onSettings) {
+                    Icon(Icons.Filled.Settings, contentDescription = "Einstellungen")
+                }
             }
         }
+        if (searching) {
+            if (query.isBlank()) {
+                Text(
+                    "Suche nach Titel, Künstler oder Album.",
+                    modifier = Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else if (results.isEmpty()) {
+                Text(
+                    "Keine Treffer.",
+                    modifier = Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            LazyColumn(Modifier.weight(1f)) {
+                itemsIndexed(results, key = { _, s -> s.id }) { i, s ->
+                    SongRow(
+                        s, s.id.toString() == currentId,
+                        { focusManager.clearFocus(); onPlay(results, i) },
+                        { addSong = s }
+                    )
+                }
+            }
+        } else {
         Row(
             Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -249,6 +332,7 @@ fun LibraryScreen(
                     }
                 }
             }
+        }
         }
     }
 
