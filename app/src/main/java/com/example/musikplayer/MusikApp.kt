@@ -91,7 +91,7 @@ fun MusikApp() {
     Scaffold(
         bottomBar = {
             if (current != null && controller != null) {
-                FloatingMiniPlayer(current, isPlaying, controller) { showNow = true }
+                MiniPlayer(current, isPlaying, controller) { showNow = true }
             }
         }
     ) { pad ->
