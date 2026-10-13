@@ -702,14 +702,9 @@ fun NowPlayingSheet(
     val shownFraction = if (dragging) dragFraction else fraction
     val shownMs = (shownFraction * duration).toLong()
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false
-        )
-    ) {
-        Surface(Modifier.fillMaxSize()) {
+        androidx.activity.compose.BackHandler { onDismiss() }
+    run {
+        Surface(Modifier.fillMaxSize().pointerInput(Unit) {}) {
             BoxWithConstraints(
                 Modifier
                     .fillMaxSize()
