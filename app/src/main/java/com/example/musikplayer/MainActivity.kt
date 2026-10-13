@@ -219,10 +219,15 @@ fun skipPrev(c: MediaController) {
 }
 
 @Composable
-fun Cover(song: Song, size: Dp, corner: Dp = 12.dp) {
+fun Cover(song: Song, size: Dp, corner: Dp = 12.dp, fallbackSize: Dp? = null) {
     val ctx = LocalContext.current
     val px = with(LocalDensity.current) { size.roundToPx() }
-    val bmp by produceState<Bitmap?>(null, song.id, px) {
+    val fallbackPx = fallbackSize?.let { with(LocalDensity.current) { it.roundToPx() } }
+    // Sofort etwas anzeigen: erst das Bild in passender Größe, sonst die kleine Version aus dem Cache
+    val initial = remember(song.id, px, fallbackPx) {
+        CoverCache.get("${song.id}_$px") ?: fallbackPx?.let { CoverCache.get("${song.id}_$it") }
+    }
+    val bmp by produceState<Bitmap?>(initial, song.id, px) {
         val key = "${song.id}_$px"
         var b: Bitmap? = CoverCache.get(key)
         if (b == null) {
@@ -510,6 +515,7 @@ fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: (Mini
     val miniColor = MaterialTheme.colorScheme.surfaceContainerHigh
     // merkt sich die Position des Miniplayers, damit der Player daraus aufklappen kann
     val coordsRef = remember { arrayOfNulls<LayoutCoordinates>(1) }
+    val coverRef = remember { arrayOfNulls<LayoutCoordinates>(1) }
 
     Surface(
         modifier = Modifier
@@ -530,12 +536,17 @@ fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: (Mini
                 Modifier.weight(1f).clickable {
                     onOpen(
                         coordsRef[0]?.takeIf { it.isAttached }
-                            ?.let { MiniOrigin(it.boundsInRoot(), radius, miniColor) }
+                            ?.let {
+                                MiniOrigin(
+                                    it.boundsInRoot(), radius, miniColor,
+                                    coverRef[0]?.takeIf { c -> c.isAttached }?.boundsInRoot()
+                                )
+                            }
                     )
                 },
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Cover(song, 56.dp)
+                Box(Modifier.onGloballyPositioned { coverRef[0] = it }) { Cover(song, 56.dp) }
                 Column(Modifier.padding(start = 14.dp)) {
                     Text(
                         song.title,
@@ -890,7 +901,9 @@ fun CoverTheme(song: Song?, dark: Boolean, content: @Composable () -> Unit) {
 data class MiniOrigin(
     val bounds: androidx.compose.ui.geometry.Rect,
     val radius: Dp,
-    val color: Color
+    val color: Color,
+    /** Position des kleinen Covers im Miniplayer - Startpunkt des "fliegenden" Covers */
+    val coverBounds: androidx.compose.ui.geometry.Rect? = null
 )
 
 /** Zeigt den Player als Ausschnitt, der vom Miniplayer-Rechteck auf Vollbild aufgeht */
@@ -1015,18 +1028,33 @@ private fun NowPlayingSheetContent(
             open.animateTo(
                 1f,
                 androidx.compose.animation.core.tween(
-                    durationMillis = 340,
-                    easing = androidx.compose.animation.core.FastOutSlowInEasing
+                    durationMillis = 420,
+                    easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)
                 )
             )
         }
     }
     val p = open.value
+    // Endposition des großen Covers (für die Flug-Animation) und ob geflogen wird
+    var finalCover by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+    val hasFly = origin?.coverBounds != null
+    val dens = LocalDensity.current
     val sheetColor = MaterialTheme.colorScheme.surface
     val bgColor = if (origin == null) sheetColor else
         androidx.compose.ui.graphics.lerp(origin.color, sheetColor, p)
             .copy(alpha = (p / 0.3f).coerceIn(0f, 1f))
-    run {
+    Box(Modifier.fillMaxSize()) {
+        // Abdunkelung der Liste hinter dem aufgehenden Player
+        if (origin != null) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        alpha = open.value * 0.55f * (1f - (offsetY / size.height).coerceIn(0f, 1f))
+                    }
+                    .background(Color.Black)
+            )
+        }
         Surface(
             Modifier
                 .fillMaxSize()
@@ -1055,7 +1083,6 @@ private fun NowPlayingSheetContent(
         ) {
             BoxWithConstraints(
                 Modifier
-                    .graphicsLayer { alpha = ((open.value - 0.35f) / 0.45f).coerceIn(0f, 1f) }
                     .fillMaxSize()
                     .systemBarsPadding()
                     .padding(horizontal = 24.dp)
@@ -1065,7 +1092,7 @@ private fun NowPlayingSheetContent(
                     Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Row(Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth().reveal({ open.value }, 0.30f, 0.75f, 0.dp)) {
                         IconButton(onClick = onDismiss) {
                             Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Schließen")
                         }
@@ -1073,6 +1100,12 @@ private fun NowPlayingSheetContent(
                     Spacer(Modifier.weight(1.25f))   // Abstand oben: kleiner = Cover weiter oben
                     Box(
                         Modifier
+                            .onGloballyPositioned { finalCover = it.boundsInRoot() }
+                            .graphicsLayer {
+                                // beim Öffnen übernimmt das fliegende Cover; danach wird getauscht
+                                alpha = if (hasFly) (if (open.value < 1f) 0f else 1f)
+                                else ((open.value - 0.35f) / 0.45f).coerceIn(0f, 1f)
+                            }
                             .offset { IntOffset(coverOffset.value.roundToInt(), 0) }
                             .pointerInput(c) {
                                 val threshold = size.width * 0.25f
@@ -1100,7 +1133,7 @@ private fun NowPlayingSheetContent(
                     Spacer(Modifier.weight(1.7f))    // Abstand Cover -> Titel
                     Text(
                         song.title,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().reveal({ open.value }, 0.35f, 0.85f),
                         style = MaterialTheme.typography.headlineSmall,
                         textAlign = TextAlign.Start,
                         maxLines = 1,
@@ -1108,7 +1141,7 @@ private fun NowPlayingSheetContent(
                     )
                     Text(
                         song.artist,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().reveal({ open.value }, 0.40f, 0.88f),
                         style = MaterialTheme.typography.bodyLarge,
                         textAlign = TextAlign.Start,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1117,27 +1150,29 @@ private fun NowPlayingSheetContent(
                     )
                     Spacer(Modifier.weight(0.8f))    // Abstand Künstler -> Fortschrittsbalken
 
-                    PillProgress(
-                        progress = shownFraction,
-                        onChange = { dragging = true; dragFraction = it },
-                        onFinished = {
-                            val target = (dragFraction * duration).toLong()
-                            c.seekTo(target)
-                            position = target
-                            dragging = false
+                    Column(Modifier.fillMaxWidth().reveal({ open.value }, 0.45f, 0.92f)) {
+                        PillProgress(
+                            progress = shownFraction,
+                            onChange = { dragging = true; dragFraction = it },
+                            onFinished = {
+                                val target = (dragFraction * duration).toLong()
+                                c.seekTo(target)
+                                position = target
+                                dragging = false
+                            }
+                        )
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(fmt(shownMs), style = MaterialTheme.typography.labelMedium)
+                            Text(fmt(duration), style = MaterialTheme.typography.labelMedium)
                         }
-                    )
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(fmt(shownMs), style = MaterialTheme.typography.labelMedium)
-                        Text(fmt(duration), style = MaterialTheme.typography.labelMedium)
                     }
                     Spacer(Modifier.weight(1.0f))    // Abstand Balken -> Tasten
 
                     Row(
-                        Modifier.fillMaxWidth(),
+                        Modifier.fillMaxWidth().reveal({ open.value }, 0.50f, 1.0f, 32.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -1180,7 +1215,7 @@ private fun NowPlayingSheetContent(
                         }
                     }
                     Box(
-                        Modifier.fillMaxWidth().weight(1.95f),   // Abstand unten
+                        Modifier.fillMaxWidth().weight(1.95f).reveal({ open.value }, 0.60f, 1.0f, 16.dp),   // Abstand unten
                         contentAlignment = Alignment.BottomCenter
                     ) {
                         audioInfo?.let {
@@ -1196,5 +1231,38 @@ private fun NowPlayingSheetContent(
                 }
             }
         }
+        // Das Cover fliegt vom Miniplayer an seinen Platz im Player
+        val fb = origin?.coverBounds
+        val fin = finalCover
+        if (fb != null && fin != null && open.value < 1f) {
+            val finalDp = with(dens) { fin.width.toDp() }
+            Box(
+                Modifier
+                    .size(finalDp)
+                    .graphicsLayer {
+                        val e = open.value
+                        val sc = androidx.compose.ui.util.lerp(fb.width / fin.width, 1f, e)
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
+                        scaleX = sc
+                        scaleY = sc
+                        translationX = androidx.compose.ui.util.lerp(fb.left, fin.left, e)
+                        translationY = androidx.compose.ui.util.lerp(fb.top, fin.top, e)
+                        // Ecken: 12 dp (Mini) -> 20 dp (Player), vor der Skalierung umgerechnet
+                        val eff = androidx.compose.ui.util.lerp(12f, 20f, e) * density
+                        shape = RoundedCornerShape(eff / sc)
+                        clip = true
+                    }
+            ) {
+                Cover(song, finalDp, corner = 0.dp, fallbackSize = 56.dp)
+            }
+        }
     }
 }
+
+/** Blendet ein Element gestaffelt ein (progress zwischen start und end) und schiebt es leicht nach oben */
+private fun Modifier.reveal(progress: () -> Float, start: Float, end: Float, rise: Dp = 24.dp): Modifier =
+    graphicsLayer {
+        val t = ((progress() - start) / (end - start)).coerceIn(0f, 1f)
+        alpha = t
+        translationY = (1f - t) * rise.toPx()
+    }
