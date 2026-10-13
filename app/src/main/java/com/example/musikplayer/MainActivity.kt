@@ -61,6 +61,10 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.animation.core.Animatable
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import kotlinx.coroutines.withContext
 import kotlin.math.max
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -694,6 +698,8 @@ fun NowPlayingSheet(
     var duration by remember { mutableLongStateOf(0L) }
     var dragging by remember { mutableStateOf(false) }
     var dragFraction by remember { mutableFloatStateOf(0f) }
+    val coverOffset = remember { Animatable(0f) }
+    val coverScope = rememberCoroutineScope()
 
     LaunchedEffect(c) {
         while (true) {
@@ -752,7 +758,32 @@ fun NowPlayingSheet(
                         }
                     }
                     Spacer(Modifier.weight(1f))
-                    Cover(song, coverSize)
+                    Box(
+                        Modifier
+                            .offset { IntOffset(coverOffset.value.roundToInt(), 0) }
+                            .pointerInput(c) {
+                                val threshold = size.width * 0.25f
+                                detectHorizontalDragGestures(
+                                    onDragEnd = {
+                                        val dx = coverOffset.value
+                                        if (dx < -threshold) c.seekToNextMediaItem()
+                                        else if (dx > threshold) c.seekToPreviousMediaItem()
+                                        coverScope.launch { coverOffset.animateTo(0f) }
+                                    },
+                                    onDragCancel = {
+                                        coverScope.launch { coverOffset.animateTo(0f) }
+                                    },
+                                    onHorizontalDrag = { change, delta ->
+                                        change.consume()
+                                        coverScope.launch {
+                                            coverOffset.snapTo(coverOffset.value + delta)
+                                        }
+                                    }
+                                )
+                            }
+                    ) {
+                        Cover(song, coverSize)
+                    }
                     Spacer(Modifier.height(32.dp))
                     Text(
                         song.title,
