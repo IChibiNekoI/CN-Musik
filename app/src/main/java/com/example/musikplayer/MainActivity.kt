@@ -77,7 +77,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { AppTheme { PlayerScreen() } }
+                setContent { AppTheme { MusikApp() } }
     }
 }
 
@@ -99,7 +99,10 @@ data class Song(
     val title: String,
     val artist: String,
     val uri: Uri,
-    val folder: String
+        val folder: String,
+    val album: String = "",
+    val dateAdded: Long = 0L,
+    val track: Int = 0
 )
 
 private object CoverCache : LruCache<String, Bitmap>(60)
