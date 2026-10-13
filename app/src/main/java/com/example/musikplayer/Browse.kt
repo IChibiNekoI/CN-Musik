@@ -109,7 +109,11 @@ fun LibraryScreen(
     playlists: List<Playlist>,
     onPlaylistsChange: (List<Playlist>) -> Unit,
     onPlay: (List<Song>, Int) -> Unit,
-    onSettings: () -> Unit
+    onSettings: () -> Unit,
+    albumRequest: String? = null,
+    onAlbumRequestHandled: () -> Unit = {},
+    playlistRequest: Song? = null,
+    onPlaylistRequestHandled: () -> Unit = {}
 ) {
     var tab by remember { mutableIntStateOf(0) }
     var openAlbum by remember { mutableStateOf<String?>(null) }
@@ -146,6 +150,27 @@ fun LibraryScreen(
             .toList().sortedBy { it.first.lowercase() }
     }
     val byId = remember(songs) { songs.associateBy { it.id } }
+
+    // Vom Player aus: zum Album springen
+    LaunchedEffect(albumRequest) {
+        val name = albumRequest ?: return@LaunchedEffect
+        if (albums.any { it.first == name }) {
+            searching = false
+            query = ""
+            openPlaylist = null
+            tab = 1
+            openAlbum = name
+        } else {
+            Toast.makeText(ctx, "Album nicht gefunden", Toast.LENGTH_SHORT).show()
+        }
+        onAlbumRequestHandled()
+    }
+    // Vom Player aus: "Zu Playlist hinzufügen" öffnet den bekannten Dialog
+    LaunchedEffect(playlistRequest) {
+        val s = playlistRequest ?: return@LaunchedEffect
+        addSong = s
+        onPlaylistRequestHandled()
+    }
 
     BackHandler(enabled = openAlbum != null || openPlaylist != null) {
         openAlbum = null
