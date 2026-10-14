@@ -144,7 +144,30 @@ data class Song(
     val fileName: String = ""
 )
 
-private object CoverCache : LruCache<String, Bitmap>(60)
+// nach Speichergröße begrenzt (32 MB), weil jetzt auch große Player-Cover darin liegen
+private object CoverCache : LruCache<String, Bitmap>(32 * 1024 * 1024) {
+    override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
+}
+
+/** Lädt das große Player-Cover schon vorab in den Cache, damit das Öffnen nicht auf das Laden warten muss */
+suspend fun prewarmPlayerCover(ctx: android.content.Context, song: Song, px: Int) {
+    if (px <= 0) return
+    val key = "${song.id}_$px"
+    if (CoverCache.get(key) != null) return
+    val b = withContext(Dispatchers.IO) {
+        if (Build.VERSION.SDK_INT >= 29) {
+            try {
+                ctx.contentResolver.loadThumbnail(song.uri, Size(px, px), null)
+            } catch (e: Exception) {
+                null
+            }
+        } else null
+    }
+    if (b != null) {
+        b.prepareToDraw()   // Textur schon jetzt für die GPU vorbereiten
+        CoverCache.put(key, b)
+    }
+}
 
 /** Leert die Cover-Zwischenspeicher, damit geänderte Cover nach einem Neu-Einlesen neu geladen werden. */
 fun clearCoverCaches() {
@@ -528,7 +551,13 @@ fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: (Mini
     // merkt sich die Position des Miniplayers, damit der Player daraus aufklappen kann
     val coordsRef = remember { arrayOfNulls<LayoutCoordinates>(1) }
     val coverRef = remember { arrayOfNulls<LayoutCoordinates>(1) }
-
+    // Großes Player-Cover im Hintergrund vorladen, sobald der Titel wechselt (gleiche Größe wie im Player)
+    val warmCtx = LocalContext.current
+    val warmView = androidx.compose.ui.platform.LocalView.current
+    LaunchedEffect(song.id) {
+        val px = warmView.width - 2 * with(density) { 24.dp.roundToPx() }
+        prewarmPlayerCover(warmCtx, song, px)
+    }
     val openPlayer: () -> Unit = {
         onOpen(
             coordsRef[0]?.takeIf { it.isAttached }
