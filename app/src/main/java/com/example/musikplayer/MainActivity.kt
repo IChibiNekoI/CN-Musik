@@ -144,6 +144,12 @@ data class Song(
     val fileName: String = ""
 )
 
+/** Dauer der Öffnen-Animation des Players in Millisekunden (höher = mehr Zwischenframes, langsamer) */
+private const val OPEN_ANIM_MS = 500
+
+/** Großes Player-Cover vorab laden. Bei Problemen mit der Animation zum Vergleich auf false setzen. */
+private const val PREWARM_PLAYER_COVER = true
+
 // nach Speichergröße begrenzt (32 MB), weil jetzt auch große Player-Cover darin liegen
 private object CoverCache : LruCache<String, Bitmap>(32 * 1024 * 1024) {
     override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
@@ -555,6 +561,7 @@ fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: (Mini
     val warmCtx = LocalContext.current
     val warmView = androidx.compose.ui.platform.LocalView.current
     LaunchedEffect(song.id) {
+        if (!PREWARM_PLAYER_COVER) return@LaunchedEffect
         val px = warmView.width - 2 * with(density) { 24.dp.roundToPx() }
         prewarmPlayerCover(warmCtx, song, px)
     }
@@ -1053,9 +1060,11 @@ private fun NowPlayingSheetContent(
             withFrameNanos { }
             open.animateTo(
                 1f,
+                // länger + sanfterer Start: die Bewegung verteilt sich auf mehr Frames statt in den ersten
+                // Frames fast komplett zu springen (vorher 360 ms mit sehr steilem Anfang)
                 androidx.compose.animation.core.tween(
-                    durationMillis = 360,
-                    easing = androidx.compose.animation.core.CubicBezierEasing(0.2f, 0f, 0f, 1f)
+                    durationMillis = OPEN_ANIM_MS,
+                    easing = androidx.compose.animation.core.FastOutSlowInEasing
                 )
             )
         }
@@ -1204,6 +1213,7 @@ private fun NowPlayingSheetContent(
                         Modifier
                             .onGloballyPositioned { finalCover = it.boundsInRoot() }
                             .graphicsLayer {
+                                compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
                                 // beim Öffnen übernimmt das fliegende Cover; danach wird getauscht
                                 alpha = if (hasFly) (if (open.value < 1f) 0f else 1f)
                                 else ((open.value - 0.35f) / 0.45f).coerceIn(0f, 1f)
@@ -1346,6 +1356,8 @@ private fun NowPlayingSheetContent(
 /** Blendet ein Element gestaffelt ein (progress zwischen start und end) und schiebt es leicht nach oben */
 private fun Modifier.reveal(progress: () -> Float, start: Float, end: Float, rise: Dp = 24.dp): Modifier =
     graphicsLayer {
+        // Alpha direkt beim Zeichnen anwenden statt über einen Zwischenspeicher (spart GPU-Arbeit pro Frame)
+        compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
         val t = ((progress() - start) / (end - start)).coerceIn(0f, 1f)
         alpha = t
         translationY = (1f - t) * rise.toPx()
