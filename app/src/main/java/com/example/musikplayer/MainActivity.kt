@@ -528,11 +528,37 @@ fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: (Mini
     val coordsRef = remember { arrayOfNulls<LayoutCoordinates>(1) }
     val coverRef = remember { arrayOfNulls<LayoutCoordinates>(1) }
 
+    val openPlayer: () -> Unit = {
+        onOpen(
+            coordsRef[0]?.takeIf { it.isAttached }
+                ?.let {
+                    MiniOrigin(
+                        it.boundsInRoot(), radius, miniColor,
+                        coverRef[0]?.takeIf { c -> c.isAttached }?.boundsInRoot()
+                    )
+                }
+        )
+    }
+    val swipeThreshold = with(density) { 40.dp.toPx() }
+
     Surface(
         modifier = Modifier
             .navigationBarsPadding()
             .padding(start = margin, end = margin, bottom = margin)
-            .onGloballyPositioned { coordsRef[0] = it },
+            .onGloballyPositioned { coordsRef[0] = it }
+            // Nach oben wischen öffnet den Player (wie Runterwischen ihn schließt)
+            .pointerInput(Unit) {
+                var total = 0f
+                androidx.compose.foundation.gestures.detectVerticalDragGestures(
+                    onDragStart = { total = 0f },
+                    onDragCancel = { total = 0f },
+                    onDragEnd = {
+                        if (total < -swipeThreshold) openPlayer()
+                        total = 0f
+                    },
+                    onVerticalDrag = { _, dy -> total += dy }
+                )
+            },
         shape = RoundedCornerShape(radius),
         color = miniColor,
         tonalElevation = 6.dp,
@@ -544,17 +570,7 @@ fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: (Mini
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
-                Modifier.weight(1f).clickable {
-                    onOpen(
-                        coordsRef[0]?.takeIf { it.isAttached }
-                            ?.let {
-                                MiniOrigin(
-                                    it.boundsInRoot(), radius, miniColor,
-                                    coverRef[0]?.takeIf { c -> c.isAttached }?.boundsInRoot()
-                                )
-                            }
-                    )
-                },
+                Modifier.weight(1f).clickable { openPlayer() },
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(Modifier.onGloballyPositioned { coverRef[0] = it }) { Cover(song, 56.dp) }
