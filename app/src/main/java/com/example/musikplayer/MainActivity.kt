@@ -1125,9 +1125,7 @@ private fun NowPlayingSheetContent(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = onDismiss) {
-                            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Schließen")
-                        }
+                        CloseSheetButton(onClick = onDismiss)
                         Text(
                             song.album.ifBlank { "Unbekanntes Album" },
                             modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
