@@ -213,7 +213,7 @@ fun RepeatButton(
 fun CloseSheetButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    iconSize: Dp = 40.dp,   // größer = höherer/breiterer Pfeil
+    iconSize: Dp = 30.dp,   // größer = höherer/breiterer Pfeil
     tint: Color = LocalContentColor.current
 ) {
     IconButton(
@@ -239,7 +239,7 @@ fun CloseSheetButton(
 fun MoreButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    buttonSize: Dp = 42.dp,
+    buttonSize: Dp = 32.dp,
     circleColor: Color = MaterialTheme.colorScheme.primary,
     iconColor: Color = MaterialTheme.colorScheme.onSurface
 ) {
