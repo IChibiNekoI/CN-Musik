@@ -74,6 +74,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.max
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
@@ -549,7 +550,7 @@ fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: (Mini
             // Nach oben wischen öffnet den Player (wie Runterwischen ihn schließt)
             .pointerInput(Unit) {
                 var total = 0f
-                androidx.compose.foundation.gestures.detectVerticalDragGestures(
+                detectVerticalDragGestures(
                     onDragStart = { total = 0f },
                     onDragCancel = { total = 0f },
                     onDragEnd = {
