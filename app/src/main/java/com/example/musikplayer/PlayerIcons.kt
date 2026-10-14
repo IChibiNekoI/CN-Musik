@@ -214,7 +214,7 @@ fun CloseSheetButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     iconSize: Dp = 30.dp,   // größer = höherer/breiterer Pfeil
-    tint: Color = LocalContentColor.current
+    tint: Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)   // gleiche Farbe wie der Kreis des Play-Buttons
 ) {
     IconButton(
         onClick = onClick,
