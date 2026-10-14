@@ -232,3 +232,32 @@ fun CloseSheetButton(
         }
     }
 }
+
+/* ---------- Mehr-Menü: drei ausgefüllte Punkte (waagerecht) im Kreis ---------- */
+
+@Composable
+fun MoreButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    buttonSize: Dp = 42.dp,
+    circleColor: Color = MaterialTheme.colorScheme.primary,
+    iconColor: Color = MaterialTheme.colorScheme.onSurface
+) {
+    Box(
+        modifier = modifier
+            .size(buttonSize)
+            .clip(CircleShape)
+            .background(circleColor.copy(alpha = 0.45f))   // gleiche Füllung wie der Play-Button
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = "Mehr" },
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(Modifier.size(buttonSize * 0.5f)) {
+            val s = this.size.minDimension
+            val r = s * 0.095f
+            for (x in listOf(0.14f, 0.50f, 0.86f)) {
+                drawCircle(iconColor, radius = r, center = Offset(s * x, s * 0.5f))
+            }
+        }
+    }
+}
