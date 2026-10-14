@@ -9,6 +9,7 @@ import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 import java.text.Normalizer
 import android.media.MediaExtractor
+import android.media.MediaMetadataRetriever
 import android.media.MediaScannerConnection
 import android.media.MediaFormat
 import android.provider.OpenableColumns
@@ -153,6 +154,122 @@ suspend fun rescanChanged(ctx: Context, force: Boolean): Int = withContext(Dispa
     p.edit().putLong("last_scan", started).apply()
     paths.size
 }
+
+/* ---------- Tags direkt aus den Dateien lesen ---------- */
+
+private class TagInfo(
+    val mtime: Long, val size: Long,
+    val title: String?, val artist: String?, val album: String?, val track: Int
+)
+
+private fun readTagCache(ctx: Context): MutableMap<Long, TagInfo> {
+    val out = HashMap<Long, TagInfo>()
+    val raw = prefs(ctx).getString("tag_cache", null) ?: return out
+    try {
+        val o = JSONObject(raw)
+        for (k in o.keys()) {
+            val e = o.getJSONObject(k)
+            out[k.toLong()] = TagInfo(
+                e.getLong("m"), e.getLong("s"),
+                e.optString("t").ifEmpty { null },
+                e.optString("a").ifEmpty { null },
+                e.optString("b").ifEmpty { null },
+                e.optInt("n", 0)
+            )
+        }
+    } catch (e: Exception) {
+        out.clear()
+    }
+    return out
+}
+
+private fun writeTagCache(ctx: Context, cache: Map<Long, TagInfo>) {
+    val o = JSONObject()
+    for ((id, t) in cache) {
+        o.put(
+            id.toString(),
+            JSONObject().put("m", t.mtime).put("s", t.size)
+                .put("t", t.title ?: "").put("a", t.artist ?: "").put("b", t.album ?: "")
+                .put("n", t.track)
+        )
+    }
+    prefs(ctx).edit().putString("tag_cache", o.toString()).apply()
+}
+
+private fun readTags(ctx: Context, uri: Uri, mtime: Long, size: Long): TagInfo {
+    val r = MediaMetadataRetriever()
+    return try {
+        r.setDataSource(ctx, uri)
+        fun g(key: Int): String? = r.extractMetadata(key)?.trim()?.takeIf { it.isNotEmpty() }
+        val track = g(MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER)
+            ?.substringBefore('/')?.trim()?.toIntOrNull() ?: 0
+        val disc = g(MediaMetadataRetriever.METADATA_KEY_DISC_NUMBER)
+            ?.substringBefore('/')?.trim()?.toIntOrNull() ?: 0
+        TagInfo(
+            mtime, size,
+            g(MediaMetadataRetriever.METADATA_KEY_TITLE),
+            g(MediaMetadataRetriever.METADATA_KEY_ARTIST) ?: g(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST),
+            g(MediaMetadataRetriever.METADATA_KEY_ALBUM),
+            if (disc > 0 && track > 0) disc * 1000 + track else track
+        )
+    } catch (e: Exception) {
+        TagInfo(mtime, size, null, null, null, 0)
+    } finally {
+        try { r.release() } catch (e: Exception) { }
+    }
+}
+
+/**
+ * Überschreibt Titel, Künstler, Album und Tracknummer mit den echten Tags aus der Datei,
+ * wenn die Datei neuer oder anders groß ist als beim letzten Scan von Android (die Datenbank also veraltet ist).
+ * force = true liest alle Dateien direkt. Ergebnisse werden zwischengespeichert.
+ */
+suspend fun refreshTagsFromFiles(ctx: Context, songs: List<Song>, force: Boolean): List<Song> =
+    withContext(Dispatchers.IO) {
+        // Pfad und Zeitpunkt des letzten Android-Scans je Song
+        val meta = HashMap<Long, Triple<String, Long, Long>>()
+        ctx.contentResolver.query(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+            arrayOf(
+                MediaStore.Audio.Media._ID, MediaStore.Audio.Media.DATA,
+                MediaStore.Audio.Media.DATE_MODIFIED, MediaStore.Audio.Media.SIZE
+            ),
+            "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, null
+        )?.use { c ->
+            while (c.moveToNext()) {
+                val path = c.getString(1) ?: continue
+                meta[c.getLong(0)] = Triple(path, c.getLong(2), c.getLong(3))
+            }
+        }
+        val cache = readTagCache(ctx)
+        var cacheChanged = false
+        val out = ArrayList<Song>(songs.size)
+        for (s in songs) {
+            val m = meta[s.id]
+            if (m == null) { out += s; continue }
+            val f = File(m.first)
+            val mtime = f.lastModified()
+            if (mtime <= 0L) { out += s; continue }
+            val size = f.length()
+            val cached = cache[s.id]?.takeIf { it.mtime == mtime && it.size == size }
+            val tags: TagInfo? = when {
+                force -> readTags(ctx, s.uri, mtime, size).also { cache[s.id] = it; cacheChanged = true }
+                cached != null -> cached
+                // Datei neuer oder anders groß als beim letzten Android-Scan: Datenbank ist veraltet
+                mtime / 1000 > m.second + 1 || size != m.third ->
+                    readTags(ctx, s.uri, mtime, size).also { cache[s.id] = it; cacheChanged = true }
+                else -> null
+            }
+            out += if (tags == null) s else s.copy(
+                title = tags.title ?: s.title,
+                artist = tags.artist ?: s.artist,
+                album = tags.album ?: s.album,
+                track = if (tags.track > 0) tags.track else s.track
+            )
+        }
+        if (cacheChanged) writeTagCache(ctx, cache)
+        out
+    }
 
 fun loadLibrary(ctx: Context): List<Song> {
     val list = mutableListOf<Song>()
