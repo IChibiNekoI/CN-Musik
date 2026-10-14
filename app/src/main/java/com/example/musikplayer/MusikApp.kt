@@ -178,20 +178,26 @@ fun MusikApp(openPlayerSignal: Int = 0) {
     val current = allSongs.find { it.id.toString() == currentId }
 
     CoverTheme(current, isSystemInDarkTheme()) {
-        Scaffold(
-            bottomBar = {
-                if (current != null && controller != null) {
-                    MiniPlayer(current, isPlaying, controller) { o -> origin = o; showNow = true }
-                }
-            }
-        ) { pad ->
+        val miniVisible = current != null && controller != null
+        Box(Modifier.fillMaxSize()) {
+        Scaffold { pad ->
+            val layoutDir = androidx.compose.ui.platform.LocalLayoutDirection.current
+            // Nur oben Abstand lassen: unten laufen die Listen hinter Miniplayer und Navigationsleiste durch
+            val listPad = PaddingValues(
+                start = pad.calculateStartPadding(layoutDir),
+                end = pad.calculateEndPadding(layoutDir),
+                top = pad.calculateTopPadding()
+            )
+            // Miniplayer (ca. 80 dp) + Außenabstand 12 dp + etwas Luft + Navigationsleiste
+            val bottomSpace = pad.calculateBottomPadding() + if (miniVisible) 100.dp else 0.dp
             if (!granted) {
                 Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.Center) {
                     Text("Bitte erlaube den Zugriff auf deine Musik.")
                 }
             } else {
                 LibraryScreen(
-                    pad = pad,
+                    pad = listPad,
+                    bottomSpace = bottomSpace,
                     songs = songs,
                     sort = sort,
                     currentId = currentId,
@@ -214,6 +220,12 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                     onPlaylistRequestHandled = { playlistRequest = null }
                 )
             }
+        }
+        if (current != null && controller != null) {
+            Box(Modifier.align(Alignment.BottomCenter)) {
+                MiniPlayer(current, isPlaying, controller) { o -> origin = o; showNow = true }
+            }
+        }
         }
 
         if (showNow && current != null && controller != null) {
