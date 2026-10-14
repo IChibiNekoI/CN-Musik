@@ -32,6 +32,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import android.widget.Toast
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -101,6 +102,15 @@ fun MusikApp(openPlayerSignal: Int = 0) {
     }
 
     val controller = rememberController()
+    val controllerNow by rememberUpdatedState(controller)
+    // Beim Verlassen der App Titel und Position merken
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) controllerNow?.let { saveQueueState(ctx, it) }
+        }
+        lifecycleOwner?.lifecycle?.addObserver(observer)
+        onDispose { lifecycleOwner?.lifecycle?.removeObserver(observer) }
+    }
     var isPlaying by remember { mutableStateOf(false) }
     var currentId by remember { mutableStateOf<String?>(null) }
     var shuffle by remember { mutableStateOf(false) }
@@ -123,15 +133,47 @@ fun MusikApp(openPlayerSignal: Int = 0) {
         if (c.repeatMode != savedRepeat) c.repeatMode = savedRepeat
         repeat = savedRepeat
         val l = object : Player.Listener {
-            override fun onIsPlayingChanged(playing: Boolean) { isPlaying = playing }
+            override fun onIsPlayingChanged(playing: Boolean) {
+                isPlaying = playing
+                if (!playing) saveQueueState(ctx, c)
+            }
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                 currentId = item?.mediaId
+                saveQueueState(ctx, c)
             }
             override fun onShuffleModeEnabledChanged(enabled: Boolean) { shuffle = enabled }
             override fun onRepeatModeChanged(mode: Int) { repeat = mode; saveRepeat(ctx, mode) }
         }
         c.addListener(l)
         onDispose { c.removeListener(l) }
+    }
+    // Beim Abspielen alle 15 Sekunden die Position sichern (falls die App im Hintergrund beendet wird)
+    LaunchedEffect(controller, isPlaying) {
+        val c = controller ?: return@LaunchedEffect
+        if (!isPlaying) return@LaunchedEffect
+        while (true) {
+            delay(15_000)
+            saveQueueState(ctx, c)
+        }
+    }
+    // Zuletzt gespielte Warteschlange wiederherstellen: pausiert, nur Play drücken
+    var restored by remember { mutableStateOf(false) }
+    LaunchedEffect(controller, allSongs) {
+        val c = controller ?: return@LaunchedEffect
+        if (restored || allSongs.isEmpty()) return@LaunchedEffect
+        restored = true
+        // läuft noch etwas im Hintergrund-Dienst, nichts überschreiben
+        if (c.mediaItemCount > 0) return@LaunchedEffect
+        val saved = readQueueState(ctx) ?: return@LaunchedEffect
+        val byId = allSongs.associateBy { it.id }
+        val savedCurrent = saved.ids.getOrNull(saved.index)
+        val list = saved.ids.mapNotNull { byId[it] }
+        if (list.isEmpty()) return@LaunchedEffect
+        val idx = list.indexOfFirst { it.id == savedCurrent }.coerceAtLeast(0)
+        val pos = if (list[idx].id == savedCurrent) saved.positionMs else 0L
+        c.setMediaItems(toMediaItems(list), idx, pos)
+        c.prepare()
+        currentId = list[idx].id.toString()
     }
     val current = allSongs.find { it.id.toString() == currentId }
 
