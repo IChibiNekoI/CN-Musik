@@ -206,3 +206,29 @@ fun RepeatButton(
         }
     }
 }
+
+/* ---------- Schließen-Pfeil (Player nach unten wegschieben) ---------- */
+
+@Composable
+fun CloseSheetButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    iconSize: Dp = 28.dp,
+    tint: Color = LocalContentColor.current
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = modifier.semantics { contentDescription = "Schließen" }
+    ) {
+        Canvas(Modifier.size(iconSize)) {
+            val s = this.size.minDimension
+            val style = outline(s * 0.095f, s * 0.06f)
+            val p = Path().apply {
+                moveTo(s * 0.16f, s * 0.36f)
+                lineTo(s * 0.50f, s * 0.68f)
+                lineTo(s * 0.84f, s * 0.36f)
+            }
+            drawPath(p, tint, style = style)
+        }
+    }
+}
