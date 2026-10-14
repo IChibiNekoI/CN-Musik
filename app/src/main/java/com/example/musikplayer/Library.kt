@@ -81,6 +81,30 @@ fun saveRepeat(ctx: Context, mode: Int) {
     prefs(ctx).edit().putInt("repeat", mode).apply()
 }
 
+/** Zuletzt gespielte Warteschlange mit aktuellem Titel und Position. */
+class SavedQueue(val ids: List<Long>, val index: Int, val positionMs: Long)
+
+fun saveQueueState(ctx: Context, player: androidx.media3.common.Player) {
+    val n = player.mediaItemCount
+    if (n == 0) return
+    val ids = ArrayList<Long>(n)
+    for (i in 0 until n) player.getMediaItemAt(i).mediaId.toLongOrNull()?.let { ids += it }
+    if (ids.isEmpty()) return
+    prefs(ctx).edit()
+        .putString("q_ids", ids.joinToString(","))
+        .putInt("q_index", player.currentMediaItemIndex)
+        .putLong("q_pos", player.currentPosition.coerceAtLeast(0L))
+        .apply()
+}
+
+fun readQueueState(ctx: Context): SavedQueue? {
+    val p = prefs(ctx)
+    val raw = p.getString("q_ids", null) ?: return null
+    val ids = raw.split(',').mapNotNull { it.toLongOrNull() }
+    if (ids.isEmpty()) return null
+    return SavedQueue(ids, p.getInt("q_index", 0), p.getLong("q_pos", 0L))
+}
+
 fun readFolderSet(ctx: Context): Set<String>? =
     prefs(ctx).getStringSet("folders", null)?.toSet()
 
