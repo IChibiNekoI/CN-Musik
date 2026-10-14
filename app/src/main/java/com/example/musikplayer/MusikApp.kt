@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Title
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -63,6 +64,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
     var selected by remember { mutableStateOf(readFolderSet(ctx)) }
     var sort by remember { mutableStateOf(readSort(ctx)) }
     var playlists by remember { mutableStateOf(readPlaylists(ctx)) }
+    var headerLogo by remember { mutableStateOf(readHeaderLogo(ctx)) }
     var albumStyle by remember { mutableStateOf(readAlbumStyle(ctx)) }
     var playlistStyle by remember { mutableStateOf(readPlaylistStyle(ctx)) }
     var showSettings by remember { mutableStateOf(false) }
@@ -154,6 +156,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                     playlists = playlists,
                     albumStyle = albumStyle,
                     playlistStyle = playlistStyle,
+                    headerLogo = headerLogo,
                     onPlaylistsChange = { playlists = it; savePlaylists(ctx, it) },
                     onPlay = { list, index ->
                         controller?.let { c ->
@@ -196,6 +199,8 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                 onAlbumStyle = { albumStyle = it; saveAlbumStyle(ctx, it) },
                 playlistStyle = playlistStyle,
                 onPlaylistStyle = { playlistStyle = it; savePlaylistStyle(ctx, it) },
+                headerLogo = headerLogo,
+                onHeaderLogo = { headerLogo = it; saveHeaderLogo(ctx, it) },
                 rescanning = rescanning,
                 onRescan = {
                     if (!rescanning) scope.launch {
@@ -261,6 +266,8 @@ fun AppSettingsSheet(
     onAlbumStyle: (ViewStyle) -> Unit,
     playlistStyle: ViewStyle,
     onPlaylistStyle: (ViewStyle) -> Unit,
+    headerLogo: Boolean,
+    onHeaderLogo: (Boolean) -> Unit,
     rescanning: Boolean,
     onRescan: () -> Unit,
     onDismiss: () -> Unit
@@ -310,6 +317,16 @@ fun AppSettingsSheet(
                     },
                     colors = clear,
                     modifier = Modifier.clickable { page = "folders" }
+                )
+                ListItem(
+                    headlineContent = { Text("Titel der Startseite") },
+                    supportingContent = { Text(if (headerLogo) "ChibiNeko-Logo" else "Standard (Text „Musik“)") },
+                    leadingContent = { Icon(Icons.Filled.Title, contentDescription = null) },
+                    trailingContent = {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                    },
+                    colors = clear,
+                    modifier = Modifier.clickable { page = "headerView" }
                 )
                 ListItem(
                     headlineContent = { Text("Alben-Ansicht") },
@@ -363,6 +380,12 @@ fun AppSettingsSheet(
                 SortOption("Name", "A bis Z", sort == SortMode.NAME) {
                     onSort(SortMode.NAME)
                 }
+                Spacer(Modifier.height(32.dp))
+            }
+            "headerView" -> {
+                SheetHeader("Titel der Startseite") { page = "main" }
+                SortOption("Standard", "Text „Musik“", !headerLogo) { onHeaderLogo(false) }
+                SortOption("ChibiNeko-Logo", "Bild statt Text", headerLogo) { onHeaderLogo(true) }
                 Spacer(Modifier.height(32.dp))
             }
             "albumView" -> {
