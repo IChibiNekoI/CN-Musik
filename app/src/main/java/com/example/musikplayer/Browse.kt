@@ -18,7 +18,10 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.Dp
@@ -202,6 +205,7 @@ fun LibraryScreen(
     playlists: List<Playlist>,
     albumStyle: ViewStyle = ViewStyle(),
     playlistStyle: ViewStyle = ViewStyle(),
+    headerLogo: Boolean = false,
     onPlaylistsChange: (List<Playlist>) -> Unit,
     onPlay: (List<Song>, Int) -> Unit,
     onSettings: () -> Unit,
@@ -322,11 +326,23 @@ fun LibraryScreen(
                     )
                 )
             } else {
-                Text(
-                    "Musik",
-                    style = MaterialTheme.typography.headlineLarge,
-                    modifier = Modifier.weight(1f)
-                )
+                if (headerLogo) {
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                        Image(
+                            painter = painterResource(R.drawable.title_logo),
+                            contentDescription = "ChibiNeko",
+                            // Höhe des Logos hier ändern; die Breite folgt dem Seitenverhältnis (362:68)
+                            modifier = Modifier.height(36.dp).aspectRatio(362f / 68f),
+                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onBackground)
+                        )
+                    }
+                } else {
+                    Text(
+                        "Musik",
+                        style = MaterialTheme.typography.headlineLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
                 if (tab == 2) {
                     Box {
                         IconButton(onClick = { plusMenu = true }) {
