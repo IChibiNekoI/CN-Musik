@@ -213,28 +213,22 @@ fun RepeatButton(
 fun CloseSheetButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    buttonSize: Dp = 42.dp,   // gleiche Größe wie MoreButton
-    circleColor: Color = MaterialTheme.colorScheme.primary,
-    iconColor: Color = MaterialTheme.colorScheme.onSurface
+    iconSize: Dp = 40.dp,   // größer = höherer/breiterer Pfeil
+    tint: Color = LocalContentColor.current
 ) {
-    Box(
-        modifier = modifier
-            .size(buttonSize)
-            .clip(CircleShape)
-            .background(circleColor.copy(alpha = 0.45f))
-            .clickable(role = Role.Button, onClick = onClick)
-            .semantics { contentDescription = "Schließen" },
-        contentAlignment = Alignment.Center
+    IconButton(
+        onClick = onClick,
+        modifier = modifier.semantics { contentDescription = "Schließen" }
     ) {
-        Canvas(Modifier.size(buttonSize * 0.5f)) {
+        Canvas(Modifier.size(iconSize)) {
             val s = this.size.minDimension
-            val style = outline(s * 0.12f, s * 0.06f)
+            val style = outline(s * 0.075f, s * 0.06f)
             val p = Path().apply {
-                moveTo(s * 0.16f, s * 0.36f)
-                lineTo(s * 0.50f, s * 0.68f)
-                lineTo(s * 0.84f, s * 0.36f)
+                moveTo(s * 0.12f, s * 0.30f)
+                lineTo(s * 0.50f, s * 0.72f)
+                lineTo(s * 0.88f, s * 0.30f)
             }
-            drawPath(p, iconColor, style = style)
+            drawPath(p, tint, style = style)
         }
     }
 }
