@@ -40,3 +40,9 @@ jobs:
         with:
           name: ${{ steps.apk.outputs.name }}
           path: app/build/outputs/apk/debug/${{ steps.apk.outputs.name }}.apk
+      - name: Release mit APK veroeffentlichen (nur bei Tags wie v1.0.0)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/debug/${{ steps.apk.outputs.name }}.apk
+          generate_release_notes: true
