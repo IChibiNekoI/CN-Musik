@@ -1136,9 +1136,7 @@ private fun NowPlayingSheetContent(
                             overflow = TextOverflow.Ellipsis
                         )
                         Box {
-                            IconButton(onClick = { menuOpen = true }) {
-                                Icon(Icons.Filled.MoreVert, contentDescription = "Mehr")
-                            }
+                            MoreButton(onClick = { menuOpen = true }, modifier = Modifier.padding(end = 4.dp))
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(
                                     text = { Text("Zum Album gehen") },
