@@ -85,11 +85,14 @@ fun MusikApp(openPlayerSignal: Int = 0) {
     }
     LaunchedEffect(granted, refreshTick) {
         if (!granted) return@LaunchedEffect
-        // erst sofort anzeigen, dann geänderte Dateien neu einlesen lassen und erneut laden
-        allSongs = withContext(Dispatchers.IO) { loadLibrary(ctx) }
+        // erst sofort anzeigen, dann geänderte Dateien neu einlesen lassen und Tags aus den Dateien übernehmen
+        var base = withContext(Dispatchers.IO) { loadLibrary(ctx) }
+        allSongs = base
         if (rescanChanged(ctx, force = false) > 0) {
-            allSongs = withContext(Dispatchers.IO) { loadLibrary(ctx) }
+            base = withContext(Dispatchers.IO) { loadLibrary(ctx) }
+            allSongs = base
         }
+        allSongs = refreshTagsFromFiles(ctx, base, force = false)
     }
     val songs = remember(allSongs, selected) {
         selected?.let { sel -> allSongs.filter { it.folder in sel } } ?: allSongs
@@ -198,7 +201,8 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                     if (!rescanning) scope.launch {
                         rescanning = true
                         val n = rescanChanged(ctx, force = true)
-                        allSongs = withContext(Dispatchers.IO) { loadLibrary(ctx) }
+                        val base = withContext(Dispatchers.IO) { loadLibrary(ctx) }
+                        allSongs = refreshTagsFromFiles(ctx, base, force = true)
                         rescanning = false
                         Toast.makeText(ctx, "Bibliothek aktualisiert ($n Dateien geprüft)", Toast.LENGTH_SHORT).show()
                     }
