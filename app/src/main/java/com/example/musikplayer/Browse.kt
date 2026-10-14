@@ -212,7 +212,8 @@ fun LibraryScreen(
     albumRequest: String? = null,
     onAlbumRequestHandled: () -> Unit = {},
     playlistRequest: Song? = null,
-    onPlaylistRequestHandled: () -> Unit = {}
+    onPlaylistRequestHandled: () -> Unit = {},
+    bottomSpace: Dp = 0.dp   // Platz unten, damit die Listen unter dem Miniplayer durchscrollen und das Ende trotzdem erreichbar bleibt
 ) {
     var tab by remember { mutableIntStateOf(0) }
     var openAlbum by remember { mutableStateOf<String?>(null) }
@@ -391,7 +392,7 @@ fun LibraryScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            LazyColumn(Modifier.weight(1f)) {
+            LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
                 itemsIndexed(results, key = { _, s -> s.id }) { i, s ->
                     SongRow(
                         s, s.id.toString() == currentId,
@@ -422,7 +423,7 @@ fun LibraryScreen(
                         modifier = Modifier.padding(16.dp)
                     )
                 }
-                LazyColumn(Modifier.weight(1f)) {
+                LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
                     itemsIndexed(sorted, key = { _, s -> s.id }) { i, s ->
                         SongRow(s, s.id.toString() == currentId, { onPlay(sorted, i) }, { addSong = s })
                     }
@@ -434,7 +435,7 @@ fun LibraryScreen(
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(albumStyle.cols),
                         modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp + bottomSpace),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
@@ -448,7 +449,7 @@ fun LibraryScreen(
                         }
                     }
                 } else if (name == null) {
-                    LazyColumn(Modifier.weight(1f)) {
+                    LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
                         items(albums, key = { it.first }) { (albumName, list) ->
                             ListItem(
                                 headlineContent = {
@@ -472,7 +473,7 @@ fun LibraryScreen(
                             .sortedWith(compareBy<Song>({ it.track }, { it.title.lowercase() }))
                     }
                     DetailHeader(name) { openAlbum = null }
-                    LazyColumn(Modifier.weight(1f)) {
+                    LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
                         itemsIndexed(ordered, key = { _, s -> s.id }) { i, s ->
                             SongRow(s, s.id.toString() == currentId, { onPlay(ordered, i) }, { addSong = s })
                         }
@@ -492,7 +493,7 @@ fun LibraryScreen(
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(playlistStyle.cols),
                         modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp + bottomSpace),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
@@ -510,7 +511,7 @@ fun LibraryScreen(
                         }
                     }
                 } else if (pl == null) {
-                    LazyColumn(Modifier.weight(1f)) {
+                    LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
                         items(playlists, key = { it.id }) { p ->
                             ListItem(
                                 headlineContent = {
@@ -542,7 +543,7 @@ fun LibraryScreen(
                             modifier = Modifier.padding(16.dp)
                         )
                     }
-                    LazyColumn(Modifier.weight(1f)) {
+                    LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
                         itemsIndexed(list, key = { _, s -> s.id }) { i, s ->
                             SongRow(
                                 s, s.id.toString() == currentId,
