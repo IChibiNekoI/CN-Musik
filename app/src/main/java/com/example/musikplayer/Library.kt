@@ -55,6 +55,13 @@ private fun decodeStyle(s: String?): ViewStyle = when (s) {
     else -> ViewStyle()
 }
 
+/** true = ChibiNeko-Logo statt des Textes "Musik" in der Kopfzeile. */
+fun readHeaderLogo(ctx: Context): Boolean = prefs(ctx).getBoolean("header_logo", false)
+
+fun saveHeaderLogo(ctx: Context, v: Boolean) {
+    prefs(ctx).edit().putBoolean("header_logo", v).apply()
+}
+
 fun readAlbumStyle(ctx: Context): ViewStyle = decodeStyle(prefs(ctx).getString("album_style", null))
 
 fun saveAlbumStyle(ctx: Context, v: ViewStyle) {
