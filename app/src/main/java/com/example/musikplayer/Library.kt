@@ -4,7 +4,6 @@ import android.content.ContentUris
 import android.content.Context
 import java.net.HttpURLConnection
 import java.net.URL
-import org.json.JSONObject
 import android.net.Uri
 import java.net.URLDecoder
 import java.nio.ByteBuffer
