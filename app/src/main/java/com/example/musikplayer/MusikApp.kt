@@ -118,6 +118,11 @@ fun MusikApp(openPlayerSignal: Int = 0) {
     var showNow by remember { mutableStateOf(false) }
     var origin by remember { mutableStateOf<MiniOrigin?>(null) }
     var showInfo by remember { mutableStateOf(readShowAudioInfo(ctx)) }
+    // beim Start einmal bei GitHub nachfragen, ob ein neueres Release existiert
+    var update by remember { mutableStateOf<UpdateInfo?>(null) }
+    LaunchedEffect(Unit) {
+        update = withContext(Dispatchers.IO) { checkForUpdate(ctx) }
+    }
     LaunchedEffect(openPlayerSignal) {
         if (openPlayerSignal > 0) showNow = true
     }
@@ -205,6 +210,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                     albumStyle = albumStyle,
                     playlistStyle = playlistStyle,
                     headerLogo = headerLogo,
+                    update = update,
                     onPlaylistsChange = { playlists = it; savePlaylists(ctx, it) },
                     onPlay = { list, index ->
                         controller?.let { c ->
