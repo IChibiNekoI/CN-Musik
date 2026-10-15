@@ -31,6 +31,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MusicNote
@@ -165,6 +167,7 @@ fun SongRow(
     onRemove: (() -> Unit)? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var showInfo by remember { mutableStateOf(false) }
     ListItem(
         headlineContent = { Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = { Text(song.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -176,16 +179,26 @@ fun SongRow(
                 }
                 DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     DropdownMenuItem(
+                        text = { Text("Titel-Infos") },
+                        leadingIcon = { Icon(Icons.Filled.Info, contentDescription = null) },
+                        onClick = { expanded = false; showInfo = true }
+                    )
+                    DropdownMenuItem(
                         text = { Text("Zur Playlist hinzufügen") },
+                        leadingIcon = {
+                            Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null)
+                        },
                         onClick = { expanded = false; onAddToPlaylist() }
                     )
                     if (onRemove != null) {
                         DropdownMenuItem(
                             text = { Text("Aus Playlist entfernen") },
+                            leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
                             onClick = { expanded = false; onRemove() }
                         )
                     }
                 }
+                if (showInfo) SongInfoDialog(song) { showInfo = false }
             }
         },
         colors = ListItemDefaults.colors(
