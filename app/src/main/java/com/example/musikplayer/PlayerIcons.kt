@@ -261,3 +261,46 @@ fun MoreButton(
         }
     }
 }
+
+/* ---------- Update-Symbol: abgerundetes Quadrat mit Pfeil nach oben und Ablage ---------- */
+
+@Composable
+fun UpdateButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    iconSize: Dp = 26.dp,
+    tint: Color = MaterialTheme.colorScheme.primary
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = modifier.semantics { contentDescription = "Update verfügbar" }
+    ) {
+        Canvas(Modifier.size(iconSize)) {
+            val s = this.size.minDimension
+            val w = s * 0.08f
+            val line = outline(w, s * 0.04f)
+            // Rahmen mit großen, runden Ecken
+            drawRoundRect(
+                color = tint,
+                topLeft = Offset(s * 0.08f, s * 0.08f),
+                size = Size(s * 0.84f, s * 0.84f),
+                cornerRadius = CornerRadius(s * 0.26f),
+                style = line
+            )
+            // Pfeil nach oben
+            drawLine(tint, Offset(s * 0.50f, s * 0.57f), Offset(s * 0.50f, s * 0.29f), strokeWidth = w, cap = StrokeCap.Round)
+            val head = Path().apply {
+                moveTo(s * 0.38f, s * 0.41f)
+                lineTo(s * 0.50f, s * 0.29f)
+                lineTo(s * 0.62f, s * 0.41f)
+            }
+            drawPath(head, tint, style = line)
+            // Ablage unter dem Pfeil
+            val tray = Path().apply {
+                moveTo(s * 0.27f, s * 0.62f)
+                quadraticBezierTo(s * 0.50f, s * 0.82f, s * 0.73f, s * 0.62f)
+            }
+            drawPath(tray, tint, style = line)
+        }
+    }
+}
