@@ -95,9 +95,20 @@ fun saveRepeat(ctx: Context, mode: Int) {
 /** Zuletzt gespielte Warteschlange mit aktuellem Titel und Position. */
 class SavedQueue(val ids: List<Long>, val index: Int, val positionMs: Long)
 
-fun saveQueueState(ctx: Context, player: androidx.media3.common.Player) {
+/**
+ * full = false speichert nur Titel-Position und Zeit (billig). Die ganze Warteschlange wird nur
+ * geschrieben, wenn sie sich geändert hat, denn bei Tausenden Titeln ist das spürbar aufwendig.
+ */
+fun saveQueueState(ctx: Context, player: androidx.media3.common.Player, full: Boolean = true) {
     val n = player.mediaItemCount
     if (n == 0) return
+    if (!full) {
+        prefs(ctx).edit()
+            .putInt("q_index", player.currentMediaItemIndex)
+            .putLong("q_pos", player.currentPosition.coerceAtLeast(0L))
+            .apply()
+        return
+    }
     val ids = ArrayList<Long>(n)
     for (i in 0 until n) player.getMediaItemAt(i).mediaId.toLongOrNull()?.let { ids += it }
     if (ids.isEmpty()) return
@@ -163,6 +174,18 @@ fun toMediaItems(songs: List<Song>): List<MediaItem> = songs.map {
         .build()
 }
 
+/** Führt Arbeit mit niedriger Thread-Priorität aus, damit die Oberfläche (besonders auf schwachen Geräten) nicht ruckelt. */
+private inline fun <T> lowPriority(block: () -> T): T {
+    val tid = android.os.Process.myTid()
+    val old = android.os.Process.getThreadPriority(tid)
+    android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+    try {
+        return block()
+    } finally {
+        android.os.Process.setThreadPriority(old)
+    }
+}
+
 /**
  * Lässt Android die Tags geänderter Dateien neu einlesen (MediaStore speichert sie sonst nur beim ersten Scan).
  * force = true prüft alle Dateien, sonst nur Dateien, die seit dem letzten Durchlauf geändert wurden.
@@ -173,14 +196,16 @@ suspend fun rescanChanged(ctx: Context, force: Boolean): Int = withContext(Dispa
     val last = if (force) 0L else p.getLong("last_scan", 0L)
     val started = System.currentTimeMillis()
     val paths = mutableListOf<String>()
-    ctx.contentResolver.query(
-        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-        arrayOf(MediaStore.Audio.Media.DATA),
-        "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, null
-    )?.use { c ->
-        while (c.moveToNext()) {
-            val path = c.getString(0) ?: continue
-            if (force || File(path).lastModified() > last) paths += path
+    lowPriority {
+        ctx.contentResolver.query(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+            arrayOf(MediaStore.Audio.Media.DATA),
+            "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, null
+        )?.use { c ->
+            while (c.moveToNext()) {
+                val path = c.getString(0) ?: continue
+                if (force || File(path).lastModified() > last) paths += path
+            }
         }
     }
     if (paths.isNotEmpty()) {
@@ -192,7 +217,7 @@ suspend fun rescanChanged(ctx: Context, force: Boolean): Int = withContext(Dispa
                 }
             }
         }
-        clearCoverCaches()
+        clearCoverCaches(if (force) ctx else null)
     }
     p.edit().putLong("last_scan", started).apply()
     paths.size
@@ -268,7 +293,7 @@ private fun readTags(ctx: Context, uri: Uri, mtime: Long, size: Long): TagInfo {
  * force = true liest alle Dateien direkt. Ergebnisse werden zwischengespeichert.
  */
 suspend fun refreshTagsFromFiles(ctx: Context, songs: List<Song>, force: Boolean): List<Song> =
-    withContext(Dispatchers.IO) {
+    withContext(Dispatchers.IO) { lowPriority {
         // Pfad und Zeitpunkt des letzten Android-Scans je Song
         val meta = HashMap<Long, Triple<String, Long, Long>>()
         ctx.contentResolver.query(
@@ -313,7 +338,7 @@ suspend fun refreshTagsFromFiles(ctx: Context, songs: List<Song>, force: Boolean
         }
         if (cacheChanged) writeTagCache(ctx, cache)
         out
-    }
+    } }
 
 fun loadLibrary(ctx: Context): List<Song> {
     val list = mutableListOf<Song>()
