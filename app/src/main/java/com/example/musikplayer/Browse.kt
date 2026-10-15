@@ -1,6 +1,9 @@
 package com.example.musikplayer
 
 import android.widget.Toast
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -227,6 +230,7 @@ fun LibraryScreen(
     albumStyle: ViewStyle = ViewStyle(),
     playlistStyle: ViewStyle = ViewStyle(),
     headerLogo: Boolean = false,
+    update: UpdateInfo? = null,
     onPlaylistsChange: (List<Playlist>) -> Unit,
     onPlay: (List<Song>, Int) -> Unit,
     onSettings: () -> Unit,
@@ -246,6 +250,7 @@ fun LibraryScreen(
     var searching by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var plusMenu by remember { mutableStateOf(false) }
+    var showUpdate by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     val searchFocus = remember { FocusRequester() }
     val ctx = LocalContext.current
@@ -389,6 +394,15 @@ fun LibraryScreen(
                                 }
                             )
                         }
+                    }
+                }
+                if (update != null && tab != 2) {
+                    IconButton(onClick = { showUpdate = true }) {
+                        Icon(
+                            Icons.Filled.SystemUpdate,
+                            contentDescription = "Update verfügbar",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
                 IconButton(onClick = { searching = true }) {
@@ -584,6 +598,25 @@ fun LibraryScreen(
             }
         }
         }
+    }
+
+    if (showUpdate && update != null) {
+        AlertDialog(
+            onDismissRequest = { showUpdate = false },
+            title = { Text("Update verfügbar") },
+            text = { Text("Version ${update.version} ist auf GitHub veröffentlicht.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showUpdate = false
+                    try {
+                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.url)))
+                    } catch (e: Exception) {
+                        Toast.makeText(ctx, "Link konnte nicht geöffnet werden", Toast.LENGTH_LONG).show()
+                    }
+                }) { Text("Herunterladen") }
+            },
+            dismissButton = { TextButton(onClick = { showUpdate = false }) { Text("Später") } }
+        )
     }
 
     addSong?.let { s ->
