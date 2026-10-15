@@ -142,7 +142,8 @@ data class Song(
     val album: String = "",
     val dateAdded: Long = 0L,
     val track: Int = 0,
-    val fileName: String = ""
+    val fileName: String = "",
+    val dateModified: Long = 0L   // Sekunden, zuletzt geändert
 )
 
 /** Dauer der Öffnen-Animation des Players in Millisekunden (höher = mehr Zwischenframes, langsamer) */
