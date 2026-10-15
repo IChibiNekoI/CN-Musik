@@ -28,7 +28,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 
-enum class SortMode { DATE, NAME }
+enum class SortMode { DATE, MODIFIED, NAME }
 
 data class Playlist(val id: String, val name: String, val songIds: List<Long>)
 
@@ -36,10 +36,19 @@ private fun prefs(ctx: Context) =
     ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
 fun readSort(ctx: Context): SortMode =
-    if (prefs(ctx).getString("sort", "date") == "name") SortMode.NAME else SortMode.DATE
+    when (prefs(ctx).getString("sort", "date")) {
+        "name" -> SortMode.NAME
+        "modified" -> SortMode.MODIFIED
+        else -> SortMode.DATE
+    }
 
 fun saveSort(ctx: Context, mode: SortMode) {
-    prefs(ctx).edit().putString("sort", if (mode == SortMode.NAME) "name" else "date").apply()
+    val key = when (mode) {
+        SortMode.NAME -> "name"
+        SortMode.MODIFIED -> "modified"
+        SortMode.DATE -> "date"
+    }
+    prefs(ctx).edit().putString("sort", key).apply()
 }
 
 /** Darstellung einer Übersicht: Liste oder Kacheln (2 oder 3 nebeneinander). */
@@ -138,6 +147,7 @@ fun savePlaylists(ctx: Context, list: List<Playlist>) {
 
 fun sortSongs(list: List<Song>, mode: SortMode): List<Song> = when (mode) {
     SortMode.DATE -> list.sortedByDescending { it.dateAdded }
+    SortMode.MODIFIED -> list.sortedByDescending { it.dateModified }
     SortMode.NAME -> list.sortedBy { it.title.lowercase() }
 }
 
@@ -291,7 +301,8 @@ suspend fun refreshTagsFromFiles(ctx: Context, songs: List<Song>, force: Boolean
                     readTags(ctx, s.uri, mtime, size).also { cache[s.id] = it; cacheChanged = true }
                 else -> null
             }
-            out += if (tags == null) s else s.copy(
+            val base = if (mtime > 0L) s.copy(dateModified = mtime / 1000) else s
+            out += if (tags == null) base else base.copy(
                 title = tags.title ?: s.title,
                 artist = tags.artist ?: s.artist,
                 album = tags.album ?: s.album,
@@ -313,6 +324,7 @@ fun loadLibrary(ctx: Context): List<Song> {
         MediaStore.Audio.Media.ARTIST,
         MediaStore.Audio.Media.ALBUM,
         MediaStore.Audio.Media.DATE_ADDED,
+        MediaStore.Audio.Media.DATE_MODIFIED,
         MediaStore.Audio.Media.TRACK,
         MediaStore.Audio.Media.DISPLAY_NAME,
         folderField
@@ -325,6 +337,7 @@ fun loadLibrary(ctx: Context): List<Song> {
         val artistCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
         val albumCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
         val dateCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
+        val modCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
         val trackCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
         val nameCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
         val folderCol = c.getColumnIndexOrThrow(folderField)
@@ -340,6 +353,7 @@ fun loadLibrary(ctx: Context): List<Song> {
                 folder = folder,
                 album = c.getString(albumCol) ?: "",
                 dateAdded = c.getLong(dateCol),
+                dateModified = c.getLong(modCol),
                 track = c.getInt(trackCol),
                 fileName = c.getString(nameCol) ?: ""
             )
