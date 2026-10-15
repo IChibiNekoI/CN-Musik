@@ -80,6 +80,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -1076,6 +1077,7 @@ private fun NowPlayingSheetContent(
     }
     var menuOpen by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
+    var showTags by remember { mutableStateOf(false) }
     val infoCtx = LocalContext.current
     val audioInfo by produceState<String?>(null, song.id, showAudioInfo) {
         value = if (!showAudioInfo) null
@@ -1205,6 +1207,11 @@ private fun NowPlayingSheetContent(
                                     onClick = { menuOpen = false; showInfo = true }
                                 )
                                 DropdownMenuItem(
+                                    text = { Text("Tags bearbeiten") },
+                                    leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                                    onClick = { menuOpen = false; showTags = true }
+                                )
+                                DropdownMenuItem(
                                     text = { Text("Zum Album gehen") },
                                     leadingIcon = { Icon(Icons.Filled.Album, contentDescription = null) },
                                     onClick = { menuOpen = false; onGoToAlbum() }
@@ -1218,6 +1225,7 @@ private fun NowPlayingSheetContent(
                                 )
                             }
                             if (showInfo) SongInfoDialog(song) { showInfo = false }
+                            if (showTags) TagEditDialog(song) { showTags = false }
                         }
                     }
                     Spacer(Modifier.weight(1.25f))   // Abstand oben: kleiner = Cover weiter oben
