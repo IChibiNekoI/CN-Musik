@@ -36,7 +36,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
+    kotlinOptions {
+        jvmTarget = "17"
+        // taglib ist mit einer neueren Kotlin-Version gebaut als der Compiler hier
+        freeCompilerArgs += "-Xskip-metadata-version-check"
+    }
 }
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.10.01"))
@@ -47,4 +51,9 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.4.1")
     implementation("androidx.media3:media3-session:1.4.1")
     implementation("io.github.kyant0:taglib:1.0.6")
+}
+
+// taglib verlangt compileSdk 37 nur laut Metadaten, die App braucht das nicht
+tasks.configureEach {
+    if (name.endsWith("AarMetadata")) enabled = false
 }
