@@ -6,6 +6,7 @@ import android.content.ContentUris
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -64,6 +65,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import java.io.File
 import androidx.compose.ui.text.style.TextAlign
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.WindowCompat
@@ -178,10 +182,88 @@ suspend fun prewarmPlayerCover(ctx: android.content.Context, song: Song, px: Int
     }
 }
 
-/** Leert die Cover-Zwischenspeicher, damit geänderte Cover nach einem Neu-Einlesen neu geladen werden. */
-fun clearCoverCaches() {
+/* ---------- Cover-Cache auf der Platte ----------
+ * Die Cover werden aus den Audiodateien herausgelesen, das ist aufwendig. Damit das nicht bei jedem
+ * App-Start neu passiert, werden verkleinerte Cover als JPEG im Cache-Ordner abgelegt. Schlüssel enthält
+ * die letzte Änderungszeit der Datei: wird die Datei (Tag oder Cover) geändert, entsteht automatisch ein neuer Eintrag. */
+
+/** Nur kleine Cover (Listen, Kacheln, Miniplayer) auf die Platte; die großen Player-Cover nicht. */
+private const val DISK_COVER_MAX_PX = 600
+private const val DISK_COVER_MAX_BYTES = 120L * 1024 * 1024
+
+/** Höchstens 3 Cover gleichzeitig aus Dateien extrahieren, sonst überlastet ein Schwung Zeilen die CPU. */
+private val coverLoadGate = Semaphore(3)
+
+private fun coverDir(ctx: Context): File = File(ctx.cacheDir, "covers").apply { mkdirs() }
+
+private fun coverBase(song: Song, ver: Int) = "${song.id}_${song.dateModified}_$ver"
+
+private fun saveCoverFile(file: File, b: Bitmap) {
+    try {
+        val tmp = File(file.parentFile, file.name + ".tmp")
+        java.io.FileOutputStream(tmp).use { b.compress(Bitmap.CompressFormat.JPEG, 88, it) }
+        if (!tmp.renameTo(file)) tmp.delete()
+    } catch (e: Exception) {
+        // Cache ist nur eine Beschleunigung, Fehler sind unkritisch
+    }
+}
+
+/** Lädt ein Cover: erst von der Platte, sonst aus der Audiodatei (und legt es dann auf der Platte ab). */
+private suspend fun loadCoverBitmap(ctx: Context, song: Song, ver: Int, px: Int): Bitmap? =
+    withContext(Dispatchers.IO) {
+        val useDisk = px <= DISK_COVER_MAX_PX
+        val dir = coverDir(ctx)
+        val file = File(dir, "${coverBase(song, ver)}_$px.jpg")
+        val none = File(dir, "${coverBase(song, ver)}.none")   // Marker: Datei hat kein Cover
+        if (useDisk) {
+            if (none.exists()) return@withContext null
+            if (file.exists()) {
+                val b = BitmapFactory.decodeFile(file.path)
+                if (b != null) {
+                    file.setLastModified(System.currentTimeMillis())
+                    return@withContext b
+                }
+                file.delete()
+            }
+        }
+        if (Build.VERSION.SDK_INT < 29) return@withContext null
+        coverLoadGate.withPermit {
+            try {
+                val b = ctx.contentResolver.loadThumbnail(song.uri, Size(px, px), null)
+                if (useDisk) saveCoverFile(file, b)
+                b
+            } catch (e: java.io.IOException) {
+                // kein eingebettetes Cover: merken, damit nicht bei jedem Start erneut versucht wird
+                if (useDisk) {
+                    try { none.createNewFile() } catch (e2: Exception) { }
+                }
+                null
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+/** Räumt den Cover-Cache auf der Platte auf, wenn er zu groß wird (älteste Einträge zuerst). */
+fun trimCoverDiskCache(ctx: Context) {
+    val files = coverDir(ctx).listFiles() ?: return
+    var total = files.sumOf { it.length() }
+    if (total <= DISK_COVER_MAX_BYTES) return
+    for (f in files.sortedBy { it.lastModified() }) {
+        if (total <= DISK_COVER_MAX_BYTES * 8 / 10) break
+        total -= f.length()
+        f.delete()
+    }
+}
+
+/**
+ * Leert die Cover-Zwischenspeicher im Arbeitsspeicher, damit geänderte Cover nach einem Neu-Einlesen neu geladen werden.
+ * Mit ctx wird auch der Cache auf der Platte geleert (nur beim erzwungenen Neu-Einlesen).
+ */
+fun clearCoverCaches(ctx: Context? = null) {
     CoverCache.evictAll()
     SeedCache.evictAll()
+    if (ctx != null) coverDir(ctx).listFiles()?.forEach { it.delete() }
 }
 
 private fun readFolders(ctx: Context): Set<String>? =
@@ -276,15 +358,7 @@ fun Cover(song: Song, size: Dp, corner: Dp = 12.dp, fallbackSize: Dp? = null) {
         val key = "${song.id}_${ver}_$px"
         var b: Bitmap? = CoverCache.get(key)
         if (b == null) {
-            b = withContext<Bitmap?>(Dispatchers.IO) {
-                if (Build.VERSION.SDK_INT >= 29) {
-                    try {
-                        ctx.contentResolver.loadThumbnail(song.uri, Size(px, px), null)
-                    } catch (e: Exception) {
-                        null
-                    }
-                } else null
-            }
+            b = loadCoverBitmap(ctx, song, ver, px)
             if (b != null) CoverCache.put(key, b)
         }
         value = b
