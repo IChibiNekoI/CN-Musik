@@ -32,6 +32,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Close
@@ -168,6 +169,7 @@ fun SongRow(
 ) {
     var expanded by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
+    var showTags by remember { mutableStateOf(false) }
     ListItem(
         headlineContent = { Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = { Text(song.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -182,6 +184,11 @@ fun SongRow(
                         text = { Text("Titel-Infos") },
                         leadingIcon = { Icon(Icons.Filled.Info, contentDescription = null) },
                         onClick = { expanded = false; showInfo = true }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Tags bearbeiten") },
+                        leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                        onClick = { expanded = false; showTags = true }
                     )
                     DropdownMenuItem(
                         text = { Text("Zur Playlist hinzufügen") },
@@ -199,6 +206,7 @@ fun SongRow(
                     }
                 }
                 if (showInfo) SongInfoDialog(song) { showInfo = false }
+                if (showTags) TagEditDialog(song) { showTags = false }
             }
         },
         colors = ListItemDefaults.colors(
