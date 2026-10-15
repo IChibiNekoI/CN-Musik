@@ -1438,7 +1438,7 @@ private fun fmtDate(sec: Long): String =
         .format(java.util.Date(sec * 1000))
 
 @Composable
-private fun SongInfoDialog(song: Song, onDismiss: () -> Unit) {
+fun SongInfoDialog(song: Song, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
     val details by produceState<SongDetails?>(null, song.id) {
         value = withContext(Dispatchers.IO) { loadSongDetails(ctx, song) }
