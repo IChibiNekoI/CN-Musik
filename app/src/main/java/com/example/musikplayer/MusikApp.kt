@@ -348,7 +348,13 @@ fun AppSettingsSheet(
                 ListItem(
                     headlineContent = { Text("Sortierung") },
                     supportingContent = {
-                        Text(if (sort == SortMode.NAME) "Name (A–Z)" else "Datum hinzugefügt (neueste zuerst)")
+                        Text(
+                            when (sort) {
+                                SortMode.NAME -> "Name (A–Z)"
+                                SortMode.MODIFIED -> "Datum modifiziert (neueste zuerst)"
+                                SortMode.DATE -> "Datum hinzugefügt (neueste zuerst)"
+                            }
+                        )
                     },
                     leadingContent = { Icon(Icons.Filled.DateRange, contentDescription = null) },
                     trailingContent = {
@@ -430,6 +436,9 @@ fun AppSettingsSheet(
                 SheetHeader("Sortierung") { page = "main" }
                 SortOption("Datum hinzugefügt", "Neueste zuerst", sort == SortMode.DATE) {
                     onSort(SortMode.DATE)
+                }
+                SortOption("Datum modifiziert", "Zuletzt geändert zuerst", sort == SortMode.MODIFIED) {
+                    onSort(SortMode.MODIFIED)
                 }
                 SortOption("Name", "A bis Z", sort == SortMode.NAME) {
                     onSort(SortMode.NAME)
