@@ -3,7 +3,6 @@ package com.example.musikplayer
 import android.widget.Toast
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -397,13 +396,7 @@ fun LibraryScreen(
                     }
                 }
                 if (update != null && tab != 2) {
-                    IconButton(onClick = { showUpdate = true }) {
-                        Icon(
-                            Icons.Filled.SystemUpdate,
-                            contentDescription = "Update verfügbar",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                    UpdateButton(onClick = { showUpdate = true })
                 }
                 IconButton(onClick = { searching = true }) {
                     Icon(Icons.Filled.Search, contentDescription = "Suchen")
