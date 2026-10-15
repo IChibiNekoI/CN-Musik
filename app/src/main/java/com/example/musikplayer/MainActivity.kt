@@ -161,7 +161,7 @@ private object CoverCache : LruCache<String, Bitmap>(32 * 1024 * 1024) {
 /** Lädt das große Player-Cover schon vorab in den Cache, damit das Öffnen nicht auf das Laden warten muss */
 suspend fun prewarmPlayerCover(ctx: android.content.Context, song: Song, px: Int) {
     if (px <= 0) return
-    val key = "${song.id}_$px"
+    val key = "${song.id}_${TagEvents.coverVersions[song.id] ?: 0}_$px"
     if (CoverCache.get(key) != null) return
     val b = withContext(Dispatchers.IO) {
         if (Build.VERSION.SDK_INT >= 29) {
@@ -268,11 +268,12 @@ fun Cover(song: Song, size: Dp, corner: Dp = 12.dp, fallbackSize: Dp? = null) {
     val px = with(LocalDensity.current) { size.roundToPx() }
     val fallbackPx = fallbackSize?.let { with(LocalDensity.current) { it.roundToPx() } }
     // Sofort etwas anzeigen: erst das Bild in passender Größe, sonst die kleine Version aus dem Cache
-    val initial = remember(song.id, px, fallbackPx) {
-        CoverCache.get("${song.id}_$px") ?: fallbackPx?.let { CoverCache.get("${song.id}_$it") }
+    val ver = TagEvents.coverVersions[song.id] ?: 0   // ändert sich, wenn im Tag-Editor ein neues Cover gespeichert wurde
+    val initial = remember(song.id, px, fallbackPx, ver) {
+        CoverCache.get("${song.id}_${ver}_$px") ?: fallbackPx?.let { CoverCache.get("${song.id}_${ver}_$it") }
     }
-    val bmp by produceState<Bitmap?>(initial, song.id, px) {
-        val key = "${song.id}_$px"
+    val bmp by produceState<Bitmap?>(initial, song.id, px, ver) {
+        val key = "${song.id}_${ver}_$px"
         var b: Bitmap? = CoverCache.get(key)
         if (b == null) {
             b = withContext<Bitmap?>(Dispatchers.IO) {
@@ -818,7 +819,7 @@ fun PillProgress(
 /** Dominanter Farbton eines Covers (HSL). */
 private class CoverSeed(val h: Float, val s: Float, val neutral: Boolean)
 
-private object SeedCache : LruCache<Long, CoverSeed>(100)
+private object SeedCache : LruCache<String, CoverSeed>(100)
 
 private fun hsl(h: Float, s: Float, l: Float): Color =
     Color(ColorUtils.HSLToColor(floatArrayOf(h, s.coerceIn(0f, 1f), l.coerceIn(0f, 1f))))
@@ -922,9 +923,11 @@ private fun tonesFromSeed(seed: CoverSeed, dark: Boolean): Tones {
 @Composable
 fun CoverTheme(song: Song?, dark: Boolean, content: @Composable () -> Unit) {
     val ctx = LocalContext.current
-    val seed by produceState<CoverSeed?>(null, song?.id) {
+    val coverVer = song?.let { TagEvents.coverVersions[it.id] } ?: 0
+    val seed by produceState<CoverSeed?>(null, song?.id, coverVer) {
         val sg = song
-        value = if (sg == null) null else SeedCache.get(sg.id) ?: withContext(Dispatchers.IO) {
+        val seedKey = "${sg?.id}_$coverVer"
+        value = if (sg == null) null else SeedCache.get(seedKey) ?: withContext(Dispatchers.IO) {
             if (Build.VERSION.SDK_INT >= 29) {
                 try {
                     seedFromBitmap(ctx.contentResolver.loadThumbnail(sg.uri, Size(96, 96), null))
@@ -932,7 +935,7 @@ fun CoverTheme(song: Song?, dark: Boolean, content: @Composable () -> Unit) {
                     null
                 }
             } else null
-        }?.also { SeedCache.put(sg.id, it) }
+        }?.also { SeedCache.put(seedKey, it) }
     }
 
     val base = MaterialTheme.colorScheme
