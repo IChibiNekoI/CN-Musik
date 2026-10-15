@@ -145,7 +145,7 @@ data class Song(
 )
 
 /** Dauer der Öffnen-Animation des Players in Millisekunden (höher = mehr Zwischenframes, langsamer) */
-private const val OPEN_ANIM_MS = 500
+private const val OPEN_ANIM_MS = 300
 
 /** Großes Player-Cover vorab laden. Bei Problemen mit der Animation zum Vergleich auf false setzen. */
 private const val PREWARM_PLAYER_COVER = true
