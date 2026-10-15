@@ -11,7 +11,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "0.4").toInt()
-        versionName = "1.1.5"
+        versionName = "1.1.6"
     }
     signingConfigs {
         create("musik") {
@@ -46,4 +46,5 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.media3:media3-exoplayer:1.4.1")
     implementation("androidx.media3:media3-session:1.4.1")
+    implementation("io.github.kyant0:taglib:1.0.6")
 }
