@@ -86,11 +86,19 @@ fun MusikApp(openPlayerSignal: Int = 0) {
         lifecycleOwner?.lifecycle?.addObserver(observer)
         onDispose { lifecycleOwner?.lifecycle?.removeObserver(observer) }
     }
+    var startupDone by remember { mutableStateOf(false) }
     LaunchedEffect(granted, refreshTick, TagEvents.tick) {
         if (!granted) return@LaunchedEffect
         // erst sofort anzeigen, dann geänderte Dateien neu einlesen lassen und Tags aus den Dateien übernehmen
         var base = withContext(Dispatchers.IO) { loadLibrary(ctx) }
         allSongs = base
+        if (!startupDone) {
+            // Die aufwendigen Prüfungen erst, wenn die Oberfläche steht und die ersten Cover geladen sind.
+            // So ruckelt der Start auf schwächeren Geräten nicht.
+            delay(2500)
+            startupDone = true
+            withContext(Dispatchers.IO) { trimCoverDiskCache(ctx) }
+        }
         if (rescanChanged(ctx, force = false) > 0) {
             base = withContext(Dispatchers.IO) { loadLibrary(ctx) }
             allSongs = base
@@ -121,6 +129,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
     // beim Start einmal bei GitHub nachfragen, ob ein neueres Release existiert
     var update by remember { mutableStateOf<UpdateInfo?>(null) }
     LaunchedEffect(Unit) {
+        delay(6000)   // erst nach dem Start, das Netzwerk soll die Oberfläche nicht bremsen
         update = withContext(Dispatchers.IO) { checkForUpdate(ctx) }
     }
     LaunchedEffect(openPlayerSignal) {
@@ -140,11 +149,12 @@ fun MusikApp(openPlayerSignal: Int = 0) {
         val l = object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying = playing
-                if (!playing) saveQueueState(ctx, c)
+                if (!playing) saveQueueState(ctx, c, full = false)
             }
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                 currentId = item?.mediaId
-                saveQueueState(ctx, c)
+                // ganze Warteschlange nur speichern, wenn sie neu ist; sonst reicht die Position
+                saveQueueState(ctx, c, full = reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED)
             }
             override fun onShuffleModeEnabledChanged(enabled: Boolean) { shuffle = enabled }
             override fun onRepeatModeChanged(mode: Int) { repeat = mode; saveRepeat(ctx, mode) }
@@ -158,7 +168,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
         if (!isPlaying) return@LaunchedEffect
         while (true) {
             delay(15_000)
-            saveQueueState(ctx, c)
+            saveQueueState(ctx, c, full = false)
         }
     }
     // Zuletzt gespielte Warteschlange wiederherstellen: pausiert, nur Play drücken
@@ -176,7 +186,9 @@ fun MusikApp(openPlayerSignal: Int = 0) {
         if (list.isEmpty()) return@LaunchedEffect
         val idx = list.indexOfFirst { it.id == savedCurrent }.coerceAtLeast(0)
         val pos = if (list[idx].id == savedCurrent) saved.positionMs else 0L
-        c.setMediaItems(toMediaItems(list), idx, pos)
+        // MediaItems für eine lange Warteschlange nicht auf dem Haupt-Thread bauen
+        val items = withContext(Dispatchers.Default) { toMediaItems(list) }
+        c.setMediaItems(items, idx, pos)
         c.prepare()
         currentId = list[idx].id.toString()
     }
