@@ -607,7 +607,10 @@ fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: (Mini
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
-                Modifier.weight(1f).clickable { openPlayer() },
+                Modifier.weight(1f).clickable(
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    indication = null   // kein Aufleuchten beim Drücken/Halten
+                ) { openPlayer() },
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(Modifier.onGloballyPositioned { coverRef[0] = it }) { Cover(song, 56.dp) }
