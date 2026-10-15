@@ -86,7 +86,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
         lifecycleOwner?.lifecycle?.addObserver(observer)
         onDispose { lifecycleOwner?.lifecycle?.removeObserver(observer) }
     }
-    LaunchedEffect(granted, refreshTick) {
+    LaunchedEffect(granted, refreshTick, TagEvents.tick) {
         if (!granted) return@LaunchedEffect
         // erst sofort anzeigen, dann geänderte Dateien neu einlesen lassen und Tags aus den Dateien übernehmen
         var base = withContext(Dispatchers.IO) { loadLibrary(ctx) }
