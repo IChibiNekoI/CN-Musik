@@ -374,9 +374,9 @@ fun AppSettingsSheet(
                             }
                         )
                     },
-                    leadingContent = { Icon(Icons.Filled.DateRange, contentDescription = null) },
+                    leadingContent = { CalendarIcon() },
                     trailingContent = {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                        ChevronRightIcon()
                     },
                     colors = clear,
                     modifier = Modifier.clickable { page = "sort" }
@@ -389,9 +389,9 @@ fun AppSettingsSheet(
                             else "${all.count { it in current }} von ${all.size} Ordnern"
                         )
                     },
-                    leadingContent = { Icon(Icons.Filled.FolderOpen, contentDescription = null) },
+                    leadingContent = { FolderIcon() },
                     trailingContent = {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                        ChevronRightIcon()
                     },
                     colors = clear,
                     modifier = Modifier.clickable { page = "folders" }
@@ -399,9 +399,9 @@ fun AppSettingsSheet(
                 ListItem(
                     headlineContent = { Text("Titel der Startseite") },
                     supportingContent = { Text(if (headerLogo) "ChibiNeko-Logo" else "Standard (Text „Musik“)") },
-                    leadingContent = { Icon(Icons.Filled.Title, contentDescription = null) },
+                    leadingContent = { TitleTIcon() },
                     trailingContent = {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                        ChevronRightIcon()
                     },
                     colors = clear,
                     modifier = Modifier.clickable { page = "headerView" }
@@ -409,9 +409,9 @@ fun AppSettingsSheet(
                 ListItem(
                     headlineContent = { Text("Alben-Ansicht") },
                     supportingContent = { Text(albumStyle.label()) },
-                    leadingContent = { Icon(Icons.Filled.Album, contentDescription = null) },
+                    leadingContent = { AlbumDiscIcon() },
                     trailingContent = {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                        ChevronRightIcon()
                     },
                     colors = clear,
                     modifier = Modifier.clickable { page = "albumView" }
@@ -419,9 +419,9 @@ fun AppSettingsSheet(
                 ListItem(
                     headlineContent = { Text("Playlist-Ansicht") },
                     supportingContent = { Text(playlistStyle.label()) },
-                    leadingContent = { Icon(Icons.Filled.GridView, contentDescription = null) },
+                    leadingContent = { GridIcon() },
                     trailingContent = {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                        ChevronRightIcon()
                     },
                     colors = clear,
                     modifier = Modifier.clickable { page = "playlistView" }
@@ -431,7 +431,7 @@ fun AppSettingsSheet(
                     supportingContent = {
                         Text(if (rescanning) "Wird eingelesen …" else "Geänderte Tags und Cover übernehmen")
                     },
-                    leadingContent = { Icon(Icons.Filled.Refresh, contentDescription = null) },
+                    leadingContent = { RefreshIcon() },
                     trailingContent = {
                         if (rescanning) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                     },
@@ -441,7 +441,7 @@ fun AppSettingsSheet(
                 ListItem(
                     headlineContent = { Text("Audioinfos im Player") },
                     supportingContent = { Text("Format, Bitrate und Abtastrate unten anzeigen") },
-                    leadingContent = { Icon(Icons.Filled.Info, contentDescription = null) },
+                    leadingContent = { InfoIcon() },
                     trailingContent = {
                         Switch(checked = showAudioInfo, onCheckedChange = null)
                     },
