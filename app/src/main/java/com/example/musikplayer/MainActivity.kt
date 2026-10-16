@@ -1447,7 +1447,7 @@ private fun NowPlayingSheetContent(
                                 it,
                                 modifier = Modifier.padding(bottom = 8.dp),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),   // Akzentfarbe, gleiche Deckkraft wie vorher
                                 maxLines = 1
                             )
                         }
