@@ -67,6 +67,13 @@ private fun decodeStyle(s: String?): ViewStyle = when (s) {
 }
 
 /** true = ChibiNeko-Logo statt des Textes "Musik" in der Kopfzeile. */
+fun readCornerStyle(ctx: Context): CornerStyle =
+    if (prefs(ctx).getString("corner_style", null) == "uniform") CornerStyle.UNIFORM else CornerStyle.STANDARD
+
+fun saveCornerStyle(ctx: Context, style: CornerStyle) {
+    prefs(ctx).edit().putString("corner_style", if (style == CornerStyle.UNIFORM) "uniform" else "standard").apply()
+}
+
 fun readHeaderLogo(ctx: Context): Boolean = prefs(ctx).getBoolean("header_logo", false)
 
 fun saveHeaderLogo(ctx: Context, v: Boolean) {
