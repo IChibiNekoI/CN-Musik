@@ -94,9 +94,15 @@ fun MusikApp(openPlayerSignal: Int = 0) {
     var startupDone by remember { mutableStateOf(false) }
     LaunchedEffect(granted, refreshTick, TagEvents.tick) {
         if (!granted) return@LaunchedEffect
-        // erst sofort anzeigen, dann geänderte Dateien neu einlesen lassen und Tags aus den Dateien übernehmen
+        // Die rohen Tags aus der Android-Datenbank werden nie angezeigt, sonst springen sie später um:
+        // erst sofort mit den gespeicherten Datei-Tags anzeigen (liest keine Dateien),
+        // dann geänderte Dateien nachlesen.
+        suspend fun showWithFileTags(b: List<Song>) {
+            allSongs = refreshTagsFromFiles(ctx, b, force = false, cacheOnly = true)
+            allSongs = refreshTagsFromFiles(ctx, b, force = false)
+        }
         var base = withContext(Dispatchers.IO) { loadLibrary(ctx) }
-        allSongs = base
+        showWithFileTags(base)
         if (!startupDone) {
             // Die aufwendigen Prüfungen erst, wenn die Oberfläche steht und die ersten Cover geladen sind.
             // So ruckelt der Start auf schwächeren Geräten nicht.
@@ -106,9 +112,8 @@ fun MusikApp(openPlayerSignal: Int = 0) {
         }
         if (rescanChanged(ctx, force = false) > 0) {
             base = withContext(Dispatchers.IO) { loadLibrary(ctx) }
-            allSongs = base
+            showWithFileTags(base)
         }
-        allSongs = refreshTagsFromFiles(ctx, base, force = false)
     }
     val songs = remember(allSongs, selected) {
         selected?.let { sel -> allSongs.filter { it.folder in sel } } ?: allSongs
