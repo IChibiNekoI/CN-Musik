@@ -14,7 +14,10 @@ enum class CornerStyle { STANDARD, UNIFORM }
 
 /** Aktuelle Wahl. Eine Änderung zeichnet die ganze App sofort neu. */
 object CornerSettings {
+    /** Rundung von Chips, Menüs, Eingabefeldern und Dialogen */
     var style by mutableStateOf(CornerStyle.STANDARD)
+    /** Rundung der Albumcover, unabhängig von der Wahl oben */
+    var coverStyle by mutableStateOf(CornerStyle.STANDARD)
     private var loaded = false
 
     /** Gespeicherte Wahl einmal beim Start laden (vor der ersten Anzeige) */
@@ -22,11 +25,13 @@ object CornerSettings {
         if (!loaded) {
             loaded = true
             style = readCornerStyle(ctx)
+            coverStyle = readCoverStyle(ctx)
         }
     }
 }
 
 val LocalCornerStyle = compositionLocalOf { CornerStyle.STANDARD }
+val LocalCoverStyle = compositionLocalOf { CornerStyle.STANDARD }
 
 /**
  * Rundung eines Covers.
