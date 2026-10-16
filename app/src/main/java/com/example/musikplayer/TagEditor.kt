@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -55,6 +56,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import com.kyant.taglib.Picture
 import com.kyant.taglib.TagLib
 import kotlinx.coroutines.Dispatchers
@@ -270,6 +272,9 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
     }
 
     AlertDialog(
+        // breiter als Standard, damit das Datum neben dem Cover nicht abgeschnitten wird
+        modifier = Modifier.fillMaxWidth(0.94f),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
         onDismissRequest = { if (!saving) onDismiss() },
         title = { Text("Tags bearbeiten") },
         text = {
@@ -283,7 +288,10 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                             Box(
                                 Modifier
-                                    .size(120.dp)
+                                    // Das Label des ersten Feldes ragt 8 dp über dessen Rahmen: das Cover beginnt erst
+                                    // am Rahmen und endet am unteren Rahmen von "Jahr" (56 + 8 + 8 + 56 = 128 dp)
+                                    .padding(top = 8.dp)
+                                    .size(128.dp)
                                     .clip(RoundedCornerShape(20.dp))
                                     .clickable(enabled = !saving) { coverPicker.launch("image/*") }
                             ) {
@@ -295,7 +303,7 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
                                         contentScale = ContentScale.Crop
                                     )
                                 } else {
-                                    Cover(song, 120.dp, corner = 0.dp)
+                                    Cover(song, 128.dp, corner = 0.dp)
                                 }
                                 Box(
                                     Modifier
