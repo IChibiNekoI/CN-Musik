@@ -482,7 +482,7 @@ fun PlayerScreen() {
                             modifier = Modifier.weight(1f)
                         )
                         IconButton(onClick = { showSettings = true }) {
-                            Icon(Icons.Filled.Settings, contentDescription = "Einstellungen")
+                            SettingsGearIcon(description = "Einstellungen")
                         }
                     }
                 }
