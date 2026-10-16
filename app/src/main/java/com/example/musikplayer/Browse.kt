@@ -402,7 +402,7 @@ fun LibraryScreen(
                     Icon(Icons.Filled.Search, contentDescription = "Suchen")
                 }
                 IconButton(onClick = onSettings) {
-                    Icon(Icons.Filled.Settings, contentDescription = "Einstellungen")
+                    SettingsGearIcon(description = "Einstellungen")
                 }
             }
         }
