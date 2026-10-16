@@ -74,6 +74,17 @@ fun saveCornerStyle(ctx: Context, style: CornerStyle) {
     prefs(ctx).edit().putString("corner_style", if (style == CornerStyle.UNIFORM) "uniform" else "standard").apply()
 }
 
+/** Rundung der Albumcover. Ohne eigene Wahl gilt die bisherige gemeinsame Einstellung weiter. */
+fun readCoverStyle(ctx: Context): CornerStyle {
+    val p = prefs(ctx)
+    val v = p.getString("cover_style", null) ?: p.getString("corner_style", null)
+    return if (v == "uniform") CornerStyle.UNIFORM else CornerStyle.STANDARD
+}
+
+fun saveCoverStyle(ctx: Context, style: CornerStyle) {
+    prefs(ctx).edit().putString("cover_style", if (style == CornerStyle.UNIFORM) "uniform" else "standard").apply()
+}
+
 fun readHeaderLogo(ctx: Context): Boolean = prefs(ctx).getBoolean("header_logo", false)
 
 fun saveHeaderLogo(ctx: Context, v: Boolean) {
