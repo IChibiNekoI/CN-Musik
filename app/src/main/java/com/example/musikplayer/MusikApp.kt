@@ -7,6 +7,15 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -289,6 +298,8 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                 onHeaderLogo = { headerLogo = it; saveHeaderLogo(ctx, it) },
                 cornerStyle = CornerSettings.style,
                 onCornerStyle = { CornerSettings.style = it; saveCornerStyle(ctx, it) },
+                coverStyle = CornerSettings.coverStyle,
+                onCoverStyle = { CornerSettings.coverStyle = it; saveCoverStyle(ctx, it) },
                 rescanning = rescanning,
                 onRescan = {
                     if (!rescanning) scope.launch {
@@ -358,6 +369,8 @@ fun AppSettingsSheet(
     onHeaderLogo: (Boolean) -> Unit,
     cornerStyle: CornerStyle,
     onCornerStyle: (CornerStyle) -> Unit,
+    coverStyle: CornerStyle,
+    onCoverStyle: (CornerStyle) -> Unit,
     rescanning: Boolean,
     onRescan: () -> Unit,
     onDismiss: () -> Unit
@@ -374,7 +387,31 @@ fun AppSettingsSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {
-        when (page) {
+        // Beim Wechsel zwischen den Seiten gleiten Inhalte weich hinein und heraus, die Höhe des Menüs passt sich an
+        AnimatedContent(
+            targetState = page,
+            transitionSpec = {
+                val ease = FastOutSlowInEasing
+                if (targetState == "main") {
+                    // zurück: neue Seite kommt von links
+                    (slideInHorizontally(tween(300, easing = ease)) { w -> -w / 5 } +
+                        fadeIn(tween(240, delayMillis = 60))) togetherWith
+                        (slideOutHorizontally(tween(300, easing = ease)) { w -> w / 5 } +
+                            fadeOut(tween(160))) using
+                        SizeTransform(clip = true) { _, _ -> tween(300, easing = ease) }
+                } else {
+                    // weiter: neue Seite kommt von rechts
+                    (slideInHorizontally(tween(300, easing = ease)) { w -> w / 5 } +
+                        fadeIn(tween(240, delayMillis = 60))) togetherWith
+                        (slideOutHorizontally(tween(300, easing = ease)) { w -> -w / 5 } +
+                            fadeOut(tween(160))) using
+                        SizeTransform(clip = true) { _, _ -> tween(300, easing = ease) }
+                }
+            },
+            label = "settingsPage"
+        ) { p ->
+        Column {
+        when (p) {
             "main" -> {
                 Text(
                     "Einstellungen",
@@ -445,16 +482,14 @@ fun AppSettingsSheet(
                     modifier = Modifier.clickable { page = "playlistView" }
                 )
                 ListItem(
-                    headlineContent = { Text("Rundungen") },
-                    supportingContent = {
-                        Text(if (cornerStyle == CornerStyle.UNIFORM) "Einheitlich" else "Standard")
-                    },
+                    headlineContent = { Text("Design") },
+                    supportingContent = { Text("Rundungen und Albumcover") },
                     leadingContent = { CornersIcon() },
                     trailingContent = {
                         ChevronRightIcon()
                     },
                     colors = clear,
-                    modifier = Modifier.clickable { page = "corners" }
+                    modifier = Modifier.clickable { page = "design" }
                 )
                 ListItem(
                     headlineContent = { Text("Bibliothek neu einlesen") },
@@ -499,16 +534,36 @@ fun AppSettingsSheet(
                 SortOption("ChibiNeko-Logo", "Bild statt Text", headerLogo) { onHeaderLogo(true) }
                 Spacer(Modifier.height(32.dp))
             }
-            "corners" -> {
-                SheetHeader("Rundungen") { page = "main" }
+            "design" -> {
+                SheetHeader("Design") { page = "main" }
+                Text(
+                    "Rundungen",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                )
                 SortOption("Standard", "Wie bisher", cornerStyle == CornerStyle.STANDARD) {
                     onCornerStyle(CornerStyle.STANDARD)
                 }
                 SortOption(
                     "Einheitlich",
-                    "Cover, Chips, Menüs, Felder und Dialoge runden im gleichen Stil",
+                    "Chips, Menüs, Felder und Dialoge runden im gleichen Stil",
                     cornerStyle == CornerStyle.UNIFORM
                 ) { onCornerStyle(CornerStyle.UNIFORM) }
+                Text(
+                    "Albumcover",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 8.dp)
+                )
+                SortOption("Standard", "Wie bisher", coverStyle == CornerStyle.STANDARD) {
+                    onCoverStyle(CornerStyle.STANDARD)
+                }
+                SortOption(
+                    "Einheitlich",
+                    "Die Rundung wächst mit der Größe des Covers",
+                    coverStyle == CornerStyle.UNIFORM
+                ) { onCoverStyle(CornerStyle.UNIFORM) }
                 Spacer(Modifier.height(32.dp))
             }
             "albumView" -> {
@@ -557,5 +612,7 @@ fun AppSettingsSheet(
                 }
             }
         }
+        }   // Ende Column
+        }   // Ende AnimatedContent
     }
 }
