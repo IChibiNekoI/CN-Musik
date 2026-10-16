@@ -287,6 +287,8 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                 onPlaylistStyle = { playlistStyle = it; savePlaylistStyle(ctx, it) },
                 headerLogo = headerLogo,
                 onHeaderLogo = { headerLogo = it; saveHeaderLogo(ctx, it) },
+                cornerStyle = CornerSettings.style,
+                onCornerStyle = { CornerSettings.style = it; saveCornerStyle(ctx, it) },
                 rescanning = rescanning,
                 onRescan = {
                     if (!rescanning) scope.launch {
@@ -354,6 +356,8 @@ fun AppSettingsSheet(
     onPlaylistStyle: (ViewStyle) -> Unit,
     headerLogo: Boolean,
     onHeaderLogo: (Boolean) -> Unit,
+    cornerStyle: CornerStyle,
+    onCornerStyle: (CornerStyle) -> Unit,
     rescanning: Boolean,
     onRescan: () -> Unit,
     onDismiss: () -> Unit
@@ -441,6 +445,18 @@ fun AppSettingsSheet(
                     modifier = Modifier.clickable { page = "playlistView" }
                 )
                 ListItem(
+                    headlineContent = { Text("Rundungen") },
+                    supportingContent = {
+                        Text(if (cornerStyle == CornerStyle.UNIFORM) "Einheitlich" else "Standard")
+                    },
+                    leadingContent = { CornersIcon() },
+                    trailingContent = {
+                        ChevronRightIcon()
+                    },
+                    colors = clear,
+                    modifier = Modifier.clickable { page = "corners" }
+                )
+                ListItem(
                     headlineContent = { Text("Bibliothek neu einlesen") },
                     supportingContent = {
                         Text(if (rescanning) "Wird eingelesen …" else "Geänderte Tags und Cover übernehmen")
@@ -481,6 +497,18 @@ fun AppSettingsSheet(
                 SheetHeader("Titel der Startseite") { page = "main" }
                 SortOption("Standard", "Text „Musik“", !headerLogo) { onHeaderLogo(false) }
                 SortOption("ChibiNeko-Logo", "Bild statt Text", headerLogo) { onHeaderLogo(true) }
+                Spacer(Modifier.height(32.dp))
+            }
+            "corners" -> {
+                SheetHeader("Rundungen") { page = "main" }
+                SortOption("Standard", "Wie bisher", cornerStyle == CornerStyle.STANDARD) {
+                    onCornerStyle(CornerStyle.STANDARD)
+                }
+                SortOption(
+                    "Einheitlich",
+                    "Cover, Chips, Menüs, Felder und Dialoge runden im gleichen Stil",
+                    cornerStyle == CornerStyle.UNIFORM
+                ) { onCornerStyle(CornerStyle.UNIFORM) }
                 Spacer(Modifier.height(32.dp))
             }
             "albumView" -> {
