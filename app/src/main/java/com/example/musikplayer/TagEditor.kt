@@ -292,7 +292,7 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
                                     // am Rahmen und endet am unteren Rahmen von "Jahr" (56 + 8 + 8 + 56 = 128 dp)
                                     .padding(top = 8.dp)
                                     .size(128.dp)
-                                    .clip(RoundedCornerShape(coverRadius(LocalCornerStyle.current, 128.dp, 20.dp)))
+                                    .clip(RoundedCornerShape(coverRadius(LocalCoverStyle.current, 128.dp, 20.dp)))
                                     .clickable(enabled = !saving) { coverPicker.launch("image/*") }
                             ) {
                                 val preview = newCoverPreview
