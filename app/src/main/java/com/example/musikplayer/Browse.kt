@@ -132,10 +132,7 @@ private fun GridTile(
                 }
                 if (onDelete != null) {
                     IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                        Icon(
-                            Icons.Filled.Delete, contentDescription = "Löschen",
-                            modifier = Modifier.size(18.dp)
-                        )
+                        TrashIcon(iconSize = 18.dp, description = "Löschen")
                     }
                 }
             }
@@ -184,25 +181,25 @@ fun SongRow(
                 DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     DropdownMenuItem(
                         text = { Text("Titel-Infos") },
-                        leadingIcon = { Icon(Icons.Filled.Info, contentDescription = null) },
+                        leadingIcon = { InfoIcon() },
                         onClick = { expanded = false; showInfo = true }
                     )
                     DropdownMenuItem(
                         text = { Text("Tags bearbeiten") },
-                        leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                        leadingIcon = { EditIcon() },
                         onClick = { expanded = false; showTags = true }
                     )
                     DropdownMenuItem(
                         text = { Text("Zur Playlist hinzufügen") },
                         leadingIcon = {
-                            Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null)
+                            PlaylistAddIcon()
                         },
                         onClick = { expanded = false; onAddToPlaylist() }
                     )
                     if (onRemove != null) {
                         DropdownMenuItem(
                             text = { Text("Aus Playlist entfernen") },
-                            leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
+                            leadingIcon = { TrashIcon() },
                             onClick = { expanded = false; onRemove() }
                         )
                     }
@@ -372,12 +369,12 @@ fun LibraryScreen(
                 if (tab == 2) {
                     Box {
                         IconButton(onClick = { plusMenu = true }) {
-                            Icon(Icons.Filled.Add, contentDescription = "Playlist hinzufügen")
+                            PlusIcon(description = "Playlist hinzufügen")
                         }
                         DropdownMenu(expanded = plusMenu, onDismissRequest = { plusMenu = false }) {
                             DropdownMenuItem(
                                 text = { Text("Neue Playlist") },
-                                leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                                leadingIcon = { PlusIcon() },
                                 onClick = {
                                     plusMenu = false
                                     pendingSong = null
@@ -386,7 +383,7 @@ fun LibraryScreen(
                             )
                             DropdownMenuItem(
                                 text = { Text("M3U-Playlist importieren") },
-                                leadingIcon = { Icon(Icons.Filled.FolderOpen, contentDescription = null) },
+                                leadingIcon = { FolderIcon() },
                                 onClick = {
                                     plusMenu = false
                                     m3uLauncher.launch(arrayOf("*/*"))
@@ -554,7 +551,7 @@ fun LibraryScreen(
                                 },
                                 trailingContent = {
                                     IconButton(onClick = { deleteTarget = p }) {
-                                        Icon(Icons.Filled.Delete, contentDescription = "Löschen")
+                                        TrashIcon(description = "Löschen")
                                     }
                                 },
                                 colors = clearColors(),
@@ -620,7 +617,7 @@ fun LibraryScreen(
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     ListItem(
                         headlineContent = { Text("Neue Playlist…") },
-                        leadingContent = { Icon(Icons.Filled.Add, contentDescription = null) },
+                        leadingContent = { PlusIcon() },
                         colors = clearColors(),
                         modifier = Modifier.clickable {
                             pendingSong = s; addSong = null; creating = true
