@@ -135,7 +135,15 @@ fun AppTheme(content: @Composable () -> Unit) {
         dark -> darkColorScheme()
         else -> lightColorScheme()
     }
-    MaterialTheme(colorScheme = colors, content = content)
+    CornerSettings.load(ctx)
+    val cornerStyle = CornerSettings.style
+    CompositionLocalProvider(LocalCornerStyle provides cornerStyle) {
+        MaterialTheme(
+            colorScheme = colors,
+            shapes = if (cornerStyle == CornerStyle.UNIFORM) UniformShapes else Shapes(),
+            content = content
+        )
+    }
 }
 
 data class Song(
@@ -364,7 +372,7 @@ fun Cover(song: Song, size: Dp, corner: Dp = 12.dp, fallbackSize: Dp? = null) {
         value = b
     }
     Box(
-        Modifier.size(size).clip(RoundedCornerShape(corner)),
+        Modifier.size(size).clip(RoundedCornerShape(coverRadius(LocalCornerStyle.current, size, corner))),
         contentAlignment = Alignment.Center
     ) {
         val b = bmp
@@ -1440,6 +1448,9 @@ private fun NowPlayingSheetContent(
         val fin = finalCover
         if (fb != null && fin != null && flying) {
             val finalDp = with(dens) { fin.width.toDp() }
+            val cornerStyle = LocalCornerStyle.current
+            val r0 = coverRadius(cornerStyle, 56.dp, 12.dp).value   // Rundung im Miniplayer
+            val r1 = coverRadius(cornerStyle, finalDp, 20.dp).value // Rundung im Player
             Box(
                 Modifier
                     .size(finalDp)
@@ -1451,8 +1462,8 @@ private fun NowPlayingSheetContent(
                         scaleY = sc
                         translationX = androidx.compose.ui.util.lerp(fb.left, fin.left, e)
                         translationY = androidx.compose.ui.util.lerp(fb.top, fin.top, e)
-                        // Ecken: 12 dp (Mini) -> 20 dp (Player), vor der Skalierung umgerechnet
-                        val eff = androidx.compose.ui.util.lerp(12f, 20f, e) * density
+                        // Ecken: von der Rundung im Mini zu der im Player, vor der Skalierung umgerechnet
+                        val eff = androidx.compose.ui.util.lerp(r0, r1, e) * density
                         shape = RoundedCornerShape(eff / sc)
                         clip = true
                     }
