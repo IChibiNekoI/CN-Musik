@@ -316,6 +316,20 @@ fun FavoriteButton(
     }
 }
 
+/** Quadrat mit stark gerundeten Ecken (Rundungen) */
+@Composable
+fun CornersIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        drawRoundRect(
+            c, topLeft = Offset(4f * k, 4f * k), size = Size(16f * k, 16f * k),
+            cornerRadius = CornerRadius(6.5f * k), style = st
+        )
+    }
+}
+
 /** Lupe (Suche) */
 @Composable
 fun SearchIcon(
