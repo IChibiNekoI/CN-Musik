@@ -565,9 +565,9 @@ fun SettingsSheet(
                         else "${all.count { it in current }} von ${all.size} Ordnern"
                     )
                 },
-                leadingContent = { Icon(Icons.Filled.FolderOpen, contentDescription = null) },
+                leadingContent = { FolderIcon() },
                 trailingContent = {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                    ChevronRightIcon()
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                 modifier = Modifier.clickable { page = "folders" }
@@ -1280,23 +1280,23 @@ private fun NowPlayingSheetContent(
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(
                                     text = { Text("Titel-Infos") },
-                                    leadingIcon = { Icon(Icons.Filled.Info, contentDescription = null) },
+                                    leadingIcon = { InfoIcon() },
                                     onClick = { menuOpen = false; showInfo = true }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Tags bearbeiten") },
-                                    leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                                    leadingIcon = { EditIcon() },
                                     onClick = { menuOpen = false; showTags = true }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Zum Album gehen") },
-                                    leadingIcon = { Icon(Icons.Filled.Album, contentDescription = null) },
+                                    leadingIcon = { AlbumDiscIcon() },
                                     onClick = { menuOpen = false; onGoToAlbum() }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Zu Playlist hinzufügen") },
                                     leadingIcon = {
-                                        Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null)
+                                        PlaylistAddIcon()
                                     },
                                     onClick = { menuOpen = false; onAddToPlaylist() }
                                 )
