@@ -327,3 +327,71 @@ fun SearchIcon(
         seg(c, st, k, 15.4f, 15.4f, 20.2f, 20.2f)
     }
 }
+
+/** Pfeil nach links (zurück) */
+@Composable
+fun BackIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        seg(c, st, k, 19f, 12f, 5.2f, 12f)
+        drawPath(polyPath(k, 11f, 6f, 5f, 12f, 11f, 18f), c, style = st)
+    }
+}
+
+/** Kreuz (schließen, leeren) */
+@Composable
+fun CloseIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        seg(c, st, k, 6.2f, 6.2f, 17.8f, 17.8f)
+        seg(c, st, k, 17.8f, 6.2f, 6.2f, 17.8f)
+    }
+}
+
+/** Drei ausgefüllte Punkte untereinander (Mehr-Menü in Listen) */
+@Composable
+fun MoreVertIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, _, k ->
+        dot(c, k, 12f, 5.5f, 1.7f)
+        dot(c, k, 12f, 12f, 1.7f)
+        dot(c, k, 12f, 18.5f, 1.7f)
+    }
+}
+
+/** Raute (Track-Nummer) */
+@Composable
+fun HashIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        seg(c, st, k, 9.2f, 4.5f, 9.2f, 19.5f)
+        seg(c, st, k, 14.8f, 4.5f, 14.8f, 19.5f)
+        seg(c, st, k, 4.5f, 9.2f, 19.5f, 9.2f)
+        seg(c, st, k, 4.5f, 14.8f, 19.5f, 14.8f)
+    }
+}
+
+/** Note (Platzhalter, wenn ein Cover fehlt) */
+@Composable
+fun MusicNoteIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        drawCircle(c, radius = 3.1f * k, center = Offset(8.3f * k, 17.2f * k), style = st)
+        seg(c, st, k, 11.4f, 17.2f, 11.4f, 5.2f)
+        val flag = Path().apply {
+            moveTo(11.4f * k, 5.2f * k)
+            cubicTo(14.2f * k, 5.4f * k, 17.3f * k, 6.8f * k, 17.6f * k, 10.8f * k)
+        }
+        drawPath(flag, c, style = st)
+    }
+}
