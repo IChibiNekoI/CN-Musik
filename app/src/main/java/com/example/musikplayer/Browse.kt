@@ -63,7 +63,7 @@ private fun clearColors() = ListItemDefaults.colors(containerColor = Color.Trans
 fun PlaylistCover(songs: List<Song>, size: Dp, corner: Dp = 12.dp) {
     val first = songs.take(4)
     Box(
-        Modifier.size(size).clip(RoundedCornerShape(corner))
+        Modifier.size(size).clip(RoundedCornerShape(coverRadius(LocalCornerStyle.current, size, corner)))
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center
     ) {
@@ -106,7 +106,9 @@ private fun GridTile(
     cover: @Composable (Dp) -> Unit
 ) {
     BoxWithConstraints(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onClick() }
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(if (LocalCornerStyle.current == CornerStyle.UNIFORM) 20.dp else 12.dp))
+            .clickable { onClick() }
     ) {
         val w = maxWidth
         Column(Modifier.fillMaxWidth()) {
