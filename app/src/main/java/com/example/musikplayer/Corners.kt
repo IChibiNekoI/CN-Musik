@@ -1,0 +1,50 @@
+package com.example.musikplayer
+
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Shapes
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+
+/** STANDARD = Rundungen wie bisher, UNIFORM = einheitlicher Stil für die ganze App */
+enum class CornerStyle { STANDARD, UNIFORM }
+
+/** Aktuelle Wahl. Eine Änderung zeichnet die ganze App sofort neu. */
+object CornerSettings {
+    var style by mutableStateOf(CornerStyle.STANDARD)
+    private var loaded = false
+
+    /** Gespeicherte Wahl einmal beim Start laden (vor der ersten Anzeige) */
+    fun load(ctx: android.content.Context) {
+        if (!loaded) {
+            loaded = true
+            style = readCornerStyle(ctx)
+        }
+    }
+}
+
+val LocalCornerStyle = compositionLocalOf { CornerStyle.STANDARD }
+
+/**
+ * Rundung eines Covers.
+ * STANDARD: der Wert, den die Stelle schon immer hatte.
+ * UNIFORM: wächst mit der Größe (22 %), mindestens 8 dp, höchstens 28 dp. Kleine und große Cover wirken so gleich rund.
+ * Ein Standardwert von 0 bleibt 0 (das Cover sitzt dann in einem Rahmen, der selbst rundet).
+ */
+fun coverRadius(style: CornerStyle, size: Dp, standard: Dp): Dp = when {
+    standard == 0.dp -> 0.dp
+    style == CornerStyle.UNIFORM -> minOf(maxOf(size * 0.22f, 8.dp), 28.dp)
+    else -> standard
+}
+
+/** Einheitliche Rundungen für Chips, Menüs, Eingabefelder und Dialoge */
+val UniformShapes = Shapes(
+    extraSmall = RoundedCornerShape(16.dp),
+    small = RoundedCornerShape(16.dp),
+    medium = RoundedCornerShape(20.dp),
+    large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(28.dp)
+)
