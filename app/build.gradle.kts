@@ -11,7 +11,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "0.4").toInt()
-        versionName = "1.3.0"
+        versionName = "1.2.3"
     }
     signingConfigs {
         create("musik") {
@@ -30,6 +30,20 @@ android {
                 signingConfig = signingConfigs.getByName("musik")
             }
         }
+        // Release: optimiert und nicht debuggbar. Das ist die schnelle Version für den Alltag.
+        getByName("release") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // gleicher Schlüssel wie Debug, damit sich die App über die bisherige installieren lässt
+            if (file("../musik.jks").exists()) {
+                signingConfig = signingConfigs.getByName("musik")
+            }
+        }
+    }
+    lint {
+        // Die Lint-Prüfung vor dem Release-Build ist hier nicht nötig und kann den Build bremsen
+        checkReleaseBuilds = false
     }
     buildFeatures { compose = true }
     compileOptions {
