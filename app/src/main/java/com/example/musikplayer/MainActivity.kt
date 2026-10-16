@@ -1097,6 +1097,8 @@ fun NowPlayingSheet(
     origin: MiniOrigin? = null,
     onGoToAlbum: () -> Unit = {},
     onAddToPlaylist: () -> Unit = {},
+    isFavorite: Boolean = false,
+    onToggleFavorite: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     // Der Player ist immer dunkel -> Statusleisten-Icons hell halten
@@ -1116,7 +1118,7 @@ fun NowPlayingSheet(
         }
     }
     CoverTheme(song, dark = true) {
-        NowPlayingSheetContent(song, isPlaying, shuffle, repeat, c, showAudioInfo, origin, onGoToAlbum, onAddToPlaylist, onDismiss)
+        NowPlayingSheetContent(song, isPlaying, shuffle, repeat, c, showAudioInfo, origin, onGoToAlbum, onAddToPlaylist, isFavorite, onToggleFavorite, onDismiss)
     }
 }
 
@@ -1131,6 +1133,8 @@ private fun NowPlayingSheetContent(
     origin: MiniOrigin?,
     onGoToAlbum: () -> Unit,
     onAddToPlaylist: () -> Unit,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
     onDismiss: () -> Unit
 ) {
     // Öffnen-Animation: der Miniplayer wächst zum Vollbild-Player (0 = Miniplayer, 1 = Vollbild)
@@ -1340,14 +1344,26 @@ private fun NowPlayingSheetContent(
                         Cover(song, coverSize, corner = 20.dp)
                     }
                     Spacer(Modifier.weight(1.7f))    // Abstand Cover -> Titel
-                    Text(
-                        song.title,
-                        modifier = Modifier.fillMaxWidth().reveal({ open.value }, 0.35f, 0.85f),
-                        style = MaterialTheme.typography.headlineSmall,
-                        textAlign = TextAlign.Start,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    // Titel links, Favoriten-Herz rechts auf gleicher Höhe
+                    Row(
+                        Modifier.fillMaxWidth().reveal({ open.value }, 0.35f, 0.85f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            song.title,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.headlineSmall,
+                            textAlign = TextAlign.Start,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        // 6 dp nach rechts: das Herz schließt bündig mit dem Cover ab
+                        FavoriteButton(
+                            isFavorite = isFavorite,
+                            onClick = onToggleFavorite,
+                            modifier = Modifier.size(40.dp).offset(x = 6.dp)
+                        )
+                    }
                     Text(
                         song.artist,
                         modifier = Modifier.fillMaxWidth().reveal({ open.value }, 0.40f, 0.88f),
