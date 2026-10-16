@@ -304,3 +304,40 @@ fun UpdateButton(
         }
     }
 }
+
+/* ---------- Zahnrad (Einstellungen) im gleichen Umriss-Stil ---------- */
+
+/** Sechs abgerundete Zacken: Der Radius schwankt zwischen Zacke (außen) und Kerbe (innen) */
+private fun gearPath(s: Float): Path = Path().apply {
+    val steps = 360
+    for (i in 0..steps) {
+        val th = (i.toFloat() / steps) * 2f * Math.PI.toFloat()
+        val c = kotlin.math.cos(6f * th)
+        val f = kotlin.math.tanh(2.2f * (c + 0.3f))   // breite, runde Zacken, schmale Kerben
+        val r = s * (0.34f + 0.062f * f)
+        val x = s / 2f + r * kotlin.math.cos(th)
+        val y = s / 2f + r * kotlin.math.sin(th)
+        if (i == 0) moveTo(x, y) else lineTo(x, y)
+    }
+    close()
+}
+
+/** Zahnrad mit Mittelring, nur Umriss */
+@Composable
+fun SettingsGearIcon(
+    modifier: Modifier = Modifier,
+    iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current,
+    description: String? = null
+) {
+    Canvas(
+        modifier
+            .size(iconSize)
+            .semantics { if (description != null) contentDescription = description }
+    ) {
+        val s = this.size.minDimension
+        val st = Stroke(width = s * 0.075f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        drawPath(gearPath(s), tint, style = st)
+        drawCircle(tint, radius = s * 0.11f, center = Offset(s / 2f, s / 2f), style = st)
+    }
+}
