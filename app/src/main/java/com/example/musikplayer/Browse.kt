@@ -63,7 +63,7 @@ private fun clearColors() = ListItemDefaults.colors(containerColor = Color.Trans
 fun PlaylistCover(songs: List<Song>, size: Dp, corner: Dp = 12.dp) {
     val first = songs.take(4)
     Box(
-        Modifier.size(size).clip(RoundedCornerShape(coverRadius(LocalCornerStyle.current, size, corner)))
+        Modifier.size(size).clip(RoundedCornerShape(coverRadius(LocalCoverStyle.current, size, corner)))
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center
     ) {
