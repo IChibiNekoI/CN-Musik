@@ -315,3 +315,15 @@ fun FavoriteButton(
         )
     }
 }
+
+/** Lupe (Suche) */
+@Composable
+fun SearchIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        drawCircle(c, radius = 6.6f * k, center = Offset(10.5f * k, 10.5f * k), style = st)
+        seg(c, st, k, 15.4f, 15.4f, 20.2f, 20.2f)
+    }
+}
