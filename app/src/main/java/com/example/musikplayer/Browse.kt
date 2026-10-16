@@ -164,7 +164,9 @@ fun SongRow(
     isCurrent: Boolean,
     onClick: () -> Unit,
     onAddToPlaylist: () -> Unit,
-    onRemove: (() -> Unit)? = null
+    onRemove: (() -> Unit)? = null,
+    isFavorite: Boolean = false,
+    onToggleFavorite: () -> Unit = {}
 ) {
     var expanded by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
@@ -188,6 +190,13 @@ fun SongRow(
                         text = { Text("Tags bearbeiten") },
                         leadingIcon = { EditIcon() },
                         onClick = { expanded = false; showTags = true }
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(if (isFavorite) "Aus Favoriten entfernen" else "Zu Favoriten hinzufügen")
+                        },
+                        leadingIcon = { HeartIcon(filled = isFavorite) },
+                        onClick = { expanded = false; onToggleFavorite() }
                     )
                     DropdownMenuItem(
                         text = { Text("Zur Playlist hinzufügen") },
@@ -227,6 +236,8 @@ fun LibraryScreen(
     playlistStyle: ViewStyle = ViewStyle(),
     headerLogo: Boolean = false,
     update: UpdateInfo? = null,
+    favorites: List<Long> = emptyList(),
+    onToggleFavorite: (Song) -> Unit = {},
     onPlaylistsChange: (List<Playlist>) -> Unit,
     onPlay: (List<Song>, Int) -> Unit,
     onSettings: () -> Unit,
@@ -273,6 +284,10 @@ fun LibraryScreen(
             .toList().sortedBy { it.first.lowercase() }
     }
     val byId = remember(songs) { songs.associateBy { it.id } }
+    val favSet = remember(favorites) { favorites.toSet() }
+    // Der Favoriten-Tab gibt es nur, solange mindestens ein Titel favorisiert ist
+    val effTab = if (tab == 3 && favorites.isEmpty()) 0 else tab
+    LaunchedEffect(favorites.isEmpty()) { if (favorites.isEmpty() && tab == 3) tab = 0 }
 
     // Vom Player aus: zum Album springen
     LaunchedEffect(albumRequest) {
@@ -422,7 +437,9 @@ fun LibraryScreen(
                     SongRow(
                         s, s.id.toString() == currentId,
                         { focusManager.clearFocus(); onPlay(results, i) },
-                        { addSong = s }
+                        { addSong = s },
+                        isFavorite = s.id in favSet,
+                        onToggleFavorite = { onToggleFavorite(s) }
                     )
                 }
             }
@@ -431,16 +448,22 @@ fun LibraryScreen(
             Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            listOf("Titel", "Album", "Playlists").forEachIndexed { i, label ->
+            val tabLabels = if (favorites.isNotEmpty()) listOf("Titel", "Album", "Playlists", "Favoriten")
+            else listOf("Titel", "Album", "Playlists")
+            tabLabels.forEachIndexed { i, label ->
                 FilterChip(
-                    selected = tab == i,
+                    selected = effTab == i,
                     onClick = { tab = i; openAlbum = null; openPlaylist = null },
-                    label = { Text(label) }
+                    label = {
+                        // Der Favoriten-Tab zeigt nur ein Herz
+                        if (i == 3) HeartIcon(iconSize = 20.dp, description = label)
+                        else Text(label)
+                    }
                 )
             }
         }
 
-        when (tab) {
+        when (effTab) {
             0 -> {
                 if (sorted.isEmpty()) {
                     Text(
@@ -450,7 +473,11 @@ fun LibraryScreen(
                 }
                 LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
                     itemsIndexed(sorted, key = { _, s -> s.id }) { i, s ->
-                        SongRow(s, s.id.toString() == currentId, { onPlay(sorted, i) }, { addSong = s })
+                        SongRow(
+                            s, s.id.toString() == currentId, { onPlay(sorted, i) }, { addSong = s },
+                            isFavorite = s.id in favSet,
+                            onToggleFavorite = { onToggleFavorite(s) }
+                        )
                     }
                 }
             }
@@ -500,8 +527,25 @@ fun LibraryScreen(
                     DetailHeader(name) { openAlbum = null }
                     LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
                         itemsIndexed(ordered, key = { _, s -> s.id }) { i, s ->
-                            SongRow(s, s.id.toString() == currentId, { onPlay(ordered, i) }, { addSong = s })
+                            SongRow(
+                                s, s.id.toString() == currentId, { onPlay(ordered, i) }, { addSong = s },
+                                isFavorite = s.id in favSet,
+                                onToggleFavorite = { onToggleFavorite(s) }
+                            )
                         }
+                    }
+                }
+            }
+            3 -> {
+                // neueste Favoriten zuerst
+                val favSongs = remember(favorites, byId) { favorites.mapNotNull { byId[it] } }
+                LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
+                    itemsIndexed(favSongs, key = { _, s -> s.id }) { i, s ->
+                        SongRow(
+                            s, s.id.toString() == currentId, { onPlay(favSongs, i) }, { addSong = s },
+                            isFavorite = true,
+                            onToggleFavorite = { onToggleFavorite(s) }
+                        )
                     }
                 }
             }
@@ -574,6 +618,8 @@ fun LibraryScreen(
                                 s, s.id.toString() == currentId,
                                 onClick = { onPlay(list, i) },
                                 onAddToPlaylist = { addSong = s },
+                                isFavorite = s.id in favSet,
+                                onToggleFavorite = { onToggleFavorite(s) },
                                 onRemove = {
                                     onPlaylistsChange(
                                         playlists.map {
