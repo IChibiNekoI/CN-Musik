@@ -1,15 +1,20 @@
 package com.example.musikplayer
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
@@ -21,6 +26,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -306,8 +312,26 @@ fun FavoriteButton(
     modifier: Modifier = Modifier,
     iconSize: Dp = 28.dp
 ) {
-    IconButton(onClick = onClick, modifier = modifier) {
+    // Beim Favorisieren (nicht beim Entfernen und nicht beim Songwechsel) poppt das Herz kurz auf
+    val scale = remember { Animatable(1f) }
+    val scope = rememberCoroutineScope()
+    IconButton(
+        onClick = {
+            if (!isFavorite) {
+                scope.launch {
+                    scale.snapTo(0.7f)
+                    scale.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = 450f))
+                }
+            }
+            onClick()
+        },
+        modifier = modifier
+    ) {
         HeartIcon(
+            modifier = Modifier.graphicsLayer {
+                scaleX = scale.value
+                scaleY = scale.value
+            },
             iconSize = iconSize,
             tint = MaterialTheme.colorScheme.primary,
             description = if (isFavorite) "Aus Favoriten entfernen" else "Zu Favoriten hinzufügen",
