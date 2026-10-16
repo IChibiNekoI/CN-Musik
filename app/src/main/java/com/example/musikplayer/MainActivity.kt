@@ -87,6 +87,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
@@ -1269,22 +1270,33 @@ private fun NowPlayingSheetContent(
                     Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Row(
-                        Modifier.fillMaxWidth().reveal({ open.value }, 0.30f, 0.75f, 0.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CloseSheetButton(onClick = onDismiss)
+                    Box(Modifier.fillMaxWidth().reveal({ open.value }, 0.30f, 0.75f, 0.dp)) {
+                        CloseSheetButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterStart))
                         Text(
                             song.album.ifBlank { "Unbekanntes Album" },
-                            modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                            // Albumname: genau in der Mitte des Bildschirms, solange er nicht zu lang ist.
+                            // Ist er zu lang, beginnt er direkt neben dem Pfeil und füllt den Platz bis zur Menü-Taste.
+                            // Platz links: Pfeil 48 dp + 8 dp Abstand, rechts: Menü-Taste 36 dp + 8 dp Abstand
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .layout { measurable, constraints ->
+                                    val left = 56.dp.roundToPx()
+                                    val right = 44.dp.roundToPx()
+                                    val total = constraints.maxWidth
+                                    val placeable = measurable.measure(
+                                        constraints.copy(minWidth = 0, maxWidth = (total - left - right).coerceAtLeast(0))
+                                    )
+                                    layout(total, placeable.height) {
+                                        placeable.placeRelative(maxOf(left, (total - placeable.width) / 2), 0)
+                                    }
+                                },
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),   // wie die Audio-Infos
                             textAlign = TextAlign.Center,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Box {
+                        Box(Modifier.align(Alignment.CenterEnd)) {
                             MoreButton(onClick = { menuOpen = true }, modifier = Modifier.padding(end = 4.dp))
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(
