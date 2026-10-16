@@ -65,6 +65,11 @@ fun MusikApp(openPlayerSignal: Int = 0) {
     var selected by remember { mutableStateOf(readFolderSet(ctx)) }
     var sort by remember { mutableStateOf(readSort(ctx)) }
     var playlists by remember { mutableStateOf(readPlaylists(ctx)) }
+    var favorites by remember { mutableStateOf(readFavorites(ctx)) }
+    val toggleFavorite: (Song) -> Unit = { s ->
+        favorites = if (s.id in favorites) favorites - s.id else listOf(s.id) + favorites
+        saveFavorites(ctx, favorites)
+    }
     var headerLogo by remember { mutableStateOf(readHeaderLogo(ctx)) }
     var albumStyle by remember { mutableStateOf(readAlbumStyle(ctx)) }
     var playlistStyle by remember { mutableStateOf(readPlaylistStyle(ctx)) }
@@ -223,6 +228,8 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                     playlistStyle = playlistStyle,
                     headerLogo = headerLogo,
                     update = update,
+                    favorites = favorites,
+                    onToggleFavorite = toggleFavorite,
                     onPlaylistsChange = { playlists = it; savePlaylists(ctx, it) },
                     onPlay = { list, index ->
                         controller?.let { c ->
@@ -251,6 +258,8 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                 current, isPlaying, shuffle, repeat, controller,
                 showAudioInfo = showInfo,
                 origin = origin,
+                isFavorite = current.id in favorites,
+                onToggleFavorite = { toggleFavorite(current) },
                 onGoToAlbum = {
                     albumRequest = current.album.ifBlank { "Unbekanntes Album" }
                     showNow = false
