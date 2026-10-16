@@ -411,7 +411,7 @@ fun LibraryScreen(
                     UpdateButton(onClick = { showUpdate = true })
                 }
                 IconButton(onClick = { searching = true }) {
-                    Icon(Icons.Filled.Search, contentDescription = "Suchen")
+                    SearchIcon(description = "Suchen")
                 }
                 IconButton(onClick = onSettings) {
                     SettingsGearIcon(description = "Einstellungen")
