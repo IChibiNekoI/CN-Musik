@@ -71,7 +71,16 @@ import java.io.File
 import androidx.compose.ui.text.style.TextAlign
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.WindowCompat
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
 import kotlinx.coroutines.withContext
@@ -293,9 +302,15 @@ fun rememberController(): MediaController? {
     return controller
 }
 
+/** Richtung des letzten Titelwechsels: 1 = vorwärts, -1 = zurück. Bestimmt, von wo das neue Cover hereingleitet. */
+object SkipDirection {
+    var dir = 1
+}
+
 /** Zum nächsten/vorherigen Titel springen und dabei auch aus der Pause heraus abspielen. */
 fun skipNext(c: MediaController) {
     if (c.hasNextMediaItem()) {
+        SkipDirection.dir = 1
         c.seekToNextMediaItem()
         c.play()
     }
@@ -303,6 +318,7 @@ fun skipNext(c: MediaController) {
 
 fun skipPrev(c: MediaController) {
     if (c.hasPreviousMediaItem()) {
+        SkipDirection.dir = -1
         c.seekToPreviousMediaItem()
         c.play()
     }
@@ -776,6 +792,10 @@ private fun NowPlayingSheetContent(
     var showInfo by remember { mutableStateOf(false) }
     var showTags by remember { mutableStateOf(false) }
     val infoCtx = LocalContext.current
+    LaunchedEffect(song.id) {
+        kotlinx.coroutines.delay(500)
+        SkipDirection.dir = 1
+    }
     val audioInfo by produceState<String?>(null, song.id, showAudioInfo) {
         value = if (!showAudioInfo) null
         else {
@@ -968,7 +988,24 @@ private fun NowPlayingSheetContent(
                                 )
                             }
                     ) {
-                        Cover(song, coverSize, corner = 20.dp)
+                        // Beim Titelwechsel gleitet das alte Cover heraus und das neue herein
+                        // (vorwärts von rechts, zurück von links). Ändern sich nur die Tags, bleibt das Cover ruhig.
+                        AnimatedContent(
+                            targetState = song,
+                            contentKey = { it.id },
+                            transitionSpec = {
+                                val dir = SkipDirection.dir
+                                (slideInHorizontally(
+                                    animationSpec = tween(320, easing = FastOutSlowInEasing),
+                                    initialOffsetX = { w -> dir * w / 4 }
+                                ) + fadeIn(tween(260))) togetherWith
+                                    (slideOutHorizontally(
+                                        animationSpec = tween(320, easing = FastOutSlowInEasing),
+                                        targetOffsetX = { w -> -dir * w / 4 }
+                                    ) + fadeOut(tween(200))) using SizeTransform(clip = false)
+                            },
+                            label = "cover"
+                        ) { s -> Cover(s, coverSize, corner = 20.dp) }
                     }
                     Spacer(Modifier.weight(1.7f))    // Abstand Cover -> Titel
                     // Titel links, Favoriten-Herz rechts auf gleicher Höhe
