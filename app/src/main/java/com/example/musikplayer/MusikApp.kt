@@ -303,7 +303,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
 private fun SheetHeader(title: String, onBack: () -> Unit) {
     Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+            BackIcon(description = "Zurück")
         }
         Text(title, style = MaterialTheme.typography.titleLarge)
     }
