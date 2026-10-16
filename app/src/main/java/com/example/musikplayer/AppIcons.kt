@@ -2,7 +2,9 @@ package com.example.musikplayer
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -270,5 +272,46 @@ fun ChevronRightIcon(
 ) {
     LineIcon(modifier, iconSize, tint, description) { c, st, k ->
         drawPath(polyPath(k, 9f, 5.5f, 15.5f, 12f, 9f, 18.5f), c, style = st)
+    }
+}
+
+/** Herz: nur Umriss, oder ausgefüllt (filled = true) */
+@Composable
+fun HeartIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null,
+    filled: Boolean = false
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        val heart = Path().apply {
+            moveTo(12f * k, 20.2f * k)
+            cubicTo(4.8f * k, 15.4f * k, 2.4f * k, 11f * k, 2.4f * k, 8.2f * k)
+            cubicTo(2.4f * k, 4.8f * k, 5.3f * k, 3.4f * k, 7.7f * k, 3.4f * k)
+            cubicTo(10.1f * k, 3.4f * k, 11.5f * k, 4.8f * k, 12f * k, 6.7f * k)
+            cubicTo(12.5f * k, 4.8f * k, 13.9f * k, 3.4f * k, 16.3f * k, 3.4f * k)
+            cubicTo(18.7f * k, 3.4f * k, 21.6f * k, 4.8f * k, 21.6f * k, 8.2f * k)
+            cubicTo(21.6f * k, 11f * k, 19.2f * k, 15.4f * k, 12f * k, 20.2f * k)
+            close()
+        }
+        if (filled) drawPath(heart, c)
+        drawPath(heart, c, style = st)
+    }
+}
+
+/** Favoriten-Taste: Herz in der Akzentfarbe, ausgefüllt wenn der Titel ein Favorit ist */
+@Composable
+fun FavoriteButton(
+    isFavorite: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    iconSize: Dp = 28.dp
+) {
+    IconButton(onClick = onClick, modifier = modifier) {
+        HeartIcon(
+            iconSize = iconSize,
+            tint = MaterialTheme.colorScheme.primary,
+            description = if (isFavorite) "Aus Favoriten entfernen" else "Zu Favoriten hinzufügen",
+            filled = isFavorite
+        )
     }
 }
