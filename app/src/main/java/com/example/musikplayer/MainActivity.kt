@@ -147,7 +147,10 @@ fun AppTheme(content: @Composable () -> Unit) {
     }
     CornerSettings.load(ctx)
     val cornerStyle = CornerSettings.style
-    CompositionLocalProvider(LocalCornerStyle provides cornerStyle) {
+    CompositionLocalProvider(
+        LocalCornerStyle provides cornerStyle,
+        LocalCoverStyle provides CornerSettings.coverStyle
+    ) {
         MaterialTheme(
             colorScheme = colors,
             shapes = if (cornerStyle == CornerStyle.UNIFORM) UniformShapes else Shapes(),
@@ -344,7 +347,7 @@ fun Cover(song: Song, size: Dp, corner: Dp = 12.dp, fallbackSize: Dp? = null) {
         value = b
     }
     Box(
-        Modifier.size(size).clip(RoundedCornerShape(coverRadius(LocalCornerStyle.current, size, corner))),
+        Modifier.size(size).clip(RoundedCornerShape(coverRadius(LocalCoverStyle.current, size, corner))),
         contentAlignment = Alignment.Center
     ) {
         val b = bmp
@@ -1107,9 +1110,9 @@ private fun NowPlayingSheetContent(
         val fin = finalCover
         if (fb != null && fin != null && flying) {
             val finalDp = with(dens) { fin.width.toDp() }
-            val cornerStyle = LocalCornerStyle.current
-            val r0 = coverRadius(cornerStyle, 56.dp, 12.dp).value   // Rundung im Miniplayer
-            val r1 = coverRadius(cornerStyle, finalDp, 20.dp).value // Rundung im Player
+            val coverStyle = LocalCoverStyle.current
+            val r0 = coverRadius(coverStyle, 56.dp, 12.dp).value   // Rundung im Miniplayer
+            val r1 = coverRadius(coverStyle, finalDp, 20.dp).value // Rundung im Player
             Box(
                 Modifier
                     .size(finalDp)
