@@ -300,8 +300,14 @@ private fun readTags(ctx: Context, uri: Uri, mtime: Long, size: Long): TagInfo {
  * Überschreibt Titel, Künstler, Album und Tracknummer mit den echten Tags aus der Datei,
  * wenn die Datei neuer oder anders groß ist als beim letzten Scan von Android (die Datenbank also veraltet ist).
  * force = true liest alle Dateien direkt. Ergebnisse werden zwischengespeichert.
+ * cacheOnly = true wendet nur den Zwischenspeicher an und liest keine Dateien (schnell, für die erste Anzeige).
  */
-suspend fun refreshTagsFromFiles(ctx: Context, songs: List<Song>, force: Boolean): List<Song> =
+suspend fun refreshTagsFromFiles(
+    ctx: Context,
+    songs: List<Song>,
+    force: Boolean,
+    cacheOnly: Boolean = false
+): List<Song> =
     withContext(Dispatchers.IO) { lowPriority {
         // Pfad und Zeitpunkt des letzten Android-Scans je Song
         val meta = HashMap<Long, Triple<String, Long, Long>>()
@@ -330,6 +336,7 @@ suspend fun refreshTagsFromFiles(ctx: Context, songs: List<Song>, force: Boolean
             val size = f.length()
             val cached = cache[s.id]?.takeIf { it.mtime == mtime && it.size == size }
             val tags: TagInfo? = when {
+                cacheOnly -> cached
                 force -> readTags(ctx, s.uri, mtime, size).also { cache[s.id] = it; cacheChanged = true }
                 cached != null -> cached
                 // Datei neuer oder anders groß als beim letzten Android-Scan: Datenbank ist veraltet
