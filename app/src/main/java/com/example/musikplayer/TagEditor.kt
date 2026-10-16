@@ -313,10 +313,7 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
                                         .background(Color.Black.copy(alpha = 0.6f)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(
-                                        Icons.Outlined.Edit, contentDescription = "Cover ändern",
-                                        tint = Color.White
-                                    )
+                                    EditIcon(tint = Color.White, description = "Cover ändern")
                                 }
                             }
                             Spacer(Modifier.width(12.dp))
@@ -325,7 +322,7 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
                                     value = fields["TRACKNUMBER"] ?: "",
                                     onValueChange = { fields["TRACKNUMBER"] = it },
                                     label = { Text("Track Nummer") },
-                                    trailingIcon = { Icon(Icons.Outlined.Tag, contentDescription = null) },
+                                    trailingIcon = { HashIcon() },
                                     singleLine = true,
                                     enabled = !saving,
                                     shape = fieldShape,
@@ -336,7 +333,7 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
                                     value = fields["DATE"] ?: "",
                                     onValueChange = { fields["DATE"] = it },
                                     label = { Text("Jahr") },
-                                    trailingIcon = { Icon(Icons.Outlined.CalendarMonth, contentDescription = null) },
+                                    trailingIcon = { CalendarIcon() },
                                     singleLine = true,
                                     enabled = !saving,
                                     shape = fieldShape,
