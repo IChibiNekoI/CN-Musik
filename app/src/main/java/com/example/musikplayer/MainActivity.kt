@@ -378,10 +378,7 @@ fun Cover(song: Song, size: Dp, corner: Dp = 12.dp, fallbackSize: Dp? = null) {
                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Filled.MusicNote, contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                MusicNoteIcon(tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -579,7 +576,7 @@ fun SettingsSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { page = "main" }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+                    BackIcon(description = "Zurück")
                 }
                 Text("Musikordner", style = MaterialTheme.typography.titleLarge)
             }
