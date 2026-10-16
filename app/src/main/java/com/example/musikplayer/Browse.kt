@@ -68,10 +68,7 @@ fun PlaylistCover(songs: List<Song>, size: Dp, corner: Dp = 12.dp) {
         contentAlignment = Alignment.Center
     ) {
         when {
-            first.isEmpty() -> Icon(
-                Icons.Filled.MusicNote, contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            first.isEmpty() -> MusicNoteIcon(tint = MaterialTheme.colorScheme.onSurfaceVariant)
             first.size == 1 -> Cover(first[0], size, corner = 0.dp)
             else -> {
                 val half = size / 2
@@ -84,9 +81,8 @@ fun PlaylistCover(songs: List<Song>, size: Dp, corner: Dp = 12.dp) {
                                     Cover(s, half, corner = 0.dp)
                                 } else {
                                     Box(Modifier.size(half), contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            Icons.Filled.MusicNote, contentDescription = null,
-                                            modifier = Modifier.size(half * 0.5f),
+                                        MusicNoteIcon(
+                                            iconSize = half * 0.5f,
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
@@ -147,7 +143,7 @@ fun DetailHeader(title: String, onBack: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+            BackIcon(description = "Zurück")
         }
         Text(
             title,
@@ -178,7 +174,7 @@ fun SongRow(
         trailingContent = {
             Box {
                 IconButton(onClick = { expanded = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "Mehr")
+                    MoreVertIcon(description = "Mehr")
                 }
                 DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     DropdownMenuItem(
@@ -339,7 +335,7 @@ fun LibraryScreen(
         ) {
             if (searching) {
                 IconButton(onClick = { searching = false; query = "" }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Suche schließen")
+                    BackIcon(description = "Suche schließen")
                 }
                 TextField(
                     value = query,
@@ -350,7 +346,7 @@ fun LibraryScreen(
                     trailingIcon = {
                         if (query.isNotEmpty()) {
                             IconButton(onClick = { query = "" }) {
-                                Icon(Icons.Filled.Close, contentDescription = "Leeren")
+                                CloseIcon(description = "Leeren")
                             }
                         }
                     },
