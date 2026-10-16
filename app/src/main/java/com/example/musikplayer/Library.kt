@@ -134,6 +134,15 @@ fun saveFolderSet(ctx: Context, set: Set<String>) {
     prefs(ctx).edit().putStringSet("folders", set).apply()
 }
 
+/** Favoriten als Liste von Song-IDs, neueste zuerst */
+fun readFavorites(ctx: Context): List<Long> =
+    prefs(ctx).getString("favorites", null)
+        ?.split(',')?.mapNotNull { it.toLongOrNull() } ?: emptyList()
+
+fun saveFavorites(ctx: Context, ids: List<Long>) {
+    prefs(ctx).edit().putString("favorites", ids.joinToString(",")).apply()
+}
+
 fun readPlaylists(ctx: Context): List<Playlist> {
     val raw = prefs(ctx).getString("playlists", null) ?: return emptyList()
     return try {
