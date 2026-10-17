@@ -506,16 +506,6 @@ fun AppSettingsSheet(
                     modifier = Modifier.clickable { page = "folders" }
                 )
                 ListItem(
-                    headlineContent = { Text("Titel der Startseite") },
-                    supportingContent = { Text(if (headerLogo) "ChibiNeko-Logo" else "Standard (Text „Musik“)") },
-                    leadingContent = { TitleTIcon() },
-                    trailingContent = {
-                        ChevronRightIcon()
-                    },
-                    colors = clear,
-                    modifier = Modifier.clickable { page = "headerView" }
-                )
-                ListItem(
                     headlineContent = { Text("Alben-Ansicht") },
                     supportingContent = { Text(albumStyle.label()) },
                     leadingContent = { AlbumDiscIcon() },
@@ -544,6 +534,16 @@ fun AppSettingsSheet(
                     },
                     colors = clear,
                     modifier = Modifier.clickable { page = "design" }
+                )
+                ListItem(
+                    headlineContent = { Text("Kopfzeile") },
+                    supportingContent = { Text(if (headerLogo) "ChibiNeko-Logo" else "Standard (Text „Musik“)") },
+                    leadingContent = { TitleTIcon() },
+                    trailingContent = {
+                        ChevronRightIcon()
+                    },
+                    colors = clear,
+                    modifier = Modifier.clickable { page = "headerView" }
                 )
                 ListItem(
                     headlineContent = { Text("Bibliothek neu einlesen") },
@@ -583,7 +583,7 @@ fun AppSettingsSheet(
                 Spacer(Modifier.height(32.dp))
             }
             "headerView" -> {
-                SheetHeader("Titel der Startseite") { page = "main" }
+                SheetHeader("Kopfzeile") { page = "main" }
                 SortOption("Standard", "Text „Musik“", !headerLogo) { onHeaderLogo(false) }
                 SortOption("ChibiNeko-Logo", "Bild statt Text", headerLogo) { onHeaderLogo(true) }
                 Spacer(Modifier.height(32.dp))
