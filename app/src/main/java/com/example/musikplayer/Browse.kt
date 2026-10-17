@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -115,9 +116,13 @@ private fun GridTile(
     cover: @Composable (Dp) -> Unit
 ) {
     BoxWithConstraints(
+        // Kein Clip und keine Klick-Animation: Der Clip schnitt unten die Ecken von Titel und Untertitel ab,
+        // und der Ripple färbte die Kachel beim Drücken weiß.
         Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onClick() }
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { onClick() }
     ) {
         val w = maxWidth
         Column(Modifier.fillMaxWidth()) {
