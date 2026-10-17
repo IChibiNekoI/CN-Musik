@@ -104,7 +104,10 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.animation.core.AnimationVector1D
 
 class MainActivity : ComponentActivity() {
     companion object {
@@ -368,7 +371,16 @@ fun Cover(song: Song, size: Dp, corner: Dp = 12.dp, fallbackSize: Dp? = null) {
 }
 
 @Composable
-fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: (MiniOrigin?) -> Unit) {
+fun MiniPlayer(
+    song: Song,
+    isPlaying: Boolean,
+    c: MediaController,
+    // Hochziehen mit dem Finger: Start, Weg (negativ = nach oben) und Ende mit Geschwindigkeit
+    onDragStart: (MiniOrigin?) -> Unit = {},
+    onDrag: (Float) -> Unit = {},
+    onDragEnd: (Float, Float) -> Unit = { _, _ -> },
+    onOpen: (MiniOrigin?) -> Unit
+) {
       val view = androidx.compose.ui.platform.LocalView.current
     val density = LocalDensity.current
     val margin = 12.dp
@@ -393,37 +405,40 @@ fun MiniPlayer(song: Song, isPlaying: Boolean, c: MediaController, onOpen: (Mini
         val px = warmView.width - 2 * with(density) { 24.dp.roundToPx() }
         prewarmPlayerCover(warmCtx, song, px)
     }
-    val openPlayer: () -> Unit = {
-        onOpen(
-            coordsRef[0]?.takeIf { it.isAttached }
-                ?.let {
-                    MiniOrigin(
-                        it.boundsInRoot(), radius, miniColor,
-                        coverRef[0]?.takeIf { c -> c.isAttached }?.boundsInRoot()
-                    )
-                }
-        )
+    val buildOrigin: () -> MiniOrigin? = {
+        coordsRef[0]?.takeIf { it.isAttached }
+            ?.let {
+                MiniOrigin(
+                    it.boundsInRoot(), radius, miniColor,
+                    coverRef[0]?.takeIf { c -> c.isAttached }?.boundsInRoot()
+                )
+            }
     }
-    val swipeThreshold = with(density) { 40.dp.toPx() }
+    val openPlayer: () -> Unit = { onOpen(buildOrigin()) }
+    var dragTotal by remember { mutableFloatStateOf(0f) }
+    val dragState = rememberDraggableState { delta ->
+        dragTotal += delta
+        onDrag(dragTotal)
+    }
 
     Surface(
         modifier = Modifier
             .navigationBarsPadding()
             .padding(start = margin, end = margin, bottom = margin)
             .onGloballyPositioned { coordsRef[0] = it }
-            // Nach oben wischen öffnet den Player (wie Runterwischen ihn schließt)
-            .pointerInput(Unit) {
-                var total = 0f
-                detectVerticalDragGestures(
-                    onDragStart = { total = 0f },
-                    onDragCancel = { total = 0f },
-                    onDragEnd = {
-                        if (total < -swipeThreshold) openPlayer()
-                        total = 0f
-                    },
-                    onVerticalDrag = { _, dy -> total += dy }
-                )
-            },
+            // Nach oben ziehen öffnet den Player, der Finger steuert dabei die Animation (wie Runterwischen ihn schließt)
+            .draggable(
+                state = dragState,
+                orientation = Orientation.Vertical,
+                onDragStarted = {
+                    dragTotal = 0f
+                    onDragStart(buildOrigin())
+                },
+                onDragStopped = { velocity ->
+                    onDragEnd(dragTotal, velocity)
+                    dragTotal = 0f
+                }
+            ),
         shape = RoundedCornerShape(radius),
         color = miniColor,
         tonalElevation = 6.dp,
@@ -730,6 +745,7 @@ fun NowPlayingSheet(
     c: MediaController,
     showAudioInfo: Boolean = false,
     origin: MiniOrigin? = null,
+    controlledOpen: Animatable<Float, AnimationVector1D>? = null,
     onGoToAlbum: () -> Unit = {},
     onAddToPlaylist: () -> Unit = {},
     isFavorite: Boolean = false,
@@ -753,7 +769,7 @@ fun NowPlayingSheet(
         }
     }
     CoverTheme(song, dark = true) {
-        NowPlayingSheetContent(song, isPlaying, shuffle, repeat, c, showAudioInfo, origin, onGoToAlbum, onAddToPlaylist, isFavorite, onToggleFavorite, onDismiss)
+        NowPlayingSheetContent(song, isPlaying, shuffle, repeat, c, showAudioInfo, origin, controlledOpen, onGoToAlbum, onAddToPlaylist, isFavorite, onToggleFavorite, onDismiss)
     }
 }
 
@@ -766,6 +782,7 @@ private fun NowPlayingSheetContent(
     c: MediaController,
     showAudioInfo: Boolean,
     origin: MiniOrigin?,
+    controlledOpen: Animatable<Float, AnimationVector1D>?,
     onGoToAlbum: () -> Unit,
     onAddToPlaylist: () -> Unit,
     isFavorite: Boolean,
@@ -773,9 +790,11 @@ private fun NowPlayingSheetContent(
     onDismiss: () -> Unit
 ) {
     // Öffnen-Animation: der Miniplayer wächst zum Vollbild-Player (0 = Miniplayer, 1 = Vollbild)
-    val open = remember { Animatable(if (origin == null) 1f else 0f) }
+    // Beim Hochziehen des Miniplayers steuert der Finger den Fortschritt (controlledOpen), sonst läuft er von selbst
+    val ownOpen = remember { Animatable(if (origin == null) 1f else 0f) }
+    val open = controlledOpen ?: ownOpen
     LaunchedEffect(Unit) {
-        if (origin != null) {
+        if (origin != null && controlledOpen == null) {
             // Das erste Layout des Players ist teuer. Zwei Frames abwarten, damit es nicht
             // in die Animation fällt und sie am Anfang nicht ruckelt.
             withFrameNanos { }
