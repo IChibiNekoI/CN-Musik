@@ -238,7 +238,12 @@ fun MusikApp(openPlayerSignal: Int = 0) {
     CoverTheme(current, isSystemInDarkTheme()) {
         val miniVisible = current != null && controller != null
         Box(Modifier.fillMaxSize()) {
-        Scaffold { pad ->
+        // Bei "Menü-Design einheitlich" (und Unschärfe) liegt das verschwommene Cover hinter der Hauptseite
+        LibraryBackdrop()
+        Scaffold(
+            containerColor = if (MenuBackdrop.active) androidx.compose.ui.graphics.Color.Transparent
+            else MaterialTheme.colorScheme.background
+        ) { pad ->
             val layoutDir = androidx.compose.ui.platform.LocalLayoutDirection.current
             // Nur oben Abstand lassen: unten laufen die Listen hinter Miniplayer und Navigationsleiste durch
             val listPad = PaddingValues(
@@ -454,8 +459,6 @@ fun AppSettingsSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        modifier = sheetModifier(),
-        containerColor = sheetContainerColor(),
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {
         // Beim Wechsel zwischen den Seiten gleiten Inhalte weich hinein und heraus, die Höhe des Menüs passt sich an
@@ -660,7 +663,7 @@ fun AppSettingsSheet(
                     headlineContent = { Text("Menü-Design einheitlich") },
                     supportingContent = {
                         Text(
-                            if (menuSwitchEnabled) "Menüs, Dialoge und Einstellungen sehen aus wie der Player"
+                            if (menuSwitchEnabled) "Die Hauptseite (Titel, Album, Playlists, Favoriten) bekommt den Hintergrund des Players"
                             else "Nur bei Unschärfe verfügbar"
                         )
                     },
