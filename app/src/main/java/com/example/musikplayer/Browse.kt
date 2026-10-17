@@ -207,7 +207,7 @@ fun SongRow(
                 IconButton(onClick = { expanded = true }) {
                     MoreVertIcon(description = "Mehr")
                 }
-                AppDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     DropdownMenuItem(
                         text = { Text("Titel-Infos") },
                         leadingIcon = { InfoIcon() },
@@ -411,7 +411,7 @@ fun LibraryScreen(
                         IconButton(onClick = { plusMenu = true }) {
                             PlusIcon(description = "Playlist hinzufügen")
                         }
-                        AppDropdownMenu(expanded = plusMenu, onDismissRequest = { plusMenu = false }) {
+                        DropdownMenu(expanded = plusMenu, onDismissRequest = { plusMenu = false }) {
                             DropdownMenuItem(
                                 text = { Text("Neue Playlist") },
                                 leadingIcon = { PlusIcon() },
@@ -684,8 +684,6 @@ fun LibraryScreen(
 
     if (showUpdate && update != null) {
         AlertDialog(
-            modifier = dialogModifier(),
-            containerColor = dialogContainerColor(),
             onDismissRequest = { showUpdate = false },
             title = { Text("Update verfügbar") },
             text = { Text("Version ${update.version} ist auf GitHub veröffentlicht.") },
@@ -705,8 +703,6 @@ fun LibraryScreen(
 
     addSong?.let { s ->
         AlertDialog(
-            modifier = dialogModifier(),
-            containerColor = dialogContainerColor(),
             onDismissRequest = { addSong = null },
             title = { Text("Zur Playlist hinzufügen") },
             text = {
@@ -745,8 +741,6 @@ fun LibraryScreen(
     if (creating) {
         var name by remember { mutableStateOf("") }
         AlertDialog(
-            modifier = dialogModifier(),
-            containerColor = dialogContainerColor(),
             onDismissRequest = { pendingSong = null; creating = false },
             title = { Text("Neue Playlist") },
             text = {
@@ -780,8 +774,6 @@ fun LibraryScreen(
 
     deleteTarget?.let { t ->
         AlertDialog(
-            modifier = dialogModifier(),
-            containerColor = dialogContainerColor(),
             onDismissRequest = { deleteTarget = null },
             title = { Text("Playlist löschen?") },
             text = { Text("${t.name} wird gelöscht. Die Songs bleiben erhalten.") },
