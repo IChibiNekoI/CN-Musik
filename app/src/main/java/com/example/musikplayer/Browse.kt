@@ -1,783 +1,374 @@
 package com.example.musikplayer
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
-import android.widget.Toast
-import android.content.Intent
+import android.app.Activity
+import android.app.RecoverableSecurityException
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.media.MediaScannerConnection
 import android.net.Uri
-import androidx.activity.compose.BackHandler
+import android.os.Build
+import android.provider.MediaStore
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Tag
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
+import com.kyant.taglib.Picture
+import com.kyant.taglib.TagLib
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items as gridItems
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.res.painterResource
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.Dp
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 
-@Composable
-private fun clearColors() = ListItemDefaults.colors(containerColor = Color.Transparent)
+/** Wird erhöht, wenn Tags gespeichert wurden. Die Bibliothek lädt dann neu. */
+object TagEvents {
+    var tick by mutableIntStateOf(0)
 
-/** Playlist-Cover: 2x2-Raster aus den Covern der ersten 4 Titel. */
-@Composable
-fun PlaylistCover(songs: List<Song>, size: Dp, corner: Dp = 12.dp) {
-    val first = songs.take(4)
-    Box(
-        Modifier.size(size).clip(RoundedCornerShape(coverRadius(LocalCoverStyle.current, size, corner)))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
-        contentAlignment = Alignment.Center
-    ) {
-        when {
-            first.isEmpty() -> MusicNoteIcon(tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            first.size == 1 -> Cover(first[0], size, corner = 0.dp)
-            else -> {
-                val half = size / 2
-                Column {
-                    for (row in 0..1) {
-                        Row {
-                            for (col in 0..1) {
-                                val s = first.getOrNull(row * 2 + col)
-                                if (s != null) {
-                                    Cover(s, half, corner = 0.dp)
-                                } else {
-                                    Box(Modifier.size(half), contentAlignment = Alignment.Center) {
-                                        MusicNoteIcon(
-                                            iconSize = half * 0.5f,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+    /** Pro Song hochgezählt, wenn das Cover geändert wurde. Cover und Farbthema laden dann neu. */
+    val coverVersions = mutableStateMapOf<Long, Int>()
+
+    fun bumpCover(id: Long) {
+        coverVersions[id] = (coverVersions[id] ?: 0) + 1
+    }
+}
+
+/** Schlüssel in TagLib (Reihenfolge = Reihenfolge im Dialog) */
+private val TAG_FIELDS = listOf(
+    "TITLE" to "Titel",
+    "ARTIST" to "Künstler",
+    "ALBUM" to "Album",
+    "ALBUMARTIST" to "Albumkünstler"
+)
+
+/** Alle Schlüssel, die gelesen und geschrieben werden (Track und Jahr stehen oben neben dem Cover) */
+private val TAG_KEYS = TAG_FIELDS.map { it.first } + listOf("TRACKNUMBER", "DATE")
+
+/** Liest die aktuellen Tags direkt aus der Datei. null = nicht lesbar. */
+private fun readTagValues(ctx: Context, song: Song): Map<String, String>? {
+    return try {
+        ctx.contentResolver.openFileDescriptor(song.uri, "r")?.use { pfd ->
+            val md = TagLib.getMetadata(pfd.dup().detachFd()) ?: return@use null
+            TAG_KEYS.associateWith { key ->
+                md.propertyMap[key]?.joinToString("; ") ?: ""
             }
         }
+    } catch (e: Exception) {
+        null
     }
 }
 
-/** Kachel für die Rasteransicht: Cover in voller Kachelbreite, darunter Titel und Untertitel. */
-@Composable
-private fun GridTile(
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-    onDelete: (() -> Unit)? = null,
-    cover: @Composable (Dp) -> Unit
-) {
-    BoxWithConstraints(
-        Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(if (LocalCornerStyle.current == CornerStyle.UNIFORM) 20.dp else 12.dp))
-            .clickable { onClick() }
-    ) {
-        val w = maxWidth
-        Column(Modifier.fillMaxWidth()) {
-            cover(w)
-            Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        title,
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis
-                    )
-                }
-                if (onDelete != null) {
-                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                        TrashIcon(iconSize = 18.dp, description = "Löschen")
-                    }
-                }
-            }
-        }
-    }
-}
+private class WriteOutcome(val ok: Boolean, val security: SecurityException? = null)
 
-@Composable
-fun DetailHeader(title: String, onBack: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onBack) {
-            BackIcon(description = "Zurück")
-        }
-        Text(
-            title,
-            style = MaterialTheme.typography.titleLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-fun SongRow(
+/** Schreibt nur die Felder, die geändert wurden. Mehrfachwerte anderer Felder bleiben unberührt. */
+private fun writeTagValues(
+    ctx: Context,
     song: Song,
-    isCurrent: Boolean,
-    onClick: () -> Unit,
-    onAddToPlaylist: () -> Unit,
-    onRemove: (() -> Unit)? = null,
-    isFavorite: Boolean = false,
-    onToggleFavorite: () -> Unit = {},
-    modifier: Modifier = Modifier
-) {
-    // Die Hervorhebung des laufenden Titels blendet weich ein und aus
-    val rowColor by animateColorAsState(
-        if (isCurrent) MaterialTheme.colorScheme.secondaryContainer
-        else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0f),
-        animationSpec = tween(Motion.MEDIUM), label = "rowColor"
-    )
-    var expanded by remember { mutableStateOf(false) }
-    var showInfo by remember { mutableStateOf(false) }
-    var showTags by remember { mutableStateOf(false) }
-    ListItem(
-        headlineContent = { Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        supportingContent = { Text(song.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        leadingContent = { Cover(song, 48.dp) },
-        trailingContent = {
-            Box {
-                IconButton(onClick = { expanded = true }) {
-                    MoreVertIcon(description = "Mehr")
-                }
-                AppDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Titel-Infos") },
-                        leadingIcon = { InfoIcon() },
-                        onClick = { expanded = false; showInfo = true }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Tags bearbeiten") },
-                        leadingIcon = { EditIcon() },
-                        onClick = { expanded = false; showTags = true }
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Text(if (isFavorite) "Aus Favoriten entfernen" else "Zu Favoriten hinzufügen")
-                        },
-                        leadingIcon = { HeartIcon(filled = isFavorite) },
-                        onClick = { expanded = false; onToggleFavorite() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Zur Playlist hinzufügen") },
-                        leadingIcon = {
-                            PlaylistAddIcon()
-                        },
-                        onClick = { expanded = false; onAddToPlaylist() }
-                    )
-                    if (onRemove != null) {
-                        DropdownMenuItem(
-                            text = { Text("Aus Playlist entfernen") },
-                            leadingIcon = { TrashIcon() },
-                            onClick = { expanded = false; onRemove() }
-                        )
-                    }
-                }
-                if (showInfo) SongInfoDialog(song) { showInfo = false }
-                if (showTags) TagEditDialog(song) { showTags = false }
+    original: Map<String, String>,
+    edited: Map<String, String>,
+    cover: ByteArray?
+): WriteOutcome {
+    return try {
+        val ok = ctx.contentResolver.openFileDescriptor(song.uri, "rw")?.use { pfd ->
+            val md = TagLib.getMetadata(pfd.dup().detachFd()) ?: return@use false
+            val pm = md.propertyMap
+            var propsChanged = false
+            for (key in TAG_KEYS) {
+                val new = edited[key]?.trim() ?: continue
+                if (new == (original[key] ?: "")) continue
+                if (new.isEmpty()) pm.remove(key) else pm[key] = arrayOf(new)
+                propsChanged = true
             }
-        },
-        colors = ListItemDefaults.colors(containerColor = rowColor),
-        modifier = modifier.clickable { onClick() }
-    )
+            var good = true
+            if (propsChanged) good = TagLib.savePropertyMap(pfd.dup().detachFd(), pm)
+            if (good && cover != null) {
+                good = TagLib.savePictures(
+                    pfd.dup().detachFd(),
+                    arrayOf(Picture(cover, "", "Front Cover", "image/jpeg"))
+                )
+            }
+            good
+        } ?: false
+        if (ok) rescanFile(ctx, song, coverChanged = cover != null)
+        WriteOutcome(ok)
+    } catch (e: SecurityException) {
+        WriteOutcome(false, e)
+    } catch (e: Exception) {
+        WriteOutcome(false)
+    }
+}
+
+/** Sagt Android Bescheid, dass sich die Datei geändert hat, und löst danach ein Neuladen aus. */
+private fun rescanFile(ctx: Context, song: Song, coverChanged: Boolean) {
+    try {
+        val path = ctx.contentResolver.query(
+            song.uri, arrayOf(MediaStore.Audio.Media.DATA), null, null, null
+        )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+        if (path != null) {
+            MediaScannerConnection.scanFile(ctx, arrayOf(path), null) { _, _ ->
+                TagEvents.tick++
+                if (coverChanged) TagEvents.bumpCover(song.id)   // erst nach dem Scan, sonst kommt das alte Bild
+            }
+        } else if (coverChanged) {
+            TagEvents.bumpCover(song.id)
+        }
+    } catch (e: Exception) {
+    }
+}
+
+/** Liest ein Bild, verkleinert es (max. 1200 px) und macht ein JPEG daraus. Gibt JPEG-Bytes und Vorschau zurück. */
+private fun loadCoverImage(ctx: Context, uri: Uri): Pair<ByteArray, Bitmap>? {
+    return try {
+        val maxSide = 1200
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        var sample = 1
+        while (bounds.outWidth / sample > maxSide * 2 || bounds.outHeight / sample > maxSide * 2) sample *= 2
+        val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+        val raw = ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
+            ?: return null
+        val scale = minOf(1f, maxSide / maxOf(raw.width, raw.height).toFloat())
+        val bmp = if (scale < 1f) {
+            Bitmap.createScaledBitmap(
+                raw,
+                (raw.width * scale).toInt().coerceAtLeast(1),
+                (raw.height * scale).toInt().coerceAtLeast(1),
+                true
+            )
+        } else raw
+        val out = java.io.ByteArrayOutputStream()
+        bmp.compress(Bitmap.CompressFormat.JPEG, 92, out)
+        out.toByteArray() to bmp
+    } catch (e: Exception) {
+        null
+    }
 }
 
 @Composable
-fun LibraryScreen(
-    pad: PaddingValues,
-    songs: List<Song>,
-    sort: SortMode,
-    currentId: String?,
-    playlists: List<Playlist>,
-    albumStyle: ViewStyle = ViewStyle(),
-    playlistStyle: ViewStyle = ViewStyle(),
-    headerLogo: Boolean = false,
-    update: UpdateInfo? = null,
-    favorites: List<Long> = emptyList(),
-    onToggleFavorite: (Song) -> Unit = {},
-    onPlaylistsChange: (List<Playlist>) -> Unit,
-    onPlay: (List<Song>, Int) -> Unit,
-    onSettings: () -> Unit,
-    albumRequest: String? = null,
-    onAlbumRequestHandled: () -> Unit = {},
-    playlistRequest: Song? = null,
-    onPlaylistRequestHandled: () -> Unit = {},
-    bottomSpace: Dp = 0.dp   // Platz unten, damit die Listen unter dem Miniplayer durchscrollen und das Ende trotzdem erreichbar bleibt
-) {
-    var tab by remember { mutableIntStateOf(0) }
-    var openAlbum by remember { mutableStateOf<String?>(null) }
-    var openPlaylist by remember { mutableStateOf<String?>(null) }
-    var addSong by remember { mutableStateOf<Song?>(null) }
-    var creating by remember { mutableStateOf(false) }
-    var pendingSong by remember { mutableStateOf<Song?>(null) }
-    var deleteTarget by remember { mutableStateOf<Playlist?>(null) }
-    var searching by remember { mutableStateOf(false) }
-    var query by remember { mutableStateOf("") }
-    var plusMenu by remember { mutableStateOf(false) }
-    var showUpdate by remember { mutableStateOf(false) }
-    val focusManager = LocalFocusManager.current
-    val searchFocus = remember { FocusRequester() }
+fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    val m3uLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    var original by remember { mutableStateOf<Map<String, String>?>(null) }
+    var failedToLoad by remember { mutableStateOf(false) }
+    val fields = remember { mutableStateMapOf<String, String>() }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var permTick by remember { mutableIntStateOf(0) }
+    var newCover by remember { mutableStateOf<ByteArray?>(null) }
+    var newCoverPreview by remember { mutableStateOf<Bitmap?>(null) }
+
+    // Bild für das neue Cover auswählen
+    val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) scope.launch {
-            val r = withContext(Dispatchers.IO) { importM3u(ctx, uri, songs) }
-            if (r == null || r.ids.isEmpty()) {
-                Toast.makeText(ctx, "Keine passenden Titel in der Playlist gefunden", Toast.LENGTH_LONG).show()
+            val r = withContext(Dispatchers.IO) { loadCoverImage(ctx, uri) }
+            if (r == null) {
+                error = "Das Bild konnte nicht geladen werden."
             } else {
-                onPlaylistsChange(
-                    playlists + Playlist(System.currentTimeMillis().toString(), r.name, r.ids)
-                )
-                Toast.makeText(
-                    ctx, "${r.name}: ${r.ids.size} von ${r.total} Titeln importiert", Toast.LENGTH_LONG
-                ).show()
+                error = null
+                newCover = r.first
+                newCoverPreview = r.second
             }
         }
     }
 
-    val sorted = remember(songs, sort) { sortSongs(songs, sort) }
-    val albums = remember(songs) {
-        songs.groupBy { it.album.ifBlank { "Unbekanntes Album" } }
-            .toList().sortedBy { it.first.lowercase() }
-    }
-    val byId = remember(songs) { songs.associateBy { it.id } }
-    val favSet = remember(favorites) { favorites.toSet() }
-    // Der Favoriten-Tab gibt es nur, solange mindestens ein Titel favorisiert ist
-    val effTab = if (tab == 3 && favorites.isEmpty()) 0 else tab
-    LaunchedEffect(favorites.isEmpty()) { if (favorites.isEmpty() && tab == 3) tab = 0 }
-
-    // Vom Player aus: zum Album springen
-    LaunchedEffect(albumRequest) {
-        val name = albumRequest ?: return@LaunchedEffect
-        if (albums.any { it.first == name }) {
-            searching = false
-            query = ""
-            openPlaylist = null
-            tab = 1
-            openAlbum = name
+    LaunchedEffect(song.id) {
+        val v = withContext(Dispatchers.IO) { readTagValues(ctx, song) }
+        if (v == null) {
+            failedToLoad = true
         } else {
-            Toast.makeText(ctx, "Album nicht gefunden", Toast.LENGTH_SHORT).show()
-        }
-        onAlbumRequestHandled()
-    }
-    // Vom Player aus: "Zu Playlist hinzufügen" öffnet den bekannten Dialog
-    LaunchedEffect(playlistRequest) {
-        val s = playlistRequest ?: return@LaunchedEffect
-        addSong = s
-        onPlaylistRequestHandled()
-    }
-
-    BackHandler(enabled = openAlbum != null || openPlaylist != null) {
-        openAlbum = null
-        openPlaylist = null
-    }
-    BackHandler(enabled = searching) {
-        searching = false
-        query = ""
-    }
-    LaunchedEffect(searching) {
-        if (searching) searchFocus.requestFocus()
-    }
-    val results = remember(sorted, query) {
-        val q = query.trim()
-        if (q.isEmpty()) emptyList<Song>()
-        else sorted.filter {
-            it.title.contains(q, ignoreCase = true) ||
-                it.artist.contains(q, ignoreCase = true) ||
-                it.album.contains(q, ignoreCase = true)
+            original = v
+            fields.putAll(v)
         }
     }
 
-    Column(Modifier.fillMaxSize().padding(pad)) {
-        Row(
-            Modifier.fillMaxWidth()
-                .padding(start = if (searching) 8.dp else 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (searching) {
-                IconButton(onClick = { searching = false; query = "" }) {
-                    BackIcon(description = "Suche schließen")
+    // Android verlangt für fremde Dateien eine Freigabe durch den Nutzer
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { res ->
+        if (res.resultCode == Activity.RESULT_OK) {
+            permTick++
+        } else {
+            saving = false
+            error = "Keine Schreibberechtigung erteilt."
+        }
+    }
+
+    fun save(askIfNeeded: Boolean) {
+        val orig = original ?: return
+        saving = true
+        error = null
+        scope.launch {
+            val out = withContext(Dispatchers.IO) { writeTagValues(ctx, song, orig, fields.toMap(), newCover) }
+            val sec = out.security
+            if (out.ok) {
+                Toast.makeText(ctx, "Tags gespeichert", Toast.LENGTH_SHORT).show()
+                TagEvents.tick++
+                onDismiss()
+            } else if (sec != null && askIfNeeded) {
+                val sender = when {
+                    Build.VERSION.SDK_INT >= 30 ->
+                        MediaStore.createWriteRequest(ctx.contentResolver, listOf(song.uri)).intentSender
+                    Build.VERSION.SDK_INT >= 29 && sec is RecoverableSecurityException ->
+                        sec.userAction.actionIntent.intentSender
+                    else -> null
                 }
-                TextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    modifier = Modifier.weight(1f).focusRequester(searchFocus),
-                    placeholder = { Text("Titel, Künstler oder Album") },
-                    singleLine = true,
-                    trailingIcon = {
-                        if (query.isNotEmpty()) {
-                            IconButton(onClick = { query = "" }) {
-                                CloseIcon(description = "Leeren")
-                            }
-                        }
-                    },
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent
-                    )
-                )
+                if (sender != null) {
+                    launcher.launch(IntentSenderRequest.Builder(sender).build())
+                } else {
+                    saving = false
+                    error = "Keine Schreibberechtigung für diese Datei."
+                }
             } else {
-                if (headerLogo) {
-                    Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                        Image(
-                            painter = painterResource(R.drawable.title_logo),
-                            contentDescription = "ChibiNeko",
-                            // Höhe des Logos hier ändern; die Breite folgt dem Seitenverhältnis (362:68)
-                            modifier = Modifier.height(36.dp).aspectRatio(362f / 68f),
-                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onBackground)
-                        )
-                    }
-                } else {
-                    Text(
-                        "Musik",
-                        style = MaterialTheme.typography.headlineLarge,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                if (tab == 2) {
-                    Box {
-                        IconButton(onClick = { plusMenu = true }) {
-                            PlusIcon(description = "Playlist hinzufügen")
-                        }
-                        AppDropdownMenu(expanded = plusMenu, onDismissRequest = { plusMenu = false }) {
-                            DropdownMenuItem(
-                                text = { Text("Neue Playlist") },
-                                leadingIcon = { PlusIcon() },
-                                onClick = {
-                                    plusMenu = false
-                                    pendingSong = null
-                                    creating = true
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("M3U-Playlist importieren") },
-                                leadingIcon = { FolderIcon() },
-                                onClick = {
-                                    plusMenu = false
-                                    m3uLauncher.launch(arrayOf("*/*"))
-                                }
-                            )
-                        }
-                    }
-                }
-                if (update != null && tab != 2) {
-                    UpdateButton(onClick = { showUpdate = true })
-                }
-                IconButton(onClick = { searching = true }) {
-                    SearchIcon(description = "Suchen")
-                }
-                IconButton(onClick = onSettings) {
-                    SettingsGearIcon(description = "Einstellungen")
-                }
+                saving = false
+                error = "Speichern fehlgeschlagen. Das Dateiformat wird evtl. nicht unterstützt."
             }
         }
-        if (searching) {
-            if (query.isBlank()) {
-                Text(
-                    "Suche nach Titel, Künstler oder Album.",
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else if (results.isEmpty()) {
-                Text(
-                    "Keine Treffer.",
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
-                itemsIndexed(results, key = { _, s -> s.id }) { i, s ->
-                    SongRow(
-                        s, s.id.toString() == currentId,
-                        { focusManager.clearFocus(); onPlay(results, i) },
-                        { addSong = s },
-                        isFavorite = s.id in favSet,
-                        modifier = Modifier.animateItem(),
-                        onToggleFavorite = { onToggleFavorite(s) }
-                    )
-                }
-            }
-        } else {
-        Row(
-            Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            val tabLabels = if (favorites.isNotEmpty()) listOf("Titel", "Album", "Playlists", "Favoriten")
-            else listOf("Titel", "Album", "Playlists")
-            tabLabels.forEachIndexed { i, label ->
-                FilterChip(
-                    selected = effTab == i,
-                    onClick = { tab = i; openAlbum = null; openPlaylist = null },
-                    label = {
-                        // Der Favoriten-Tab zeigt nur ein Herz
-                        if (i == 3) HeartIcon(iconSize = 20.dp, description = label)
-                        else Text(label)
-                    }
-                )
-            }
-        }
+    }
 
-        // Beim Tabwechsel gleitet der Inhalt weich in Richtung des neuen Tabs
-        AnimatedContent(
-            targetState = effTab,
-            modifier = Modifier.weight(1f),
-            transitionSpec = {
-                val dir = if (targetState > initialState) 1 else -1
-                (slideInHorizontally(tween(Motion.MEDIUM, easing = Motion.Ease)) { w -> dir * w / 6 } +
-                    fadeIn(tween(Motion.MEDIUM - 60, delayMillis = 60))) togetherWith
-                    (slideOutHorizontally(tween(Motion.MEDIUM, easing = Motion.Ease)) { w -> -dir * w / 6 } +
-                        fadeOut(tween(Motion.FAST))) using SizeTransform(clip = false)
-            },
-            label = "tabs"
-        ) { t ->
-        Column(Modifier.fillMaxSize()) {
-        when (t) {
-            0 -> {
-                if (sorted.isEmpty()) {
-                    Text(
-                        "Keine Songs gefunden. Prüfe die Musikordner in den Einstellungen.",
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-                LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
-                    itemsIndexed(sorted, key = { _, s -> s.id }) { i, s ->
-                        SongRow(
-                            s, s.id.toString() == currentId, { onPlay(sorted, i) }, { addSong = s },
-                            isFavorite = s.id in favSet,
-                            modifier = Modifier.animateItem(),
-                            onToggleFavorite = { onToggleFavorite(s) }
-                        )
-                    }
-                }
-            }
-            1 -> {
-                val name = openAlbum
-                if (name == null && albumStyle.grid) {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(albumStyle.cols),
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp + bottomSpace),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        gridItems(albums, key = { it.first }) { (albumName, list) ->
-                            GridTile(
-                                title = albumName,
-                                subtitle = list.first().artist,
-                                onClick = { openAlbum = albumName },
-                                cover = { w -> Cover(list.first(), w) }
-                            )
-                        }
-                    }
-                } else if (name == null) {
-                    LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
-                        items(albums, key = { it.first }) { (albumName, list) ->
-                            ListItem(
-                                headlineContent = {
-                                    Text(albumName, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                },
-                                supportingContent = {
-                                    Text(
-                                        "${list.first().artist} · ${list.size} Titel",
-                                        maxLines = 1, overflow = TextOverflow.Ellipsis
+    LaunchedEffect(permTick) {
+        if (permTick > 0) save(false)
+    }
+
+    AlertDialog(
+        // breiter als Standard, damit das Datum neben dem Cover nicht abgeschnitten wird
+        modifier = dialogModifier(Modifier.fillMaxWidth(0.94f)),
+        containerColor = dialogContainerColor(),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        onDismissRequest = { if (!saving) onDismiss() },
+        title = { Text("Tags bearbeiten") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                when {
+                    failedToLoad -> Text("Die Tags dieser Datei konnten nicht gelesen werden.")
+                    original == null -> Text("Lade …")
+                    else -> {
+                        val fieldShape = RoundedCornerShape(20.dp)
+                        // Oben: Cover links, Track-Nummer und Jahr rechts daneben
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                            Box(
+                                Modifier
+                                    // Das Label des ersten Feldes ragt 8 dp über dessen Rahmen: das Cover beginnt erst
+                                    // am Rahmen und endet am unteren Rahmen von "Jahr" (56 + 8 + 8 + 56 = 128 dp)
+                                    .padding(top = 8.dp)
+                                    .size(128.dp)
+                                    .clip(RoundedCornerShape(coverRadius(LocalCoverStyle.current, 128.dp, 20.dp)))
+                                    .clickable(enabled = !saving) { coverPicker.launch("image/*") }
+                            ) {
+                                val preview = newCoverPreview
+                                if (preview != null) {
+                                    Image(
+                                        preview.asImageBitmap(), contentDescription = null,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
                                     )
-                                },
-                                leadingContent = { Cover(list.first(), 56.dp) },
-                                colors = clearColors(),
-                                modifier = Modifier.clickable { openAlbum = albumName }
-                            )
-                        }
-                    }
-                } else {
-                    val ordered = remember(albums, name) {
-                        (albums.firstOrNull { it.first == name }?.second ?: emptyList())
-                            .sortedWith(compareBy<Song>({ it.track }, { it.title.lowercase() }))
-                    }
-                    DetailHeader(name) { openAlbum = null }
-                    LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
-                        itemsIndexed(ordered, key = { _, s -> s.id }) { i, s ->
-                            SongRow(
-                                s, s.id.toString() == currentId, { onPlay(ordered, i) }, { addSong = s },
-                                isFavorite = s.id in favSet,
-                                modifier = Modifier.animateItem(),
-                                onToggleFavorite = { onToggleFavorite(s) }
-                            )
-                        }
-                    }
-                }
-            }
-            3 -> {
-                // neueste Favoriten zuerst
-                val favSongs = remember(favorites, byId) { favorites.mapNotNull { byId[it] } }
-                LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
-                    itemsIndexed(favSongs, key = { _, s -> s.id }) { i, s ->
-                        SongRow(
-                            s, s.id.toString() == currentId, { onPlay(favSongs, i) }, { addSong = s },
-                            isFavorite = true,
-                            modifier = Modifier.animateItem(),
-                            onToggleFavorite = { onToggleFavorite(s) }
-                        )
-                    }
-                }
-            }
-            else -> {
-                val pl = playlists.firstOrNull { it.id == openPlaylist }
-                if (pl == null && playlists.isEmpty()) {
-                    Text(
-                        "Noch keine Playlists. Tippe oben auf +, um eine zu erstellen oder zu importieren.",
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (pl == null && playlistStyle.grid) {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(playlistStyle.cols),
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp + bottomSpace),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        gridItems(playlists, key = { it.id }) { p ->
-                            val covers = remember(p.songIds, byId) {
-                                p.songIds.asSequence().mapNotNull { byId[it] }.take(4).toList()
+                                } else {
+                                    Cover(song, 128.dp, corner = 0.dp)
+                                }
+                                Box(
+                                    Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .size(44.dp)
+                                        .clip(RoundedCornerShape(topStart = 16.dp))
+                                        .background(Color.Black.copy(alpha = 0.6f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    EditIcon(tint = Color.White, description = "Cover ändern")
+                                }
                             }
-                            GridTile(
-                                title = p.name,
-                                subtitle = "${p.songIds.size} Titel",
-                                onClick = { openPlaylist = p.id },
-                                onDelete = { deleteTarget = p },
-                                cover = { w -> PlaylistCover(covers, w) }
-                            )
-                        }
-                    }
-                } else if (pl == null) {
-                    LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
-                        items(playlists, key = { it.id }) { p ->
-                            ListItem(
-                                headlineContent = {
-                                    Text(p.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                },
-                                supportingContent = { Text("${p.songIds.size} Titel") },
-                                leadingContent = {
-                                    val covers = remember(p.songIds, byId) {
-                                        p.songIds.asSequence().mapNotNull { byId[it] }.take(4).toList()
-                                    }
-                                    PlaylistCover(covers, 56.dp)
-                                },
-                                trailingContent = {
-                                    IconButton(onClick = { deleteTarget = p }) {
-                                        TrashIcon(description = "Löschen")
-                                    }
-                                },
-                                colors = clearColors(),
-                                modifier = Modifier.clickable { openPlaylist = p.id }
-                            )
-                        }
-                    }
-                } else {
-                    val list = pl.songIds.mapNotNull { byId[it] }
-                    DetailHeader(pl.name) { openPlaylist = null }
-                    if (list.isEmpty()) {
-                        Text(
-                            "Noch keine Titel. Füge Songs über das Menü (⋮) hinzu.",
-                            modifier = Modifier.padding(16.dp)
-                        )
-                    }
-                    LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
-                        itemsIndexed(list, key = { _, s -> s.id }) { i, s ->
-                            SongRow(
-                                s, s.id.toString() == currentId,
-                                onClick = { onPlay(list, i) },
-                                onAddToPlaylist = { addSong = s },
-                                isFavorite = s.id in favSet,
-                                modifier = Modifier.animateItem(),
-                                onToggleFavorite = { onToggleFavorite(s) },
-                                onRemove = {
-                                    onPlaylistsChange(
-                                        playlists.map {
-                                            if (it.id == pl.id) it.copy(songIds = it.songIds - s.id) else it
-                                        }
-                                    )
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        }   // Ende Column (Tab-Inhalt)
-        }   // Ende AnimatedContent
-        }
-    }
-
-    if (showUpdate && update != null) {
-        AlertDialog(
-            modifier = dialogModifier(),
-            containerColor = dialogContainerColor(),
-            onDismissRequest = { showUpdate = false },
-            title = { Text("Update verfügbar") },
-            text = { Text("Version ${update.version} ist auf GitHub veröffentlicht.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showUpdate = false
-                    try {
-                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.url)))
-                    } catch (e: Exception) {
-                        Toast.makeText(ctx, "Link konnte nicht geöffnet werden", Toast.LENGTH_LONG).show()
-                    }
-                }) { Text("Herunterladen") }
-            },
-            dismissButton = { TextButton(onClick = { showUpdate = false }) { Text("Später") } }
-        )
-    }
-
-    addSong?.let { s ->
-        AlertDialog(
-            modifier = dialogModifier(),
-            containerColor = dialogContainerColor(),
-            onDismissRequest = { addSong = null },
-            title = { Text("Zur Playlist hinzufügen") },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
-                    ListItem(
-                        headlineContent = { Text("Neue Playlist…") },
-                        leadingContent = { PlusIcon() },
-                        colors = clearColors(),
-                        modifier = Modifier.clickable {
-                            pendingSong = s; addSong = null; creating = true
-                        }
-                    )
-                    playlists.forEach { p ->
-                        ListItem(
-                            headlineContent = { Text(p.name) },
-                            colors = clearColors(),
-                            modifier = Modifier.clickable {
-                                if (s.id !in p.songIds) {
-                                    onPlaylistsChange(
-                                        playlists.map {
-                                            if (it.id == p.id) it.copy(songIds = it.songIds + s.id) else it
-                                        }
-                                    )
-                                }
-                                addSong = null
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                OutlinedTextField(
+                                    value = fields["TRACKNUMBER"] ?: "",
+                                    onValueChange = { fields["TRACKNUMBER"] = it },
+                                    label = { Text("Track Nummer") },
+                                    trailingIcon = { HashIcon() },
+                                    singleLine = true,
+                                    enabled = !saving,
+                                    shape = fieldShape,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                OutlinedTextField(
+                                    value = fields["DATE"] ?: "",
+                                    onValueChange = { fields["DATE"] = it },
+                                    label = { Text("Jahr") },
+                                    trailingIcon = { CalendarIcon() },
+                                    singleLine = true,
+                                    enabled = !saving,
+                                    shape = fieldShape,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
                             }
-                        )
+                        }
+                        TAG_FIELDS.forEach { (key, label) ->
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = fields[key] ?: "",
+                                onValueChange = { fields[key] = it },
+                                label = { Text(label) },
+                                singleLine = true,
+                                enabled = !saving,
+                                shape = fieldShape,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
                 }
-            },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = { addSong = null }) { Text("Abbrechen") } }
-        )
-    }
-
-    if (creating) {
-        var name by remember { mutableStateOf("") }
-        AlertDialog(
-            modifier = dialogModifier(),
-            containerColor = dialogContainerColor(),
-            onDismissRequest = { pendingSong = null; creating = false },
-            title = { Text("Neue Playlist") },
-            text = {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    singleLine = true,
-                    label = { Text("Name") }
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = name.isNotBlank(),
-                    onClick = {
-                        val p = Playlist(
-                            System.currentTimeMillis().toString(),
-                            name.trim(),
-                            listOfNotNull(pendingSong?.id)
-                        )
-                        onPlaylistsChange(playlists + p)
-                        pendingSong = null
-                        creating = false
-                    }
-                ) { Text("Erstellen") }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingSong = null; creating = false }) { Text("Abbrechen") }
+                error?.let {
+                    Spacer(Modifier.height(12.dp))
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                }
             }
-        )
-    }
-
-    deleteTarget?.let { t ->
-        AlertDialog(
-            modifier = dialogModifier(),
-            containerColor = dialogContainerColor(),
-            onDismissRequest = { deleteTarget = null },
-            title = { Text("Playlist löschen?") },
-            text = { Text("${t.name} wird gelöscht. Die Songs bleiben erhalten.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    onPlaylistsChange(playlists.filter { it.id != t.id })
-                    deleteTarget = null
-                }) { Text("Löschen") }
-            },
-            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Abbrechen") } }
-        )
-    }
+        },
+        confirmButton = {
+            TextButton(onClick = { save(true) }, enabled = original != null && !saving) {
+                Text(if (saving) "Speichere …" else "Speichern")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !saving) { Text("Abbrechen") }
+        }
+    )
 }
