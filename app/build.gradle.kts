@@ -11,7 +11,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "0.4").toInt()
-        versionName = "1.4.4"
+        versionName = "1.4.5"
     }
     signingConfigs {
         create("musik") {
