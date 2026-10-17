@@ -12,12 +12,17 @@ import androidx.compose.ui.unit.dp
 /** STANDARD = Rundungen wie bisher, UNIFORM = einheitlicher Stil für die ganze App */
 enum class CornerStyle { STANDARD, UNIFORM }
 
+/** Hintergrund des Players: Einfarbig (wie bisher), Farbverlauf aus der Cover-Farbe oder das stark verschwommene Cover */
+enum class PlayerBackground { SOLID, GRADIENT, BLUR }
+
 /** Aktuelle Wahl. Eine Änderung zeichnet die ganze App sofort neu. */
 object CornerSettings {
     /** Rundung von Chips, Menüs, Eingabefeldern und Dialogen */
     var style by mutableStateOf(CornerStyle.STANDARD)
     /** Rundung der Albumcover, unabhängig von der Wahl oben */
     var coverStyle by mutableStateOf(CornerStyle.STANDARD)
+    /** Hintergrund des Players */
+    var playerBg by mutableStateOf(PlayerBackground.SOLID)
     private var loaded = false
 
     /** Gespeicherte Wahl einmal beim Start laden (vor der ersten Anzeige) */
@@ -26,6 +31,7 @@ object CornerSettings {
             loaded = true
             style = readCornerStyle(ctx)
             coverStyle = readCoverStyle(ctx)
+            playerBg = readPlayerBg(ctx)
         }
     }
 }
