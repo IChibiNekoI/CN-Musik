@@ -116,7 +116,7 @@ private fun GridTile(
 ) {
     BoxWithConstraints(
         Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(if (LocalCornerStyle.current == CornerStyle.UNIFORM) 20.dp else 12.dp))
+            .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
     ) {
         val w = maxWidth
@@ -185,6 +185,19 @@ fun SongRow(
     var expanded by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
     var showTags by remember { mutableStateOf(false) }
+    val rounded = LocalCornerStyle.current == CornerStyle.UNIFORM
+    Box(modifier.fillMaxWidth()) {
+    if (rounded) {
+        // Einheitlich: abgerundete, leicht eingerückte Hervorhebung. Der Inhalt bleibt an seinem gewohnten Platz.
+        Box(
+            Modifier
+                .matchParentSize()
+                .padding(horizontal = 8.dp, vertical = 2.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(rowColor)
+                .clickable { onClick() }
+        )
+    }
     ListItem(
         headlineContent = { Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = { Text(song.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -231,9 +244,10 @@ fun SongRow(
                 if (showTags) TagEditDialog(song) { showTags = false }
             }
         },
-        colors = ListItemDefaults.colors(containerColor = rowColor),
-        modifier = modifier.clickable { onClick() }
+        colors = ListItemDefaults.colors(containerColor = if (rounded) Color.Transparent else rowColor),
+        modifier = if (rounded) Modifier else Modifier.clickable { onClick() }
     )
+    }
 }
 
 @Composable
