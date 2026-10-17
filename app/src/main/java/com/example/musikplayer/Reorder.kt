@@ -27,7 +27,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 /** So lange muss ein Titel gedrückt gehalten werden, bis er verschoben werden kann. */
-const val REORDER_HOLD_MS = 1500L
+const val REORDER_HOLD_MS = 1000L
 
 /**
  * Liste mit Titeln, die sich per langem Drücken (1,5 s) und Ziehen umsortieren lässt.
