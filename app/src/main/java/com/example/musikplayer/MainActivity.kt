@@ -18,7 +18,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -736,6 +739,98 @@ private class SheetRevealShape(
     }
 }
 
+/**
+ * Hintergrund des Players.
+ * Farbverlauf: oben die Cover-Farbe, nach unten in den Hintergrund auslaufend.
+ * Unschärfe: Das Cover wird einmal auf 48 x 48 Pixel verkleinert und weichgezeichnet, danach nur noch groß gezeichnet.
+ * Das kostet beim Zeichnen praktisch nichts und funktioniert auf jeder Android-Version.
+ */
+@Composable
+private fun PlayerBackdrop(song: Song, mode: PlayerBackground, open: Animatable<Float, AnimationVector1D>) {
+    if (mode == PlayerBackground.SOLID) return
+    val scheme = MaterialTheme.colorScheme
+    // blendet beim Öffnen des Players mit ein
+    val fade = Modifier.graphicsLayer { alpha = ((open.value - 0.2f) / 0.6f).coerceIn(0f, 1f) }
+    if (mode == PlayerBackground.GRADIENT) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .then(fade)
+                .background(
+                    Brush.verticalGradient(
+                        0f to scheme.primaryContainer.copy(alpha = 0.85f),
+                        0.65f to scheme.surface,
+                        1f to scheme.surface
+                    )
+                )
+        )
+    } else {
+        val ctx = LocalContext.current
+        val ver = TagEvents.coverVersions[song.id] ?: 0
+        val blurred by produceState<Bitmap?>(null, song.id, ver) {
+            value = withContext(Dispatchers.IO) {
+                loadCoverBitmap(ctx, song, ver, 96)?.let { blurSmall(it) }
+            }
+        }
+        Crossfade(
+            targetState = blurred,
+            modifier = Modifier.fillMaxSize().then(fade),
+            animationSpec = androidx.compose.animation.core.tween(Motion.SLOW),
+            label = "backdrop"
+        ) { b ->
+            if (b != null) {
+                Box(Modifier.fillMaxSize()) {
+                    Image(
+                        b.asImageBitmap(), contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        filterQuality = FilterQuality.High
+                    )
+                    // dunkler Schleier in der Hintergrundfarbe: Text und Tasten bleiben gut lesbar
+                    Box(Modifier.fillMaxSize().background(scheme.surface.copy(alpha = 0.5f)))
+                }
+            }
+        }
+    }
+}
+
+/** Verkleinert das Bild auf 48 x 48 Pixel und zeichnet es sehr stark weich (3 x Box-Blur mit Radius 5). */
+private fun blurSmall(src: Bitmap): Bitmap {
+    val size = 48
+    val small = Bitmap.createScaledBitmap(src, size, size, true)
+    val px = IntArray(size * size)
+    small.getPixels(px, 0, size, 0, 0, size, size)
+    repeat(3) { boxBlur(px, size, size, 5) }
+    val out = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    out.setPixels(px, 0, size, 0, 0, size, size)
+    return out
+}
+
+private fun boxBlur(px: IntArray, w: Int, h: Int, r: Int) {
+    val d = 2 * r + 1
+    val tmp = IntArray(px.size)
+    for (y in 0 until h) {
+        for (x in 0 until w) {
+            var a = 0; var rr = 0; var g = 0; var b = 0
+            for (k in -r..r) {
+                val c = px[y * w + (x + k).coerceIn(0, w - 1)]
+                a += c ushr 24; rr += (c shr 16) and 255; g += (c shr 8) and 255; b += c and 255
+            }
+            tmp[y * w + x] = ((a / d) shl 24) or ((rr / d) shl 16) or ((g / d) shl 8) or (b / d)
+        }
+    }
+    for (y in 0 until h) {
+        for (x in 0 until w) {
+            var a = 0; var rr = 0; var g = 0; var b = 0
+            for (k in -r..r) {
+                val c = tmp[(y + k).coerceIn(0, h - 1) * w + x]
+                a += c ushr 24; rr += (c shr 16) and 255; g += (c shr 8) and 255; b += c and 255
+            }
+            px[y * w + x] = ((a / d) shl 24) or ((rr / d) shl 16) or ((g / d) shl 8) or (b / d)
+        }
+    }
+}
+
 @Composable
 fun NowPlayingSheet(
     song: Song,
@@ -911,6 +1006,8 @@ private fun NowPlayingSheetContent(
             color = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.onSurface
         ) {
+            // Hintergrund hinter den Bedienelementen: Einfarbig, Farbverlauf oder verschwommenes Cover
+            PlayerBackdrop(song, CornerSettings.playerBg, open)
             BoxWithConstraints(
                 Modifier
                     .fillMaxSize()
