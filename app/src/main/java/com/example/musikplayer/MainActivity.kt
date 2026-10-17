@@ -768,9 +768,7 @@ private fun PlayerBackdrop(song: Song, mode: PlayerBackground, open: Animatable<
         val ctx = LocalContext.current
         val ver = TagEvents.coverVersions[song.id] ?: 0
         val blurred by produceState<Bitmap?>(null, song.id, ver) {
-            value = withContext(Dispatchers.IO) {
-                loadCoverBitmap(ctx, song, ver, 96)?.let { blurSmall(it) }
-            }
+            value = loadBlurredBackdrop(ctx, song)
         }
         Crossfade(
             targetState = blurred,
@@ -799,6 +797,16 @@ private fun PlayerBackdrop(song: Song, mode: PlayerBackground, open: Animatable<
             }
         }
     }
+}
+
+private object BackdropCache : LruCache<String, Bitmap>(6)
+
+/** Stark verschwommenes Cover (48 x 48 Pixel) für Player und Menüs. Wird zwischengespeichert. */
+suspend fun loadBlurredBackdrop(ctx: Context, song: Song): Bitmap? = withContext(Dispatchers.IO) {
+    val ver = TagEvents.coverVersions[song.id] ?: 0
+    val key = "${song.id}_$ver"
+    BackdropCache.get(key)
+        ?: loadCoverBitmap(ctx, song, ver, 96)?.let { blurSmall(it) }?.also { BackdropCache.put(key, it) }
 }
 
 /** Verkleinert das Bild auf 48 x 48 Pixel und zeichnet es sehr stark weich (3 x Box-Blur mit Radius 5). */
@@ -1054,7 +1062,7 @@ private fun NowPlayingSheetContent(
                         )
                         Box(Modifier.align(Alignment.CenterEnd)) {
                             MoreButton(onClick = { menuOpen = true }, modifier = Modifier.padding(end = 4.dp))
-                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            AppAppDropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(
                                     text = { Text("Titel-Infos") },
                                     leadingIcon = { InfoIcon() },
@@ -1348,6 +1356,8 @@ fun SongInfoDialog(song: Song, onDismiss: () -> Unit) {
         "Datum modifiziert" to (if (d == null) "…" else fmtDate(d.modifiedSec))
     )
     AlertDialog(
+        modifier = dialogModifier(),
+        containerColor = dialogContainerColor(),
         onDismissRequest = onDismiss,
         title = { Text("Titel-Infos") },
         text = {
