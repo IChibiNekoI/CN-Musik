@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.SizeTransform
@@ -147,6 +148,13 @@ fun MusikApp(openPlayerSignal: Int = 0) {
     var repeat by remember { mutableIntStateOf(Player.REPEAT_MODE_OFF) }
     var showNow by remember { mutableStateOf(false) }
     var origin by remember { mutableStateOf<MiniOrigin?>(null) }
+    // Player per Hochziehen des Miniplayers öffnen: der Finger steuert den Fortschritt (0 = Miniplayer, 1 = Vollbild)
+    val openProgress = remember { Animatable(0f) }
+    var gestureOpen by remember { mutableStateOf(false) }
+    var pendingOrigin by remember { mutableStateOf<MiniOrigin?>(null) }
+    val openDistance = with(androidx.compose.ui.platform.LocalDensity.current) {
+        androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp.toPx() * 0.4f
+    }
     var showInfo by remember { mutableStateOf(readShowAudioInfo(ctx)) }
     // beim Start einmal bei GitHub nachfragen, ob ein neueres Release existiert
     var update by remember { mutableStateOf<UpdateInfo?>(null) }
@@ -272,7 +280,37 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                         enter = slideInVertically(tween(Motion.MEDIUM, easing = Motion.Ease)) { it / 2 } +
                             fadeIn(tween(Motion.MEDIUM))
                     ) {
-                        MiniPlayer(current, isPlaying, controller) { o -> origin = o; showNow = true }
+                        MiniPlayer(
+                            current, isPlaying, controller,
+                            onDragStart = { o -> pendingOrigin = o },
+                            onDrag = { total ->
+                                val p = (-total / openDistance).coerceIn(0f, 1f)
+                                // erst bei echter Aufwärtsbewegung den Player einblenden
+                                if (!gestureOpen && total < -12f) {
+                                    origin = pendingOrigin
+                                    gestureOpen = true
+                                    showNow = true
+                                    scope.launch { openProgress.snapTo(0f) }
+                                }
+                                if (gestureOpen) scope.launch { openProgress.snapTo(p) }
+                            },
+                            onDragEnd = { total, velocity ->
+                                if (gestureOpen) {
+                                    val p = (-total / openDistance).coerceIn(0f, 1f)
+                                    val opens = p > 0.35f || velocity < -900f
+                                    scope.launch {
+                                        if (opens) {
+                                            openProgress.animateTo(1f, tween(Motion.MEDIUM, easing = Motion.Ease))
+                                        } else {
+                                            // nicht weit genug gezogen: wieder zurück zum Miniplayer
+                                            openProgress.animateTo(0f, tween(Motion.MEDIUM, easing = Motion.Ease))
+                                            showNow = false
+                                            gestureOpen = false
+                                        }
+                                    }
+                                }
+                            }
+                        ) { o -> gestureOpen = false; origin = o; showNow = true }
                     }
             }
         }
@@ -283,6 +321,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                 current, isPlaying, shuffle, repeat, controller,
                 showAudioInfo = showInfo,
                 origin = origin,
+                controlledOpen = if (gestureOpen) openProgress else null,
                 isFavorite = current.id in favorites,
                 onToggleFavorite = { toggleFavorite(current) },
                 onGoToAlbum = {
@@ -290,7 +329,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                     showNow = false
                 },
                 onAddToPlaylist = { playlistRequest = current }
-            ) { showNow = false }
+            ) { showNow = false; gestureOpen = false }
         }
         if (showSettings) {
             AppSettingsSheet(
