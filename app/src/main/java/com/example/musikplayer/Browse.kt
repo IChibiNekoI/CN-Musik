@@ -22,6 +22,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -191,6 +193,9 @@ fun SongRow(
     var showInfo by remember { mutableStateOf(false) }
     var showTags by remember { mutableStateOf(false) }
     val rounded = LocalCornerStyle.current == CornerStyle.UNIFORM
+    // Gemeinsame Quelle für Drücken: der Klick liegt auf dem ListItem, die Welle wird dahinter
+    // im eingerückten Rechteck gezeichnet (gleiche Breite wie die Hervorhebung des laufenden Titels)
+    val pressSource = remember { MutableInteractionSource() }
     Box(modifier.fillMaxWidth()) {
     if (rounded) {
         // Einheitlich: abgerundete, leicht eingerückte Hervorhebung. Der Inhalt bleibt an seinem gewohnten Platz.
@@ -200,6 +205,7 @@ fun SongRow(
                 .padding(horizontal = 8.dp, vertical = 2.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(rowColor)
+                .indication(pressSource, LocalIndication.current)
         )
     }
     ListItem(
@@ -251,8 +257,10 @@ fun SongRow(
         colors = ListItemDefaults.colors(containerColor = if (rounded) Color.Transparent else rowColor),
         // Der Klick muss auf dem ListItem selbst liegen: dessen Surface fängt alle Berührungen ab,
         // ein Klick auf der Box dahinter käme nie an.
-        modifier = if (rounded) Modifier.clip(RoundedCornerShape(20.dp)).clickable { onClick() }
-        else Modifier.clickable { onClick() }
+        modifier = if (rounded) {
+            Modifier.clip(RoundedCornerShape(20.dp))
+                .clickable(interactionSource = pressSource, indication = null) { onClick() }
+        } else Modifier.clickable { onClick() }
     )
     }
 }
