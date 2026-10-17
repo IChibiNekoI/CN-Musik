@@ -85,6 +85,23 @@ fun saveCoverStyle(ctx: Context, style: CornerStyle) {
     prefs(ctx).edit().putString("cover_style", if (style == CornerStyle.UNIFORM) "uniform" else "standard").apply()
 }
 
+fun readPlayerBg(ctx: Context): PlayerBackground = when (prefs(ctx).getString("player_bg", null)) {
+    "gradient" -> PlayerBackground.GRADIENT
+    "blur" -> PlayerBackground.BLUR
+    else -> PlayerBackground.SOLID
+}
+
+fun savePlayerBg(ctx: Context, bg: PlayerBackground) {
+    prefs(ctx).edit().putString(
+        "player_bg",
+        when (bg) {
+            PlayerBackground.GRADIENT -> "gradient"
+            PlayerBackground.BLUR -> "blur"
+            PlayerBackground.SOLID -> "solid"
+        }
+    ).apply()
+}
+
 fun readHeaderLogo(ctx: Context): Boolean = prefs(ctx).getBoolean("header_logo", false)
 
 fun saveHeaderLogo(ctx: Context, v: Boolean) {
