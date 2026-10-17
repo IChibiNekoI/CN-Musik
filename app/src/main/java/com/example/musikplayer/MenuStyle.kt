@@ -1,27 +1,26 @@
 package com.example.musikplayer
 
 import android.graphics.Bitmap
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.material3.AlertDialogDefaults
-import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.layout.ContentScale
 
 /*
- * "Menü-Design einheitlich": Menüs, Dialoge und die Einstellungen bekommen denselben Hintergrund wie der Player,
- * wenn dort "Unschärfe" gewählt ist: das stark verschwommene Cover des laufenden Titels mit dunklem Schleier.
+ * "Menü-Design einheitlich": Die Hauptseite (Titel, Album, Playlists, Favoriten) bekommt denselben Hintergrund
+ * wie der Player, wenn dort "Unschärfe" gewählt ist: das stark verschwommene Cover des laufenden Titels
+ * mit Schleier in der Hintergrundfarbe.
  * In allen anderen Fällen (Einfarbig, Farbverlauf, Schalter aus, kein Titel aktiv) bleibt alles wie Standard.
  */
 object MenuBackdrop {
@@ -32,66 +31,30 @@ object MenuBackdrop {
         get() = CornerSettings.playerBg == PlayerBackground.BLUR && CornerSettings.menuUnified && bitmap != null
 }
 
-private fun Modifier.drawBlurBackdrop(bitmap: Bitmap, veil: Color): Modifier = drawBehind {
-    drawImage(
-        bitmap.asImageBitmap(),
-        dstSize = IntSize(size.width.toInt(), size.height.toInt()),
-        filterQuality = FilterQuality.High
-    )
-    // gleicher dunkler Schleier wie im Player: Text und Tasten bleiben gut lesbar
-    drawRect(veil)
-}
-
-/** Für Dialoge: zeichnet das Menü-Design hinter den Dialog, sonst bleibt der Modifier unverändert. */
+/** Hintergrund der Hauptseite. Blendet weich ein, beim Titelwechsel weich über. */
 @Composable
-fun dialogModifier(base: Modifier = Modifier): Modifier {
-    val bmp = MenuBackdrop.bitmap
-    if (!MenuBackdrop.active || bmp == null) return base
-    return base
-        .clip(MaterialTheme.shapes.extraLarge)
-        .drawBlurBackdrop(bmp, MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
-}
-
-@Composable
-fun dialogContainerColor(): Color =
-    if (MenuBackdrop.active) Color.Transparent else AlertDialogDefaults.containerColor
-
-/** Für das Einstellungs-Sheet von unten */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun sheetModifier(): Modifier {
-    val bmp = MenuBackdrop.bitmap
-    if (!MenuBackdrop.active || bmp == null) return Modifier
-    return Modifier
-        .clip(BottomSheetDefaults.ExpandedShape)
-        .drawBlurBackdrop(bmp, MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun sheetContainerColor(): Color =
-    if (MenuBackdrop.active) Color.Transparent else BottomSheetDefaults.ContainerColor
-
-/** Aufklappmenü (drei Punkte). Gleiche Bedienung wie DropdownMenu, nur mit dem Menü-Design. */
-@Composable
-fun AppDropdownMenu(
-    expanded: Boolean,
-    onDismissRequest: () -> Unit,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    val bmp = MenuBackdrop.bitmap
-    if (!MenuBackdrop.active || bmp == null) {
-        DropdownMenu(expanded = expanded, onDismissRequest = onDismissRequest, content = content)
-        return
-    }
+fun LibraryBackdrop() {
     val scheme = MaterialTheme.colorScheme
-    // Die Fläche des Menüs wird durchsichtig, das verschwommene Cover scheint dahinter durch
-    MaterialTheme(colorScheme = scheme.copy(surfaceContainer = Color.Transparent)) {
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = onDismissRequest,
-            modifier = Modifier.drawBlurBackdrop(bmp, scheme.surface.copy(alpha = 0.5f)),
-            content = content
-        )
+    val bmp = if (MenuBackdrop.active) MenuBackdrop.bitmap else null
+    // Die normale Hintergrundfarbe bleibt darunter, damit beim Einblenden nichts aufblitzt
+    Box(Modifier.fillMaxSize().background(scheme.background))
+    Crossfade(
+        targetState = bmp,
+        modifier = Modifier.fillMaxSize(),
+        animationSpec = tween(Motion.SLOW),
+        label = "libraryBackdrop"
+    ) { b ->
+        if (b != null) {
+            Box(Modifier.fillMaxSize()) {
+                Image(
+                    b.asImageBitmap(), contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    filterQuality = FilterQuality.High
+                )
+                // gleicher Schleier wie im Player: Listen und Texte bleiben gut lesbar
+                Box(Modifier.fillMaxSize().background(scheme.surface.copy(alpha = 0.5f)))
+            }
+        }
     }
 }
