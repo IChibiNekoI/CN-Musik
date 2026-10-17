@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -225,25 +226,34 @@ fun ReorderableSongList(
                         // Zeile genau so weit verschieben, dass sie am Finger hängt
                         val layoutOffset = itemInfo(s.id)?.offset ?: 0
                         translationY = (fingerY - grabY - layoutOffset) * follow
-                        // Beim Aufnehmen leicht größer, Schatten wächst erst gegen Ende der Bewegung
+                        // Beim Aufnehmen leicht größer
                         val l = lift.coerceIn(0f, 1f)
                         scaleX = 1f + 0.025f * l
                         scaleY = 1f + 0.025f * l
-                        shadowElevation = 12.dp.toPx() * l * l
-                        shape = RoundedCornerShape(16.dp)
                         clip = false
                     }
                     .drawBehind {
-                        // Die Karte startet genau im Rahmen der Druck-Hervorhebung (eingerückt, Radius 20)
-                        // und weitet sich weich auf die volle Breite (Radius 16)
+                        // Eine einzige Karte im gleichen Rahmen wie die Druck-Hervorhebung (kein Aufweiten,
+                        // keine Android-Schatten-Ebene). Der Schatten wird weich selbst gezeichnet.
                         val l = lift.coerceIn(0f, 1f)
-                        val hInset = (if (uniformStyle) 8.dp.toPx() else 0.dp.toPx()) * (1f - l)
-                        val vInset = (if (uniformStyle) 2.dp.toPx() else 0.dp.toPx()) * (1f - l)
-                        val radius = androidx.compose.ui.util.lerp(20.dp.toPx(), 16.dp.toPx(), l)
+                        val hInset = if (uniformStyle) 8.dp.toPx() else 0f
+                        val vInset = if (uniformStyle) 2.dp.toPx() else 0f
+                        val radius = (if (uniformStyle) 20.dp else 16.dp).toPx()
+                        val w = size.width - 2 * hInset
+                        val h = size.height - 2 * vInset
+                        for (i in 6 downTo 1) {
+                            val grow = i * 1.6.dp.toPx()
+                            drawRoundRect(
+                                color = Color.Black.copy(alpha = 0.05f * l * (7 - i) / 6f),
+                                topLeft = Offset(hInset - grow, vInset - grow + 3.dp.toPx()),
+                                size = Size(w + 2 * grow, h + 2 * grow),
+                                cornerRadius = CornerRadius(radius + grow)
+                            )
+                        }
                         drawRoundRect(
                             color = cardColor.copy(alpha = cardColor.alpha * l),
                             topLeft = Offset(hInset, vInset),
-                            size = Size(size.width - 2 * hInset, size.height - 2 * vInset),
+                            size = Size(w, h),
                             cornerRadius = CornerRadius(radius)
                         )
                     }
