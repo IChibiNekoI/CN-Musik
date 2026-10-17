@@ -1,5 +1,14 @@
 package com.example.musikplayer
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -10,6 +19,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,6 +34,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -62,9 +73,9 @@ fun SkipButton(
     iconSize: Dp = 30.dp,
     tint: Color = LocalContentColor.current
 ) {
-    IconButton(
-        onClick = onClick,
-        modifier = modifier.semantics { contentDescription = if (forward) "Weiter" else "Zurück" }
+    Box(
+        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = if (forward) "Weiter" else "Zurück" },
+        contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.size(iconSize)) {
             val s = this.size.minDimension
@@ -95,28 +106,40 @@ fun PlayPauseButton(
     Box(
         modifier = modifier
             .size(buttonSize)
+            .bounceClick(pressedScale = 0.94f, onClick = onClick)
             .clip(CircleShape)
             .background(circleColor.copy(alpha = 0.45f))
-            .clickable(role = Role.Button, onClick = onClick)
             .semantics { contentDescription = if (isPlaying) "Pause" else "Abspielen" },
         contentAlignment = Alignment.Center
     ) {
-        Canvas(Modifier.size(buttonSize * 0.5f)) {
-            val s = this.size.minDimension
-            val stroke = outline(s * 0.09f, s * 0.14f)
-            if (isPlaying) {
-                // ausgefüllte, schmale Balken mit voll gerundeten Enden
-                val barW = s * 0.26f
-                val gap = s * 0.08f
-                val barH = s * 0.74f
-                val left = (s - (2 * barW + gap)) / 2f
-                val top = (s - barH) / 2f
-                val corner = CornerRadius(barW / 2f)
-                drawRoundRect(iconColor, Offset(left, top), Size(barW, barH), corner)
-                drawRoundRect(iconColor, Offset(left + barW + gap, top), Size(barW, barH), corner)
-            } else {
-                // etwas nach rechts versetzt, damit das Dreieck optisch mittig sitzt
-                roundedTriangle(s * 0.24f, s * 0.90f, s * 0.13f, s * 0.87f, iconColor, stroke)
+        // Beim Wechsel zwischen Play und Pause tauscht das Symbol mit einem kleinen Zoom
+        AnimatedContent(
+            targetState = isPlaying,
+            transitionSpec = {
+                (scaleIn(tween(Motion.MEDIUM, easing = Motion.Ease), initialScale = 0.6f) +
+                    fadeIn(tween(Motion.FAST))) togetherWith
+                    (scaleOut(tween(Motion.FAST), targetScale = 0.6f) +
+                        fadeOut(tween(Motion.FAST))) using SizeTransform(clip = false)
+            },
+            label = "playPause"
+        ) { playing ->
+            Canvas(Modifier.size(buttonSize * 0.5f)) {
+                val s = this.size.minDimension
+                val stroke = outline(s * 0.09f, s * 0.14f)
+                if (playing) {
+                    // ausgefüllte, schmale Balken mit voll gerundeten Enden
+                    val barW = s * 0.26f
+                    val gap = s * 0.08f
+                    val barH = s * 0.74f
+                    val left = (s - (2 * barW + gap)) / 2f
+                    val top = (s - barH) / 2f
+                    val corner = CornerRadius(barW / 2f)
+                    drawRoundRect(iconColor, Offset(left, top), Size(barW, barH), corner)
+                    drawRoundRect(iconColor, Offset(left + barW + gap, top), Size(barW, barH), corner)
+                } else {
+                    // etwas nach rechts versetzt, damit das Dreieck optisch mittig sitzt
+                    roundedTriangle(s * 0.24f, s * 0.90f, s * 0.13f, s * 0.87f, iconColor, stroke)
+                }
             }
         }
     }
@@ -141,13 +164,16 @@ fun ShuffleButton(
     modifier: Modifier = Modifier,
     iconSize: Dp = 26.dp
 ) {
-    val tint = if (active) MaterialTheme.colorScheme.primary
-    else MaterialTheme.colorScheme.onSurfaceVariant
-    IconButton(
-        onClick = onClick,
-        modifier = modifier.semantics { contentDescription = "Zufall" }
+    val tint by animateColorAsState(
+        if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(Motion.FAST), label = "shuffleTint"
+    )
+    val pop by popOnChange(active)
+    Box(
+        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = "Zufall" },
+        contentAlignment = Alignment.Center
     ) {
-        Canvas(Modifier.size(iconSize)) {
+        Canvas(Modifier.size(iconSize).graphicsLayer { scaleX = pop; scaleY = pop }) {
             val s = this.size.minDimension
             val w = s * 0.085f
             val line = outline(w, s * 0.10f)
@@ -176,13 +202,16 @@ fun RepeatButton(
     modifier: Modifier = Modifier,
     iconSize: Dp = 26.dp
 ) {
-    val tint = if (active) MaterialTheme.colorScheme.primary
-    else MaterialTheme.colorScheme.onSurfaceVariant
-    IconButton(
-        onClick = onClick,
-        modifier = modifier.semantics { contentDescription = "Wiederholen" }
+    val tint by animateColorAsState(
+        if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(Motion.FAST), label = "repeatTint"
+    )
+    val pop by popOnChange(active to repeatOne)
+    Box(
+        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = "Wiederholen" },
+        contentAlignment = Alignment.Center
     ) {
-        Canvas(Modifier.size(iconSize)) {
+        Canvas(Modifier.size(iconSize).graphicsLayer { scaleX = pop; scaleY = pop }) {
             val s = this.size.minDimension
             val w = s * 0.085f
             val line = outline(w, s * 0.14f)
@@ -216,9 +245,9 @@ fun CloseSheetButton(
     iconSize: Dp = 30.dp,   // größer = höherer/breiterer Pfeil
     tint: Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)   // gleiche Farbe wie der Kreis des Play-Buttons
 ) {
-    IconButton(
-        onClick = onClick,
-        modifier = modifier.semantics { contentDescription = "Schließen" }
+    Box(
+        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = "Schließen" },
+        contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.size(iconSize)) {
             val s = this.size.minDimension
@@ -246,9 +275,9 @@ fun MoreButton(
     Box(
         modifier = modifier
             .size(buttonSize)
+            .bounceClick(pressedScale = 0.9f, onClick = onClick)
             .clip(CircleShape)
             .background(circleColor.copy(alpha = 0.45f))   // gleiche Füllung wie der Play-Button
-            .clickable(role = Role.Button, onClick = onClick)
             .semantics { contentDescription = "Mehr" },
         contentAlignment = Alignment.Center
     ) {
@@ -271,9 +300,9 @@ fun UpdateButton(
     iconSize: Dp = 26.dp,
     tint: Color = MaterialTheme.colorScheme.primary
 ) {
-    IconButton(
-        onClick = onClick,
-        modifier = modifier.semantics { contentDescription = "Update verfügbar" }
+    Box(
+        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = "Update verfügbar" },
+        contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.size(iconSize)) {
             val s = this.size.minDimension
