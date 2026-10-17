@@ -195,7 +195,6 @@ fun SongRow(
                 .padding(horizontal = 8.dp, vertical = 2.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(rowColor)
-                .clickable { onClick() }
         )
     }
     ListItem(
@@ -245,7 +244,10 @@ fun SongRow(
             }
         },
         colors = ListItemDefaults.colors(containerColor = if (rounded) Color.Transparent else rowColor),
-        modifier = if (rounded) Modifier else Modifier.clickable { onClick() }
+        // Der Klick muss auf dem ListItem selbst liegen: dessen Surface fängt alle Berührungen ab,
+        // ein Klick auf der Box dahinter käme nie an.
+        modifier = if (rounded) Modifier.clip(RoundedCornerShape(20.dp)).clickable { onClick() }
+        else Modifier.clickable { onClick() }
     )
     }
 }
