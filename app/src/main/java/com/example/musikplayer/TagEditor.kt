@@ -1,13 +1,11 @@
 package com.example.musikplayer
 
 import android.app.Activity
-import android.app.RecoverableSecurityException
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.MediaScannerConnection
 import android.net.Uri
-import android.os.Build
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -247,19 +245,8 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
                 TagEvents.tick++
                 onDismiss()
             } else if (sec != null && askIfNeeded) {
-                val sender = when {
-                    Build.VERSION.SDK_INT >= 30 ->
-                        MediaStore.createWriteRequest(ctx.contentResolver, listOf(song.uri)).intentSender
-                    Build.VERSION.SDK_INT >= 29 && sec is RecoverableSecurityException ->
-                        sec.userAction.actionIntent.intentSender
-                    else -> null
-                }
-                if (sender != null) {
-                    launcher.launch(IntentSenderRequest.Builder(sender).build())
-                } else {
-                    saving = false
-                    error = "Keine Schreibberechtigung für diese Datei."
-                }
+                val sender = MediaStore.createWriteRequest(ctx.contentResolver, listOf(song.uri)).intentSender
+                launcher.launch(IntentSenderRequest.Builder(sender).build())
             } else {
                 saving = false
                 error = "Speichern fehlgeschlagen. Das Dateiformat wird evtl. nicht unterstützt."
