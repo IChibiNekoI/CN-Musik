@@ -30,7 +30,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 const val REORDER_HOLD_MS = 1000L
 
 /**
- * Liste mit Titeln, die sich per langem Drücken (1,5 s) und Ziehen umsortieren lässt.
+ * Liste mit Titeln, die sich per langem Drücken (siehe REORDER_HOLD_MS) und Ziehen umsortieren lässt.
  * Normales Tippen und Scrollen bleiben unverändert. Nach dem Loslassen wird die neue Reihenfolge über [onReorder] gemeldet.
  * [row] zeichnet eine Zeile und muss den übergebenen Modifier an die Zeile weitergeben.
  *
@@ -76,6 +76,14 @@ fun ReorderableSongList(
         val above = infos.firstOrNull { it.index < from && center < it.offset + it.size / 2f }
         val to = (below ?: above)?.index ?: return
         if (to == from || to !in order.indices) return
+        // LazyColumn hält die Scrollposition am ersten sichtbaren Eintrag fest (über dessen Schlüssel).
+        // Wird dieser Eintrag verschoben, würde die Liste ihm hinterherspringen und der Titel bei jedem
+        // Tausch eine Zeile weiter rutschen (Sprung nach ganz unten). Darum Position festhalten.
+        val firstIndex = listState.firstVisibleItemIndex
+        val firstOffset = listState.firstVisibleItemScrollOffset
+        if (firstIndex in minOf(from, to)..maxOf(from, to)) {
+            listState.requestScrollToItem(firstIndex, firstOffset)
+        }
         order = order.toMutableList().apply { add(to, removeAt(from)) }
     }
 
@@ -101,27 +109,41 @@ fun ReorderableSongList(
         if (result.map { it.id } != currentSongs.map { it.id }) currentOnReorder(result)
     }
 
-    // Am oberen/unteren Rand scrollt die Liste weiter, solange der Finger dort liegt
+    // Am oberen/unteren Rand scrollt die Liste weiter, solange der Finger dort liegt.
+    // Die Geschwindigkeit hängt vom Abstand zum Rand ab und steigt, je länger der Finger dort bleibt.
     LaunchedEffect(dragKey) {
         if (dragKey == null) return@LaunchedEffect
-        val zone = with(density) { 72.dp.toPx() }
-        val maxStep = with(density) { 7.dp.toPx() }   // pro Bild (ca. 16 ms)
+        val zone = with(density) { 96.dp.toPx() }
+        val maxSpeed = with(density) { 2200.dp.toPx() }   // Pixel pro Sekunde bei vollem Tempo
+        val maxStep = with(density) { 56.dp.toPx() }      // nie mehr als eine Zeile pro Bild
+        var edgeSince = 0L
+        var lastNanos = withFrameNanos { it }
         while (isActive) {
             if (dragKey == null) break
+            val now = withFrameNanos { it }
+            val dt = ((now - lastNanos) / 1_000_000_000f).coerceIn(0f, 0.05f)
+            lastNanos = now
             if (settleJob?.isActive != true) {
                 val info = listState.layoutInfo
                 val top = info.beforeContentPadding.toFloat()
                 // Unten zählt nur der sichtbare Bereich über dem Miniplayer
                 val bottom = (info.viewportSize.height - info.afterContentPadding).toFloat()
-                val delta = when {
-                    fingerY < top + zone -> -((top + zone - fingerY) / zone).coerceIn(0f, 1f) * maxStep
-                    fingerY > bottom - zone -> ((fingerY - (bottom - zone)) / zone).coerceIn(0f, 1f) * maxStep
+                val intensity = when {
+                    fingerY < top + zone -> -((top + zone - fingerY) / zone).coerceIn(0f, 1f)
+                    fingerY > bottom - zone -> ((fingerY - (bottom - zone)) / zone).coerceIn(0f, 1f)
                     else -> 0f
                 }
-                if (delta != 0f) listState.scrollBy(delta)
+                if (intensity != 0f) {
+                    if (edgeSince == 0L) edgeSince = now
+                    val held = (now - edgeSince) / 1_000_000_000f
+                    val ramp = (0.3f + 0.7f * held / 1.0f).coerceAtMost(1f)   // nach ca. 1 s volles Tempo
+                    val step = (intensity * maxSpeed * ramp * dt).coerceIn(-maxStep, maxStep)
+                    if (step != 0f) listState.scrollBy(step)
+                } else {
+                    edgeSince = 0L
+                }
                 checkSwap()
             }
-            delay(16)
         }
     }
 
