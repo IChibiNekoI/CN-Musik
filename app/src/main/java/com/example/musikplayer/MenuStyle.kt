@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -56,6 +57,7 @@ fun dialogContainerColor(): Color =
     if (MenuBackdrop.active) Color.Transparent else AlertDialogDefaults.containerColor
 
 /** Für das Einstellungs-Sheet von unten */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun sheetModifier(): Modifier {
     val bmp = MenuBackdrop.bitmap
@@ -65,6 +67,7 @@ fun sheetModifier(): Modifier {
         .drawBlurBackdrop(bmp, MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun sheetContainerColor(): Color =
     if (MenuBackdrop.active) Color.Transparent else BottomSheetDefaults.ContainerColor
