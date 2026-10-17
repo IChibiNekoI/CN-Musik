@@ -999,13 +999,13 @@ private fun NowPlayingSheetContent(
                             transitionSpec = {
                                 val dir = SkipDirection.dir
                                 (slideInHorizontally(
-                                    animationSpec = tween(320, easing = FastOutSlowInEasing),
+                                    animationSpec = tween(Motion.MEDIUM, easing = Motion.Ease),
                                     initialOffsetX = { w -> dir * w / 4 }
-                                ) + fadeIn(tween(260))) togetherWith
+                                ) + fadeIn(tween(Motion.MEDIUM - 40))) togetherWith
                                     (slideOutHorizontally(
-                                        animationSpec = tween(320, easing = FastOutSlowInEasing),
+                                        animationSpec = tween(Motion.MEDIUM, easing = Motion.Ease),
                                         targetOffsetX = { w -> -dir * w / 4 }
-                                    ) + fadeOut(tween(200))) using SizeTransform(clip = false)
+                                    ) + fadeOut(tween(Motion.FAST))) using SizeTransform(clip = false)
                             },
                             label = "cover"
                         ) { s -> Cover(s, coverSize, corner = 20.dp) }
