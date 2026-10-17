@@ -350,6 +350,8 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                 onCornerStyle = { CornerSettings.style = it; saveCornerStyle(ctx, it) },
                 coverStyle = CornerSettings.coverStyle,
                 onCoverStyle = { CornerSettings.coverStyle = it; saveCoverStyle(ctx, it) },
+                playerBg = CornerSettings.playerBg,
+                onPlayerBg = { CornerSettings.playerBg = it; savePlayerBg(ctx, it) },
                 rescanning = rescanning,
                 onRescan = {
                     if (!rescanning) scope.launch {
@@ -421,6 +423,8 @@ fun AppSettingsSheet(
     onCornerStyle: (CornerStyle) -> Unit,
     coverStyle: CornerStyle,
     onCoverStyle: (CornerStyle) -> Unit,
+    playerBg: PlayerBackground,
+    onPlayerBg: (PlayerBackground) -> Unit,
     rescanning: Boolean,
     onRescan: () -> Unit,
     onDismiss: () -> Unit
@@ -533,7 +537,7 @@ fun AppSettingsSheet(
                 )
                 ListItem(
                     headlineContent = { Text("Design") },
-                    supportingContent = { Text("Rundungen und Albumcover") },
+                    supportingContent = { Text("Rundungen, Albumcover und Player-Hintergrund") },
                     leadingContent = { CornersIcon() },
                     trailingContent = {
                         ChevronRightIcon()
@@ -614,6 +618,25 @@ fun AppSettingsSheet(
                     "Die Rundung wächst mit der Größe des Covers",
                     coverStyle == CornerStyle.UNIFORM
                 ) { onCoverStyle(CornerStyle.UNIFORM) }
+                Text(
+                    "Player-Hintergrund",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 8.dp)
+                )
+                SortOption("Einfarbig", "Wie bisher", playerBg == PlayerBackground.SOLID) {
+                    onPlayerBg(PlayerBackground.SOLID)
+                }
+                SortOption(
+                    "Farbverlauf",
+                    "Oben die Farbe des Covers, nach unten weich auslaufend",
+                    playerBg == PlayerBackground.GRADIENT
+                ) { onPlayerBg(PlayerBackground.GRADIENT) }
+                SortOption(
+                    "Unschärfe",
+                    "Das Cover, sehr stark verschwommen, als Hintergrund",
+                    playerBg == PlayerBackground.BLUR
+                ) { onPlayerBg(PlayerBackground.BLUR) }
                 Spacer(Modifier.height(32.dp))
             }
             "albumView" -> {
