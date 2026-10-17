@@ -1,6 +1,8 @@
 package com.example.musikplayer
 
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -14,6 +16,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -56,8 +62,13 @@ fun ReorderableSongList(
     var grabY by remember { mutableFloatStateOf(0f) }
     // 1 = Zeile hängt am Finger, 0 = Zeile sitzt in ihrem Platz (beim Loslassen gleitet der Wert auf 0)
     var follow by remember { mutableFloatStateOf(0f) }
+    // 0 = normale Zeile, 1 = voll "abgehoben" (Karte, Schatten, leicht größer). Blendet beim Aufnehmen weich ein, beim Loslassen aus.
+    var lift by remember { mutableFloatStateOf(0f) }
+    var liftJob by remember { mutableStateOf<Job?>(null) }
     var settleJob by remember { mutableStateOf<Job?>(null) }
     val currentOnReorder by rememberUpdatedState(onReorder)
+    val cardColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    val uniformStyle = LocalCornerStyle.current == CornerStyle.UNIFORM
     val currentSongs by rememberUpdatedState(songs)
 
     fun itemInfo(key: Long) = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == key }
@@ -95,15 +106,29 @@ fun ReorderableSongList(
         grabY = y - info.offset
         follow = 1f
         dragKey = key
+        liftJob?.cancel()
+        liftJob = scope.launch {
+            animate(lift, 1f, animationSpec = tween(260, easing = FastOutSlowInEasing)) { v, _ -> lift = v }
+        }
         return true
     }
 
     fun endDrag() {
         if (dragKey == null || settleJob?.isActive == true) return
         val result = order
+        liftJob?.cancel()
         settleJob = scope.launch {
-            // Die Zeile gleitet sanft an ihren Platz
-            animate(follow, 0f, animationSpec = tween(160)) { v, _ -> follow = v }
+            // Die Zeile gleitet federnd an ihren Platz, Schatten und Karte blenden dabei aus
+            val startLift = lift
+            animate(
+                1f, 0f,
+                animationSpec = spring(dampingRatio = 0.72f, stiffness = 420f)
+            ) { v, _ ->
+                follow = v
+                lift = startLift * v.coerceAtLeast(0f)
+            }
+            follow = 0f
+            lift = 0f
             dragKey = null
         }
         if (result.map { it.id } != currentSongs.map { it.id }) currentOnReorder(result)
@@ -200,11 +225,28 @@ fun ReorderableSongList(
                         // Zeile genau so weit verschieben, dass sie am Finger hängt
                         val layoutOffset = itemInfo(s.id)?.offset ?: 0
                         translationY = (fingerY - grabY - layoutOffset) * follow
-                        shadowElevation = 12.dp.toPx() * follow
+                        // Beim Aufnehmen leicht größer, Schatten wächst erst gegen Ende der Bewegung
+                        val l = lift.coerceIn(0f, 1f)
+                        scaleX = 1f + 0.025f * l
+                        scaleY = 1f + 0.025f * l
+                        shadowElevation = 12.dp.toPx() * l * l
                         shape = RoundedCornerShape(16.dp)
                         clip = false
                     }
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(16.dp))
+                    .drawBehind {
+                        // Die Karte startet genau im Rahmen der Druck-Hervorhebung (eingerückt, Radius 20)
+                        // und weitet sich weich auf die volle Breite (Radius 16)
+                        val l = lift.coerceIn(0f, 1f)
+                        val hInset = (if (uniformStyle) 8.dp.toPx() else 0.dp.toPx()) * (1f - l)
+                        val vInset = (if (uniformStyle) 2.dp.toPx() else 0.dp.toPx()) * (1f - l)
+                        val radius = androidx.compose.ui.util.lerp(20.dp.toPx(), 16.dp.toPx(), l)
+                        drawRoundRect(
+                            color = cardColor.copy(alpha = cardColor.alpha * l),
+                            topLeft = Offset(hInset, vInset),
+                            size = Size(size.width - 2 * hInset, size.height - 2 * vInset),
+                            cornerRadius = CornerRadius(radius)
+                        )
+                    }
             } else {
                 Modifier.animateItem()
             }
