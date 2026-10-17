@@ -223,6 +223,17 @@ fun MusikApp(openPlayerSignal: Int = 0) {
         currentId = list[idx].id.toString()
     }
     val current = allSongs.find { it.id.toString() == currentId }
+    // Verschwommenes Cover für Menüs, Dialoge und Einstellungen (nur bei Unschärfe mit eingeschaltetem Menü-Design)
+    LaunchedEffect(
+        current?.id, CornerSettings.playerBg, CornerSettings.menuUnified,
+        current?.let { TagEvents.coverVersions[it.id] }
+    ) {
+        val sg = current
+        MenuBackdrop.bitmap =
+            if (sg != null && CornerSettings.playerBg == PlayerBackground.BLUR && CornerSettings.menuUnified)
+                loadBlurredBackdrop(ctx, sg)
+            else null
+    }
 
     CoverTheme(current, isSystemInDarkTheme()) {
         val miniVisible = current != null && controller != null
@@ -352,6 +363,8 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                 onCoverStyle = { CornerSettings.coverStyle = it; saveCoverStyle(ctx, it) },
                 playerBg = CornerSettings.playerBg,
                 onPlayerBg = { CornerSettings.playerBg = it; savePlayerBg(ctx, it) },
+                menuUnified = CornerSettings.menuUnified,
+                onMenuUnified = { CornerSettings.menuUnified = it; saveMenuUnified(ctx, it) },
                 rescanning = rescanning,
                 onRescan = {
                     if (!rescanning) scope.launch {
@@ -425,6 +438,8 @@ fun AppSettingsSheet(
     onCoverStyle: (CornerStyle) -> Unit,
     playerBg: PlayerBackground,
     onPlayerBg: (PlayerBackground) -> Unit,
+    menuUnified: Boolean,
+    onMenuUnified: (Boolean) -> Unit,
     rescanning: Boolean,
     onRescan: () -> Unit,
     onDismiss: () -> Unit
@@ -439,6 +454,8 @@ fun AppSettingsSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        modifier = sheetModifier(),
+        containerColor = sheetContainerColor(),
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {
         // Beim Wechsel zwischen den Seiten gleiten Inhalte weich hinein und heraus, die Höhe des Menüs passt sich an
@@ -637,6 +654,22 @@ fun AppSettingsSheet(
                     "Das Cover, sehr stark verschwommen, als Hintergrund",
                     playerBg == PlayerBackground.BLUR
                 ) { onPlayerBg(PlayerBackground.BLUR) }
+                // Kippschalter: Menüs, Dialoge und Einstellungen wie der Player (nur bei Unschärfe)
+                val menuSwitchEnabled = playerBg == PlayerBackground.BLUR
+                ListItem(
+                    headlineContent = { Text("Menü-Design einheitlich") },
+                    supportingContent = {
+                        Text(
+                            if (menuSwitchEnabled) "Menüs, Dialoge und Einstellungen sehen aus wie der Player"
+                            else "Nur bei Unschärfe verfügbar"
+                        )
+                    },
+                    trailingContent = {
+                        Switch(checked = menuUnified, onCheckedChange = null, enabled = menuSwitchEnabled)
+                    },
+                    colors = clear,
+                    modifier = Modifier.clickable(enabled = menuSwitchEnabled) { onMenuUnified(!menuUnified) }
+                )
                 Spacer(Modifier.height(32.dp))
             }
             "albumView" -> {
