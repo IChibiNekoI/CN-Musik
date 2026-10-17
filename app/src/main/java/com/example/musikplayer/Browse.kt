@@ -270,6 +270,7 @@ fun LibraryScreen(
     update: UpdateInfo? = null,
     favorites: List<Long> = emptyList(),
     onToggleFavorite: (Song) -> Unit = {},
+    onReorderFavorites: (List<Long>) -> Unit = {},
     onPlaylistsChange: (List<Playlist>) -> Unit,
     onPlay: (List<Song>, Int) -> Unit,
     onSettings: () -> Unit,
@@ -588,15 +589,22 @@ fun LibraryScreen(
             3 -> {
                 // neueste Favoriten zuerst
                 val favSongs = remember(favorites, byId) { favorites.mapNotNull { byId[it] } }
-                LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
-                    itemsIndexed(favSongs, key = { _, s -> s.id }) { i, s ->
-                        SongRow(
-                            s, s.id.toString() == currentId, { onPlay(favSongs, i) }, { addSong = s },
-                            isFavorite = true,
-                            modifier = Modifier.animateItem(),
-                            onToggleFavorite = { onToggleFavorite(s) }
-                        )
-                    }
+                // Titel 1,5 s gedrückt halten und ziehen, um ihn zu verschieben
+                ReorderableSongList(
+                    songs = favSongs,
+                    onReorder = { new ->
+                        // Titel, die gerade nicht in der Bibliothek sind, bleiben am Ende erhalten
+                        onReorderFavorites(new.map { it.id } + favorites.filter { id -> byId[id] == null })
+                    },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(bottom = bottomSpace)
+                ) { i, s, itemMod ->
+                    SongRow(
+                        s, s.id.toString() == currentId, { onPlay(favSongs, i) }, { addSong = s },
+                        isFavorite = true,
+                        modifier = itemMod,
+                        onToggleFavorite = { onToggleFavorite(s) }
+                    )
                 }
             }
             else -> {
@@ -662,24 +670,34 @@ fun LibraryScreen(
                             modifier = Modifier.padding(16.dp)
                         )
                     }
-                    LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
-                        itemsIndexed(list, key = { _, s -> s.id }) { i, s ->
-                            SongRow(
-                                s, s.id.toString() == currentId,
-                                onClick = { onPlay(list, i) },
-                                onAddToPlaylist = { addSong = s },
-                                isFavorite = s.id in favSet,
-                                modifier = Modifier.animateItem(),
-                                onToggleFavorite = { onToggleFavorite(s) },
-                                onRemove = {
-                                    onPlaylistsChange(
-                                        playlists.map {
-                                            if (it.id == pl.id) it.copy(songIds = it.songIds - s.id) else it
-                                        }
-                                    )
-                                }
+                    // Titel 1,5 s gedrückt halten und ziehen, um ihn zu verschieben
+                    ReorderableSongList(
+                        songs = list,
+                        onReorder = { new ->
+                            // Titel, die gerade nicht in der Bibliothek sind, bleiben am Ende erhalten
+                            val ids = new.map { it.id } + pl.songIds.filter { id -> byId[id] == null }
+                            onPlaylistsChange(
+                                playlists.map { if (it.id == pl.id) it.copy(songIds = ids) else it }
                             )
-                        }
+                        },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(bottom = bottomSpace)
+                    ) { i, s, itemMod ->
+                        SongRow(
+                            s, s.id.toString() == currentId,
+                            onClick = { onPlay(list, i) },
+                            onAddToPlaylist = { addSong = s },
+                            isFavorite = s.id in favSet,
+                            modifier = itemMod,
+                            onToggleFavorite = { onToggleFavorite(s) },
+                            onRemove = {
+                                onPlaylistsChange(
+                                    playlists.map {
+                                        if (it.id == pl.id) it.copy(songIds = it.songIds - s.id) else it
+                                    }
+                                )
+                            }
+                        )
                     }
                 }
             }
