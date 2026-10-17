@@ -8,10 +8,10 @@ android {
     compileSdk = 35
     defaultConfig {
         applicationId = "com.example.musikplayer"
-        minSdk = 26
+        minSdk = 31
         targetSdk = 35
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "0.4").toInt()
-        versionName = "1.4.96"
+        versionName = "1.4.97"
     }
     signingConfigs {
         create("musik") {
