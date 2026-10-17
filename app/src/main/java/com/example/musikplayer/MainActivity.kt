@@ -1062,7 +1062,7 @@ private fun NowPlayingSheetContent(
                         )
                         Box(Modifier.align(Alignment.CenterEnd)) {
                             MoreButton(onClick = { menuOpen = true }, modifier = Modifier.padding(end = 4.dp))
-                            AppAppDropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            AppDropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(
                                     text = { Text("Titel-Infos") },
                                     leadingIcon = { InfoIcon() },
