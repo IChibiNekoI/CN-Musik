@@ -364,8 +364,6 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                 onHeaderLogo = { headerLogo = it; saveHeaderLogo(ctx, it) },
                 cornerStyle = CornerSettings.style,
                 onCornerStyle = { CornerSettings.style = it; saveCornerStyle(ctx, it) },
-                coverStyle = CornerSettings.coverStyle,
-                onCoverStyle = { CornerSettings.coverStyle = it; saveCoverStyle(ctx, it) },
                 playerBg = CornerSettings.playerBg,
                 onPlayerBg = { CornerSettings.playerBg = it; savePlayerBg(ctx, it) },
                 menuUnified = CornerSettings.menuUnified,
@@ -398,10 +396,10 @@ private fun SheetHeader(title: String, onBack: () -> Unit) {
 }
 
 @Composable
-private fun SortOption(title: String, subtitle: String, selected: Boolean, onClick: () -> Unit) {
+private fun SortOption(title: String, subtitle: String?, selected: Boolean, onClick: () -> Unit) {
     ListItem(
         headlineContent = { Text(title) },
-        supportingContent = { Text(subtitle) },
+        supportingContent = subtitle?.let { { Text(it) } },
         leadingContent = { RadioButton(selected = selected, onClick = null) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.clickable { onClick() }
@@ -439,8 +437,6 @@ fun AppSettingsSheet(
     onHeaderLogo: (Boolean) -> Unit,
     cornerStyle: CornerStyle,
     onCornerStyle: (CornerStyle) -> Unit,
-    coverStyle: CornerStyle,
-    onCoverStyle: (CornerStyle) -> Unit,
     playerBg: PlayerBackground,
     onPlayerBg: (PlayerBackground) -> Unit,
     menuUnified: Boolean,
@@ -547,7 +543,7 @@ fun AppSettingsSheet(
                 )
                 ListItem(
                     headlineContent = { Text("Design") },
-                    supportingContent = { Text("Rundungen, Albumcover und Player-Hintergrund") },
+                    supportingContent = { Text("Rundungen und Player-Hintergrund") },
                     leadingContent = { CornersIcon() },
                     trailingContent = {
                         ChevronRightIcon()
@@ -616,7 +612,7 @@ fun AppSettingsSheet(
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                 )
-                SortOption("Standard", "Wie bisher", cornerStyle == CornerStyle.STANDARD) {
+                SortOption("Standard", null, cornerStyle == CornerStyle.STANDARD) {
                     onCornerStyle(CornerStyle.STANDARD)
                 }
                 SortOption(
@@ -624,20 +620,6 @@ fun AppSettingsSheet(
                     "Chips, Menüs, Felder und Dialoge runden im gleichen Stil",
                     cornerStyle == CornerStyle.UNIFORM
                 ) { onCornerStyle(CornerStyle.UNIFORM) }
-                Text(
-                    "Albumcover",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 8.dp)
-                )
-                SortOption("Standard", "Wie bisher", coverStyle == CornerStyle.STANDARD) {
-                    onCoverStyle(CornerStyle.STANDARD)
-                }
-                SortOption(
-                    "Einheitlich",
-                    "Die Rundung wächst mit der Größe des Covers",
-                    coverStyle == CornerStyle.UNIFORM
-                ) { onCoverStyle(CornerStyle.UNIFORM) }
                 Text(
                     "Player-Hintergrund",
                     style = MaterialTheme.typography.titleSmall,
