@@ -16,7 +16,6 @@ import android.media.MediaScannerConnection
 import android.media.MediaFormat
 import android.provider.OpenableColumns
 import java.util.Locale
-import android.os.Build
 import android.provider.MediaStore
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -400,8 +399,7 @@ suspend fun refreshTagsFromFiles(
 fun loadLibrary(ctx: Context): List<Song> {
     val list = mutableListOf<Song>()
     val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-    val folderField = if (Build.VERSION.SDK_INT >= 29)
-        MediaStore.Audio.Media.RELATIVE_PATH else MediaStore.Audio.Media.DATA
+    val folderField = MediaStore.Audio.Media.RELATIVE_PATH
     val proj = arrayOf(
         MediaStore.Audio.Media._ID,
         MediaStore.Audio.Media.TITLE,
@@ -428,7 +426,7 @@ fun loadLibrary(ctx: Context): List<Song> {
         while (c.moveToNext()) {
             val id = c.getLong(idCol)
             val raw = c.getString(folderCol) ?: ""
-            val folder = if (Build.VERSION.SDK_INT >= 29) raw else raw.substringBeforeLast('/', "")
+            val folder = raw
             list += Song(
                 id = id,
                 title = c.getString(titleCol) ?: "Unbekannt",
