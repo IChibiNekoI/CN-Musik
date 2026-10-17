@@ -102,6 +102,12 @@ fun savePlayerBg(ctx: Context, bg: PlayerBackground) {
     ).apply()
 }
 
+fun readMenuUnified(ctx: Context): Boolean = prefs(ctx).getBoolean("menu_unified", false)
+
+fun saveMenuUnified(ctx: Context, on: Boolean) {
+    prefs(ctx).edit().putBoolean("menu_unified", on).apply()
+}
+
 fun readHeaderLogo(ctx: Context): Boolean = prefs(ctx).getBoolean("header_logo", false)
 
 fun saveHeaderLogo(ctx: Context, v: Boolean) {
