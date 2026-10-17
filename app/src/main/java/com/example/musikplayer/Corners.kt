@@ -23,6 +23,8 @@ object CornerSettings {
     var coverStyle by mutableStateOf(CornerStyle.STANDARD)
     /** Hintergrund des Players */
     var playerBg by mutableStateOf(PlayerBackground.SOLID)
+    /** Menüs, Dialoge und Einstellungen sehen aus wie der Player (nur bei Unschärfe) */
+    var menuUnified by mutableStateOf(false)
     private var loaded = false
 
     /** Gespeicherte Wahl einmal beim Start laden (vor der ersten Anzeige) */
@@ -32,6 +34,7 @@ object CornerSettings {
             style = readCornerStyle(ctx)
             coverStyle = readCoverStyle(ctx)
             playerBg = readPlayerBg(ctx)
+            menuUnified = readMenuUnified(ctx)
         }
     }
 }
