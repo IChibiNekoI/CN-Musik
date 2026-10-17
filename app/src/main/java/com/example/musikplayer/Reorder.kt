@@ -17,8 +17,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -31,6 +33,10 @@ const val REORDER_HOLD_MS = 1500L
  * Liste mit Titeln, die sich per langem Drücken (1,5 s) und Ziehen umsortieren lässt.
  * Normales Tippen und Scrollen bleiben unverändert. Nach dem Loslassen wird die neue Reihenfolge über [onReorder] gemeldet.
  * [row] zeichnet eine Zeile und muss den übergebenen Modifier an die Zeile weitergeben.
+ *
+ * Funktionsweise: Die Geste wird einmal für die ganze Liste ausgewertet. Während des Ziehens zählt nur die
+ * absolute Fingerposition in der Liste. Die Zeile wird immer genau so weit verschoben, dass sie am Finger hängt,
+ * egal ob die Liste gescrollt wurde oder sich die Reihenfolge geändert hat. Dadurch kann sie nicht wegdriften.
  */
 @Composable
 fun ReorderableSongList(
@@ -41,130 +47,145 @@ fun ReorderableSongList(
     row: @Composable (index: Int, song: Song, itemModifier: Modifier) -> Unit
 ) {
     val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
     var order by remember(songs) { mutableStateOf(songs) }
     var dragKey by remember { mutableStateOf<Long?>(null) }
-    var dragOffset by remember { mutableFloatStateOf(0f) }
-    var settling by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    // Fingerposition in der Liste (Pixel von der Oberkante der Liste) und Abstand des Fingers zur Oberkante der Zeile
+    var fingerY by remember { mutableFloatStateOf(0f) }
+    var grabY by remember { mutableFloatStateOf(0f) }
+    // 1 = Zeile hängt am Finger, 0 = Zeile sitzt in ihrem Platz (beim Loslassen gleitet der Wert auf 0)
+    var follow by remember { mutableFloatStateOf(0f) }
+    var settleJob by remember { mutableStateOf<Job?>(null) }
     val currentOnReorder by rememberUpdatedState(onReorder)
+    val currentSongs by rememberUpdatedState(songs)
 
-    /** Tauscht den gezogenen Titel mit dem Nachbarn, über dem er gerade liegt. */
+    fun itemInfo(key: Long) = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == key }
+
+    /** Setzt den gezogenen Titel um, sobald seine Mitte die Mitte eines Nachbarn überschritten hat. */
     fun checkSwap() {
         val key = dragKey ?: return
-        if (settling) return
+        if (settleJob?.isActive == true) return
         val infos = listState.layoutInfo.visibleItemsInfo
         val dragged = infos.firstOrNull { it.key == key } ?: return
         val from = order.indexOfFirst { it.id == key }
-        // Layout noch nicht aktuell (gerade erst getauscht): erst beim nächsten Durchlauf prüfen
+        // Layout noch nicht aktuell (gerade erst umgesetzt): beim nächsten Durchlauf prüfen
         if (from < 0 || dragged.index != from) return
-        val center = dragged.offset + dragged.size / 2f + dragOffset
-        val target = infos.firstOrNull {
-            it.key != key && center >= it.offset && center <= it.offset + it.size
-        } ?: return
-        val to = order.indexOfFirst { it.id == target.key }
-        if (to < 0 || to == from) return
-        // Der Finger bleibt an derselben Stelle, auch wenn die Zeile ihren Platz in der Liste wechselt
-        val newOffset = if (to > from) target.offset + target.size - dragged.size else target.offset
-        dragOffset += dragged.offset - newOffset
+        val center = fingerY - grabY + dragged.size / 2f
+        val below = infos.lastOrNull { it.index > from && center > it.offset + it.size / 2f }
+        val above = infos.firstOrNull { it.index < from && center < it.offset + it.size / 2f }
+        val to = (below ?: above)?.index ?: return
+        if (to == from || to !in order.indices) return
         order = order.toMutableList().apply { add(to, removeAt(from)) }
     }
 
-    fun startDrag(key: Long) {
-        if (dragKey != null) return
-        settling = false
-        dragOffset = 0f
+    fun startDrag(key: Long, y: Float): Boolean {
+        if (dragKey != null && settleJob?.isActive != true) return false
+        settleJob?.cancel()
+        val info = itemInfo(key) ?: return false
+        fingerY = y
+        grabY = y - info.offset
+        follow = 1f
         dragKey = key
+        return true
     }
 
     fun endDrag() {
-        if (dragKey == null || settling) return
-        settling = true
+        if (dragKey == null || settleJob?.isActive == true) return
         val result = order
-        scope.launch {
-            // Die Zeile gleitet sanft an ihren neuen Platz
-            animate(dragOffset, 0f, animationSpec = tween(150)) { v, _ -> dragOffset = v }
+        settleJob = scope.launch {
+            // Die Zeile gleitet sanft an ihren Platz
+            animate(follow, 0f, animationSpec = tween(160)) { v, _ -> follow = v }
             dragKey = null
-            settling = false
         }
-        if (result.map { it.id } != songs.map { it.id }) currentOnReorder(result)
+        if (result.map { it.id } != currentSongs.map { it.id }) currentOnReorder(result)
     }
 
-    // Am oberen/unteren Rand scrollt die Liste von selbst weiter, solange man dort zieht
+    // Am oberen/unteren Rand scrollt die Liste weiter, solange der Finger dort liegt
     LaunchedEffect(dragKey) {
         if (dragKey == null) return@LaunchedEffect
+        val zone = with(density) { 72.dp.toPx() }
+        val maxStep = with(density) { 7.dp.toPx() }   // pro Bild (ca. 16 ms)
         while (isActive) {
-            val key = dragKey ?: break
-            val info = listState.layoutInfo
-            val dragged = info.visibleItemsInfo.firstOrNull { it.key == key }
-            if (dragged != null && !settling) {
-                val top = dragged.offset + dragOffset
-                val bottom = top + dragged.size
-                val edge = 140f
+            if (dragKey == null) break
+            if (settleJob?.isActive != true) {
+                val info = listState.layoutInfo
+                val top = info.beforeContentPadding.toFloat()
+                // Unten zählt nur der sichtbare Bereich über dem Miniplayer
+                val bottom = (info.viewportSize.height - info.afterContentPadding).toFloat()
                 val delta = when {
-                    top < info.viewportStartOffset + edge ->
-                        -((info.viewportStartOffset + edge - top).coerceAtMost(edge) / edge) * 24f
-                    bottom > info.viewportEndOffset - edge ->
-                        ((bottom - (info.viewportEndOffset - edge)).coerceAtMost(edge) / edge) * 24f
+                    fingerY < top + zone -> -((top + zone - fingerY) / zone).coerceIn(0f, 1f) * maxStep
+                    fingerY > bottom - zone -> ((fingerY - (bottom - zone)) / zone).coerceIn(0f, 1f) * maxStep
                     else -> 0f
                 }
-                if (delta != 0f) dragOffset += listState.scrollBy(delta)
+                if (delta != 0f) listState.scrollBy(delta)
                 checkSwap()
             }
             delay(16)
         }
     }
 
-    LazyColumn(modifier, state = listState, contentPadding = contentPadding) {
-        itemsIndexed(order, key = { _, s -> s.id }) { i, s ->
-            val dragging = dragKey == s.id
-            val itemModifier = Modifier
-                .pointerInput(s.id) {
-                    awaitEachGesture {
-                        // Nur beobachten (Initial): Tippen und Scrollen funktionieren bis zum langen Drücken normal
-                        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                        val slop = viewConfiguration.touchSlop
-                        var cancelled = false
-                        val timedOut = withTimeoutOrNull(REORDER_HOLD_MS) {
-                            while (!cancelled) {
-                                val ev = awaitPointerEvent(PointerEventPass.Initial)
-                                val c = ev.changes.firstOrNull { it.id == down.id }
-                                if (c == null || !c.pressed || (c.position - down.position).getDistance() > slop) {
-                                    cancelled = true
-                                }
-                            }
-                        }
-                        // Vorher losgelassen oder weggewischt: normales Verhalten
-                        if (timedOut != null) return@awaitEachGesture
-
-                        startDrag(s.id)
-                        try {
-                            while (true) {
-                                val ev = awaitPointerEvent(PointerEventPass.Initial)
-                                val c = ev.changes.firstOrNull { it.id == down.id } ?: break
-                                // Ab jetzt gehört die Geste der Sortierung: kein Klick, kein Scrollen
-                                val dy = c.position.y - c.previousPosition.y
-                                c.consume()
-                                if (!c.pressed) break
-                                dragOffset += dy
-                                checkSwap()
-                            }
-                        } finally {
-                            endDrag()
+    LazyColumn(
+        modifier = modifier.pointerInput(Unit) {
+            awaitEachGesture {
+                // Bis zum langen Drücken wird nur beobachtet (Initial, nichts verbraucht): Tippen und Scrollen laufen normal
+                val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                val slop = viewConfiguration.touchSlop
+                val startItem = listState.layoutInfo.visibleItemsInfo
+                    .firstOrNull { down.position.y >= it.offset && down.position.y < it.offset + it.size }
+                    ?: return@awaitEachGesture
+                val key = startItem.key as? Long ?: return@awaitEachGesture
+                var last = down.position
+                var cancelled = false
+                val timedOut = withTimeoutOrNull(REORDER_HOLD_MS) {
+                    while (!cancelled) {
+                        val ev = awaitPointerEvent(PointerEventPass.Initial)
+                        val c = ev.changes.firstOrNull { it.id == down.id }
+                        if (c == null || !c.pressed || (c.position - down.position).getDistance() > slop) {
+                            cancelled = true
+                        } else {
+                            last = c.position
                         }
                     }
                 }
-                .then(
-                    if (dragging) Modifier
-                        .zIndex(1f)
-                        .graphicsLayer {
-                            translationY = dragOffset
-                            shadowElevation = 12.dp.toPx()
-                            shape = RoundedCornerShape(16.dp)
-                            clip = false
-                        }
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(16.dp))
-                    else Modifier.animateItem()
-                )
+                // Vorher losgelassen oder weggewischt (Scrollen): normales Verhalten
+                if (timedOut != null) return@awaitEachGesture
+                if (!startDrag(key, last.y)) return@awaitEachGesture
+
+                try {
+                    while (true) {
+                        val ev = awaitPointerEvent(PointerEventPass.Initial)
+                        val c = ev.changes.firstOrNull { it.id == down.id } ?: break
+                        // Ab jetzt gehört die Geste der Sortierung: kein Klick, kein Scrollen
+                        c.consume()
+                        if (!c.pressed) break
+                        fingerY = c.position.y
+                        checkSwap()
+                    }
+                } finally {
+                    endDrag()
+                }
+            }
+        },
+        state = listState,
+        contentPadding = contentPadding
+    ) {
+        itemsIndexed(order, key = { _, s -> s.id }) { i, s ->
+            val itemModifier = if (dragKey == s.id) {
+                Modifier
+                    .zIndex(1f)
+                    .graphicsLayer {
+                        // Zeile genau so weit verschieben, dass sie am Finger hängt
+                        val layoutOffset = itemInfo(s.id)?.offset ?: 0
+                        translationY = (fingerY - grabY - layoutOffset) * follow
+                        shadowElevation = 12.dp.toPx() * follow
+                        shape = RoundedCornerShape(16.dp)
+                        clip = false
+                    }
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(16.dp))
+            } else {
+                Modifier.animateItem()
+            }
             row(i, s, itemModifier)
         }
     }
