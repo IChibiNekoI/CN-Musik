@@ -273,7 +273,8 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
 
     AlertDialog(
         // breiter als Standard, damit das Datum neben dem Cover nicht abgeschnitten wird
-        modifier = Modifier.fillMaxWidth(0.94f),
+        modifier = dialogModifier(Modifier.fillMaxWidth(0.94f)),
+        containerColor = dialogContainerColor(),
         properties = DialogProperties(usePlatformDefaultWidth = false),
         onDismissRequest = { if (!saving) onDismiss() },
         title = { Text("Tags bearbeiten") },
