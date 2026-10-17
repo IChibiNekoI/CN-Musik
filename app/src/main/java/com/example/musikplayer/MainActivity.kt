@@ -758,7 +758,7 @@ private fun PlayerBackdrop(song: Song, mode: PlayerBackground, open: Animatable<
                 .then(fade)
                 .background(
                     Brush.verticalGradient(
-                        0f to scheme.primaryContainer.copy(alpha = 0.85f),
+                        0f to scheme.primaryContainer.copy(alpha = 0.65f),   // etwas abgedunkelt, damit der Player ruhig bleibt
                         0.65f to scheme.surface,
                         1f to scheme.surface
                     )
@@ -786,8 +786,15 @@ private fun PlayerBackdrop(song: Song, mode: PlayerBackground, open: Animatable<
                         contentScale = ContentScale.Crop,
                         filterQuality = FilterQuality.High
                     )
-                    // dunkler Schleier in der Hintergrundfarbe: Text und Tasten bleiben gut lesbar
-                    Box(Modifier.fillMaxSize().background(scheme.surface.copy(alpha = 0.5f)))
+                    // Schleier in der Hintergrundfarbe, nach unten (zu Titel und Tasten) dunkler: bleibt ruhig und gut lesbar
+                    Box(
+                        Modifier.fillMaxSize().background(
+                            Brush.verticalGradient(
+                                0f to scheme.surface.copy(alpha = 0.5f),
+                                1f to scheme.surface.copy(alpha = 0.78f)
+                            )
+                        )
+                    )
                 }
             }
         }
