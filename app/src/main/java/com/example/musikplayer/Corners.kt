@@ -19,7 +19,7 @@ enum class PlayerBackground { SOLID, GRADIENT, BLUR }
 object CornerSettings {
     /** Rundung von Chips, Menüs, Eingabefeldern und Dialogen */
     var style by mutableStateOf(CornerStyle.STANDARD)
-    /** Rundung der Albumcover, unabhängig von der Wahl oben */
+    /** Rundung der Albumcover: immer Standard (keine Einstellung mehr) */
     var coverStyle by mutableStateOf(CornerStyle.STANDARD)
     /** Hintergrund des Players */
     var playerBg by mutableStateOf(PlayerBackground.SOLID)
@@ -32,7 +32,6 @@ object CornerSettings {
         if (!loaded) {
             loaded = true
             style = readCornerStyle(ctx)
-            coverStyle = readCoverStyle(ctx)
             playerBg = readPlayerBg(ctx)
             menuUnified = readMenuUnified(ctx)
         }
