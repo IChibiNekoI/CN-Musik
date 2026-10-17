@@ -3,6 +3,9 @@ package com.example.musikplayer
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -22,6 +25,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -309,14 +314,19 @@ fun HeartIcon(
 fun FavoriteButton(
     isFavorite: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier.size(48.dp),
     iconSize: Dp = 28.dp
 ) {
     // Beim Favorisieren (nicht beim Entfernen und nicht beim Songwechsel) poppt das Herz kurz auf
     val scale = remember { Animatable(1f) }
     val scope = rememberCoroutineScope()
-    IconButton(
-        onClick = {
+    // Ohne Druck-Schimmer: kein Ripple, kein Kreis um das Herz beim Antippen oder Halten
+    Box(
+        modifier = modifier.clickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            role = Role.Button
+        ) {
             if (!isFavorite) {
                 scope.launch {
                     scale.snapTo(0.7f)
@@ -325,7 +335,7 @@ fun FavoriteButton(
             }
             onClick()
         },
-        modifier = modifier
+        contentAlignment = Alignment.Center
     ) {
         HeartIcon(
             modifier = Modifier.graphicsLayer {
