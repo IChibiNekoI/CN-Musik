@@ -1,5 +1,14 @@
 package com.example.musikplayer
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import android.widget.Toast
 import android.content.Intent
 import android.net.Uri
@@ -164,8 +173,15 @@ fun SongRow(
     onAddToPlaylist: () -> Unit,
     onRemove: (() -> Unit)? = null,
     isFavorite: Boolean = false,
-    onToggleFavorite: () -> Unit = {}
+    onToggleFavorite: () -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
+    // Die Hervorhebung des laufenden Titels blendet weich ein und aus
+    val rowColor by animateColorAsState(
+        if (isCurrent) MaterialTheme.colorScheme.secondaryContainer
+        else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0f),
+        animationSpec = tween(Motion.MEDIUM), label = "rowColor"
+    )
     var expanded by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
     var showTags by remember { mutableStateOf(false) }
@@ -215,11 +231,8 @@ fun SongRow(
                 if (showTags) TagEditDialog(song) { showTags = false }
             }
         },
-        colors = ListItemDefaults.colors(
-            containerColor = if (isCurrent) MaterialTheme.colorScheme.secondaryContainer
-            else Color.Transparent
-        ),
-        modifier = Modifier.clickable { onClick() }
+        colors = ListItemDefaults.colors(containerColor = rowColor),
+        modifier = modifier.clickable { onClick() }
     )
 }
 
@@ -437,6 +450,7 @@ fun LibraryScreen(
                         { focusManager.clearFocus(); onPlay(results, i) },
                         { addSong = s },
                         isFavorite = s.id in favSet,
+                        modifier = Modifier.animateItem(),
                         onToggleFavorite = { onToggleFavorite(s) }
                     )
                 }
@@ -461,7 +475,21 @@ fun LibraryScreen(
             }
         }
 
-        when (effTab) {
+        // Beim Tabwechsel gleitet der Inhalt weich in Richtung des neuen Tabs
+        AnimatedContent(
+            targetState = effTab,
+            modifier = Modifier.weight(1f),
+            transitionSpec = {
+                val dir = if (targetState > initialState) 1 else -1
+                (slideInHorizontally(tween(Motion.MEDIUM, easing = Motion.Ease)) { w -> dir * w / 6 } +
+                    fadeIn(tween(Motion.MEDIUM - 60, delayMillis = 60))) togetherWith
+                    (slideOutHorizontally(tween(Motion.MEDIUM, easing = Motion.Ease)) { w -> -dir * w / 6 } +
+                        fadeOut(tween(Motion.FAST))) using SizeTransform(clip = false)
+            },
+            label = "tabs"
+        ) { t ->
+        Column(Modifier.fillMaxSize()) {
+        when (t) {
             0 -> {
                 if (sorted.isEmpty()) {
                     Text(
@@ -474,6 +502,7 @@ fun LibraryScreen(
                         SongRow(
                             s, s.id.toString() == currentId, { onPlay(sorted, i) }, { addSong = s },
                             isFavorite = s.id in favSet,
+                            modifier = Modifier.animateItem(),
                             onToggleFavorite = { onToggleFavorite(s) }
                         )
                     }
@@ -528,6 +557,7 @@ fun LibraryScreen(
                             SongRow(
                                 s, s.id.toString() == currentId, { onPlay(ordered, i) }, { addSong = s },
                                 isFavorite = s.id in favSet,
+                                modifier = Modifier.animateItem(),
                                 onToggleFavorite = { onToggleFavorite(s) }
                             )
                         }
@@ -542,6 +572,7 @@ fun LibraryScreen(
                         SongRow(
                             s, s.id.toString() == currentId, { onPlay(favSongs, i) }, { addSong = s },
                             isFavorite = true,
+                            modifier = Modifier.animateItem(),
                             onToggleFavorite = { onToggleFavorite(s) }
                         )
                     }
@@ -617,6 +648,7 @@ fun LibraryScreen(
                                 onClick = { onPlay(list, i) },
                                 onAddToPlaylist = { addSong = s },
                                 isFavorite = s.id in favSet,
+                                modifier = Modifier.animateItem(),
                                 onToggleFavorite = { onToggleFavorite(s) },
                                 onRemove = {
                                     onPlaylistsChange(
@@ -631,6 +663,8 @@ fun LibraryScreen(
                 }
             }
         }
+        }   // Ende Column (Tab-Inhalt)
+        }   // Ende AnimatedContent
         }
     }
 
