@@ -271,6 +271,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                     update = update,
                     favorites = favorites,
                     onToggleFavorite = toggleFavorite,
+                    onReorderFavorites = { favorites = it; saveFavorites(ctx, it) },
                     onPlaylistsChange = { playlists = it; savePlaylists(ctx, it) },
                     onPlay = { list, index ->
                         controller?.let { c ->
