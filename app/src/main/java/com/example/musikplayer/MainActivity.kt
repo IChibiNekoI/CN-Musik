@@ -8,7 +8,6 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.LruCache
@@ -145,12 +144,7 @@ class MainActivity : ComponentActivity() {
 fun AppTheme(content: @Composable () -> Unit) {
     val dark = isSystemInDarkTheme()
     val ctx = LocalContext.current
-    val colors = when {
-        Build.VERSION.SDK_INT >= 31 ->
-            if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
-        dark -> darkColorScheme()
-        else -> lightColorScheme()
-    }
+    val colors = if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
     CornerSettings.load(ctx)
     val cornerStyle = CornerSettings.style
     CompositionLocalProvider(
@@ -195,13 +189,11 @@ suspend fun prewarmPlayerCover(ctx: android.content.Context, song: Song, px: Int
     val key = "${song.id}_${TagEvents.coverVersions[song.id] ?: 0}_$px"
     if (CoverCache.get(key) != null) return
     val b = withContext(Dispatchers.IO) {
-        if (Build.VERSION.SDK_INT >= 29) {
-            try {
-                ctx.contentResolver.loadThumbnail(song.uri, Size(px, px), null)
-            } catch (e: Exception) {
-                null
-            }
-        } else null
+        try {
+            ctx.contentResolver.loadThumbnail(song.uri, Size(px, px), null)
+        } catch (e: Exception) {
+            null
+        }
     }
     if (b != null) {
         b.prepareToDraw()   // Textur schon jetzt für die GPU vorbereiten
@@ -253,7 +245,6 @@ private suspend fun loadCoverBitmap(ctx: Context, song: Song, ver: Int, px: Int)
                 file.delete()
             }
         }
-        if (Build.VERSION.SDK_INT < 29) return@withContext null
         coverLoadGate.withPermit {
             try {
                 val b = ctx.contentResolver.loadThumbnail(song.uri, Size(px, px), null)
@@ -388,12 +379,10 @@ fun MiniPlayer(
     val density = LocalDensity.current
     val margin = 12.dp
     val deviceCorner: Dp = remember(view) {
-        if (Build.VERSION.SDK_INT >= 31) {
-            val px = view.rootWindowInsets
-                ?.getRoundedCorner(android.view.RoundedCorner.POSITION_BOTTOM_LEFT)
-                ?.radius ?: 0
-            with(density) { px.toDp() }
-        } else 0.dp
+        val px = view.rootWindowInsets
+            ?.getRoundedCorner(android.view.RoundedCorner.POSITION_BOTTOM_LEFT)
+            ?.radius ?: 0
+        with(density) { px.toDp() }
     }
     val radius = if (deviceCorner > 0.dp) maxOf(deviceCorner - margin, 20.dp) else 28.dp
     val miniColor = MaterialTheme.colorScheme.surfaceContainerHigh
@@ -655,13 +644,11 @@ fun CoverTheme(song: Song?, dark: Boolean, content: @Composable () -> Unit) {
         val sg = song
         val seedKey = "${sg?.id}_$coverVer"
         value = if (sg == null) null else SeedCache.get(seedKey) ?: withContext(Dispatchers.IO) {
-            if (Build.VERSION.SDK_INT >= 29) {
-                try {
-                    seedFromBitmap(ctx.contentResolver.loadThumbnail(sg.uri, Size(96, 96), null))
-                } catch (e: Exception) {
-                    null
-                }
-            } else null
+            try {
+                seedFromBitmap(ctx.contentResolver.loadThumbnail(sg.uri, Size(96, 96), null))
+            } catch (e: Exception) {
+                null
+            }
         }?.also { SeedCache.put(seedKey, it) }
     }
 
