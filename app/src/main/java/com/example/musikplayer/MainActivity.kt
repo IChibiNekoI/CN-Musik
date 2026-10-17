@@ -1062,7 +1062,7 @@ private fun NowPlayingSheetContent(
                         )
                         Box(Modifier.align(Alignment.CenterEnd)) {
                             MoreButton(onClick = { menuOpen = true }, modifier = Modifier.padding(end = 4.dp))
-                            AppDropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(
                                     text = { Text("Titel-Infos") },
                                     leadingIcon = { InfoIcon() },
@@ -1356,8 +1356,6 @@ fun SongInfoDialog(song: Song, onDismiss: () -> Unit) {
         "Datum modifiziert" to (if (d == null) "…" else fmtDate(d.modifiedSec))
     )
     AlertDialog(
-        modifier = dialogModifier(),
-        containerColor = dialogContainerColor(),
         onDismissRequest = onDismiss,
         title = { Text("Titel-Infos") },
         text = {
