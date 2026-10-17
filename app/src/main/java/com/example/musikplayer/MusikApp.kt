@@ -8,6 +8,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -262,7 +265,15 @@ fun MusikApp(openPlayerSignal: Int = 0) {
         }
         if (current != null && controller != null) {
             Box(Modifier.align(Alignment.BottomCenter)) {
-                MiniPlayer(current, isPlaying, controller) { o -> origin = o; showNow = true }
+                // Der Miniplayer schiebt sich beim ersten Mal sanft von unten herein
+                    val miniEnter = remember { MutableTransitionState(false).apply { targetState = true } }
+                    AnimatedVisibility(
+                        visibleState = miniEnter,
+                        enter = slideInVertically(tween(Motion.MEDIUM, easing = Motion.Ease)) { it / 2 } +
+                            fadeIn(tween(Motion.MEDIUM))
+                    ) {
+                        MiniPlayer(current, isPlaying, controller) { o -> origin = o; showNow = true }
+                    }
             }
         }
         }
@@ -391,21 +402,21 @@ fun AppSettingsSheet(
         AnimatedContent(
             targetState = page,
             transitionSpec = {
-                val ease = FastOutSlowInEasing
+                val ease = Motion.Ease
                 if (targetState == "main") {
                     // zurück: neue Seite kommt von links
-                    (slideInHorizontally(tween(300, easing = ease)) { w -> -w / 5 } +
-                        fadeIn(tween(240, delayMillis = 60))) togetherWith
-                        (slideOutHorizontally(tween(300, easing = ease)) { w -> w / 5 } +
-                            fadeOut(tween(160))) using
-                        SizeTransform(clip = true) { _, _ -> tween(300, easing = ease) }
+                    (slideInHorizontally(tween(Motion.MEDIUM, easing = ease)) { w -> -w / 5 } +
+                        fadeIn(tween(Motion.MEDIUM - 60, delayMillis = 60))) togetherWith
+                        (slideOutHorizontally(tween(Motion.MEDIUM, easing = ease)) { w -> w / 5 } +
+                            fadeOut(tween(Motion.FAST))) using
+                        SizeTransform(clip = true) { _, _ -> tween(Motion.MEDIUM, easing = ease) }
                 } else {
                     // weiter: neue Seite kommt von rechts
-                    (slideInHorizontally(tween(300, easing = ease)) { w -> w / 5 } +
-                        fadeIn(tween(240, delayMillis = 60))) togetherWith
-                        (slideOutHorizontally(tween(300, easing = ease)) { w -> -w / 5 } +
-                            fadeOut(tween(160))) using
-                        SizeTransform(clip = true) { _, _ -> tween(300, easing = ease) }
+                    (slideInHorizontally(tween(Motion.MEDIUM, easing = ease)) { w -> w / 5 } +
+                        fadeIn(tween(Motion.MEDIUM - 60, delayMillis = 60))) togetherWith
+                        (slideOutHorizontally(tween(Motion.MEDIUM, easing = ease)) { w -> -w / 5 } +
+                            fadeOut(tween(Motion.FAST))) using
+                        SizeTransform(clip = true) { _, _ -> tween(Motion.MEDIUM, easing = ease) }
                 }
             },
             label = "settingsPage"
