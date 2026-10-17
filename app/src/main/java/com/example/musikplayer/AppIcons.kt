@@ -322,15 +322,11 @@ fun FavoriteButton(
     val scope = rememberCoroutineScope()
     // Ohne Druck-Schimmer: kein Ripple, kein Kreis um das Herz beim Antippen oder Halten
     Box(
-        modifier = modifier.clickable(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null,
-            role = Role.Button
-        ) {
+        modifier = modifier.bounceClick(pressedScale = 0.85f) {
             if (!isFavorite) {
                 scope.launch {
                     scale.snapTo(0.7f)
-                    scale.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = 450f))
+                    scale.animateTo(1f, Motion.pop())
                 }
             }
             onClick()
