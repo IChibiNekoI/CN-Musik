@@ -1,8 +1,8 @@
-<img width="1280" height="2772" alt="Screenshot_2026-10-15-01-14-24-917_com example musikplayer" src="https://github.com/user-attachments/assets/82ae3c63-2464-48d2-a27d-475da0474dc5" />
-<img width="1280" height="2772" alt="Screenshot_2026-10-15-01-15-39-083_com example musikplayer" src="https://github.com/user-attachments/assets/df499090-4704-4176-9c38-c2dc89a38f9c" />
-<img width="1280" height="2772" alt="Screenshot_2026-10-16-03-58-48-709_com example musikplayer" src="https://github.com/user-attachments/assets/6179fc4d-9270-4179-bc5e-315cbf025ea5" />
-<img width="1280" height="2772" alt="Screenshot_2026-10-16-03-58-28-272_com example musikplayer" src="https://github.com/user-attachments/assets/6a144a1d-cfa6-4fa7-8096-bf01e7f9b072" />
-<img width="1280" height="2772" alt="Screenshot_2026-10-16-04-01-08-993_com example musikplayer" src="https://github.com/user-attachments/assets/7f98c133-0589-4e38-a87b-85aad09719db" />
+<img width="3827" height="2772" alt="Titelloses 90_20261018025100" src="https://github.com/user-attachments/assets/6fbbb03a-2253-4b00-af4a-fd5e198c6ca7" />
+<img width="3827" height="2772" alt="Titelloses 90_20261018025426" src="https://github.com/user-attachments/assets/fae7b6bd-f2a1-400c-a6b0-21f202a14049" />
+<img width="3827" height="2772" alt="Titelloses 90_20261018030211" src="https://github.com/user-attachments/assets/4381109c-41d1-4e21-a5da-f464fe0b5c56" />
+<img width="3827" height="2772" alt="Titelloses 90_20261018030438" src="https://github.com/user-attachments/assets/0bff222b-5082-4907-acf2-a83dee1c98e3" />
+
 
 
 
