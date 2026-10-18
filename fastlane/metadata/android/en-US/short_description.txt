@@ -1,0 +1,1 @@
+Lightweight local music player with playlists, favorites and a tag editor.
