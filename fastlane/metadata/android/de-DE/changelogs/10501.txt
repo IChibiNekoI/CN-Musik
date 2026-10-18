@@ -1,0 +1,2 @@
+- Neue Anwendungs-ID: Das ist eine eigene App, die frühere Version bitte deinstallieren.
+- Die F-Droid-Version sucht nicht selbst nach Updates.
