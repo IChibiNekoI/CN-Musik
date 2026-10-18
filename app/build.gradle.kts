@@ -7,20 +7,24 @@ android {
     namespace = "com.example.musikplayer"
     compileSdk = 35
     defaultConfig {
-        applicationId = "com.example.musikplayer"
+        applicationId = "io.github.ichibinekoi.chibineko"
         minSdk = 31
         targetSdk = 35
-        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "0.4").toInt()
-        versionName = "1.5.0"
+        // Feste Zahlen (kein Wert aus der Umgebung)
+        // versionCode bei jeder neuen Version erhöhen, Schema: Major*10000 + Minor*100 + Patch (1.5.1 -> 10501)
+        versionCode = 10501
+        versionName = "1.5.1"
     }
     signingConfigs {
         create("musik") {
+            // Der Schlüssel liegt nicht im Repository. Der Build auf GitHub legt ihn aus Secrets an,
+            // Passwörter kommen aus der Umgebung. Ohne ../musik.jks (z. B. bei F-Droid) wird nicht selbst signiert.
             val ks = file("../musik.jks")
             if (ks.exists()) {
                 storeFile = ks
-                storePassword = "musikpass"
-                keyAlias = "musik"
-                keyPassword = "musikpass"
+                storePassword = System.getenv("MUSIK_STORE_PASSWORD")
+                keyAlias = System.getenv("MUSIK_KEY_ALIAS") ?: "musik"
+                keyPassword = System.getenv("MUSIK_KEY_PASSWORD")
             }
         }
     }
@@ -35,7 +39,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // gleicher Schlüssel wie Debug, damit sich die App über die bisherige installieren lässt
+            // gleicher Schlüssel wie Debug (nur wenn vorhanden)
             if (file("../musik.jks").exists()) {
                 signingConfig = signingConfigs.getByName("musik")
             }
