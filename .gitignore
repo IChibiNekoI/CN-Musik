@@ -1,0 +1,18 @@
+# Gradle / Android Studio
+.gradle/
+build/
+app/build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+captures/
+
+# Signaturschlüssel gehören nie ins Repository
+*.jks
+*.keystore
+keystore.b64
+musik.jks
+
+# Build-Ausgabe aus dem Workflow
+out/
