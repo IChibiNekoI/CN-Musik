@@ -1,0 +1,17 @@
+ChibiNeko is a music player for the music stored on your device. No account, no ads, no tracking.
+
+Features:
+- Library with views for tracks, albums, playlists and favorites
+- Search and sorting by date added, date modified or name
+- Create and import playlists
+- Reorder tracks in playlists and favorites by long-pressing and dragging
+- Track info: title, artist, album, album artist, duration and dates
+- Edit tags (title, artist, album, album artist and album cover) directly in the file
+- Background playback with a notification and lock screen controls
+- Shuffle and repeat
+- Customizable appearance
+
+Privacy:
+The app only reads audio files on your device. The F-Droid version does not check for updates itself, F-Droid takes care of that.
+
+This app is free software under the GPL-3.0-or-later.
