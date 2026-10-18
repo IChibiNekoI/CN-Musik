@@ -3,3 +3,9 @@
 <img width="1280" height="2772" alt="Screenshot_2026-10-16-03-58-48-709_com example musikplayer" src="https://github.com/user-attachments/assets/6179fc4d-9270-4179-bc5e-315cbf025ea5" />
 <img width="1280" height="2772" alt="Screenshot_2026-10-16-03-58-28-272_com example musikplayer" src="https://github.com/user-attachments/assets/6a144a1d-cfa6-4fa7-8096-bf01e7f9b072" />
 <img width="1280" height="2772" alt="Screenshot_2026-10-16-04-01-08-993_com example musikplayer" src="https://github.com/user-attachments/assets/7f98c133-0589-4e38-a87b-85aad09719db" />
+
+
+
+
+Copyright (C) 2026 IChibiNekol
+Lizenz: GPL-3.0-or-later (siehe LICENSE)
