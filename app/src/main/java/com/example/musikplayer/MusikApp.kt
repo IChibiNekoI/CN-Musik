@@ -538,7 +538,6 @@ fun AppSettingsSheet(
                 )
                 ListItem(
                     headlineContent = { Text("Design") },
-                    supportingContent = { Text("Rundungen und Player-Hintergrund") },
                     leadingContent = { CornersIcon() },
                     trailingContent = {
                         ChevronRightIcon()
@@ -570,7 +569,6 @@ fun AppSettingsSheet(
                 )
                 ListItem(
                     headlineContent = { Text("Audioinfos im Player") },
-                    supportingContent = { Text("Format, Bitrate und Abtastrate unten anzeigen") },
                     leadingContent = { InfoIcon() },
                     trailingContent = {
                         Switch(checked = showAudioInfo, onCheckedChange = null)
