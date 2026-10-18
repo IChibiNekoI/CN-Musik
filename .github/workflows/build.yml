@@ -14,17 +14,25 @@ jobs:
           distribution: temurin
           java-version: 17
       - name: Signaturschluessel bereitstellen
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          if [ ! -f keystore.b64 ]; then
-            keytool -genkeypair -keystore ks.jks -storepass musikpass -keypass musikpass -alias musik -keyalg RSA -keysize 2048 -validity 36500 -dname "CN=Musik"
-            base64 -w0 ks.jks > keystore.b64
-            git config user.name "github-actions"
-            git config user.email "actions@github.com"
-            git add keystore.b64
-            git commit -m "Add signing key"
-            git push
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$GITHUB_WORKSPACE/musik.jks"
+            echo "MUSIK_STORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "MUSIK_KEY_ALIAS=${KEY_ALIAS:-musik}" >> "$GITHUB_ENV"
+            echo "MUSIK_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Kein Secret KEYSTORE_B64 gesetzt. Es wird ein Schluessel nur fuer diesen Build erzeugt, die APK laesst sich dann nicht ueber eine fruehere Version aktualisieren."
+            PW=$(openssl rand -hex 16)
+            keytool -genkeypair -keystore "$GITHUB_WORKSPACE/musik.jks" -storepass "$PW" -keypass "$PW" -alias musik -keyalg RSA -keysize 2048 -validity 36500 -dname "CN=Musik"
+            echo "MUSIK_STORE_PASSWORD=$PW" >> "$GITHUB_ENV"
+            echo "MUSIK_KEY_ALIAS=musik" >> "$GITHUB_ENV"
+            echo "MUSIK_KEY_PASSWORD=$PW" >> "$GITHUB_ENV"
           fi
-          base64 -d keystore.b64 > "$GITHUB_WORKSPACE/musik.jks"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.9
