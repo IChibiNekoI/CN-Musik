@@ -1,2 +1,4 @@
-- Neue Anwendungs-ID: Das ist eine eigene App, die frühere Version bitte deinstallieren.
-- Die F-Droid-Version sucht nicht selbst nach Updates.
+- weitere Design Optionen für den Player und für die Menüs sind dazugekommen
+- Einheitliche Animationen in der gesamten App hinzugefügt
+- öffnen des Players wurde überarbeitet
+- Titel in Playlists und Favoriten können verschoben werden, wenn man den Titel gedrückt   hält
