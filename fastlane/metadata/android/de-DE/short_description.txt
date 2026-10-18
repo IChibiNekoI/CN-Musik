@@ -1,0 +1,1 @@
+Schlanker Musikplayer für lokale Musik mit Playlists, Favoriten und Tag-Editor
