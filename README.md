@@ -7,5 +7,5 @@
 
 
 
-Copyright (C) 2026 IChibiNekol
+Copyright (C) 2026 IChibiNekoI
 Lizenz: GPL-3.0-or-later (siehe LICENSE)
