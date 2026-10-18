@@ -18,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 
 /*
@@ -49,6 +50,7 @@ fun Modifier.bounceClick(
     onClick: () -> Unit
 ): Modifier = composed {
     val source = remember { MutableInteractionSource() }
+    val ctx = LocalContext.current
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (pressed) pressedScale else 1f,
@@ -65,7 +67,10 @@ fun Modifier.bounceClick(
             indication = null,
             enabled = enabled,
             role = role,
-            onClick = onClick
+            onClick = {
+                Haptics.tick(ctx)   // sanftes Ticken (nur wenn in den Einstellungen eingeschaltet)
+                onClick()
+            }
         )
 }
 
