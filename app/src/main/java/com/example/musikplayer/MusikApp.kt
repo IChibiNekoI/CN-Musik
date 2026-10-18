@@ -580,7 +580,6 @@ fun AppSettingsSheet(
                 )
                 ListItem(
                     headlineContent = { Text("Haptisches Feedback") },
-                    supportingContent = { Text("Sanfte Vibration beim Tippen auf Tasten und beim Verschieben von Titeln") },
                     leadingContent = { VibrationIcon() },
                     trailingContent = {
                         Switch(checked = haptics, onCheckedChange = null)
