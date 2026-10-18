@@ -1,0 +1,2 @@
+- New application ID: this is a separate app, please uninstall the earlier version.
+- The F-Droid version does not check for updates itself.
