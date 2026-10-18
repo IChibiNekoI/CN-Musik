@@ -5,9 +5,25 @@ import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import androidx.compose.foundation.gestures.ScrollableState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridScope
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 
 /**
  * Haptisches Feedback: ein sehr leichtes "Ticken" beim Tippen auf Tasten und beim Verschieben von Titeln.
@@ -57,4 +73,62 @@ object Haptics {
         } catch (e: Exception) {
         }
     }
+}
+
+/**
+ * Leichtes Ticken, wenn man beim Scrollen oben oder unten in einer Liste ankommt.
+ * Gilt nur, wenn man selbst scrollt oder gerade losgelassen hat (Fling), nicht wenn sich die Liste von selbst ändert.
+ * Läuft über den Haptik-Schalter in den Einstellungen.
+ */
+@Composable
+fun EdgeHaptics(state: ScrollableState) {
+    val ctx = LocalContext.current
+    LaunchedEffect(state) {
+        var lastBack = state.canScrollBackward
+        var lastForward = state.canScrollForward
+        var wasScrolling = false
+        snapshotFlow { Triple(state.canScrollBackward, state.canScrollForward, state.isScrollInProgress) }
+            .collect { (back, forward, scrolling) ->
+                val arrived = (lastBack && !back) || (lastForward && !forward)
+                if (arrived && (scrolling || wasScrolling)) Haptics.tick(ctx)
+                lastBack = back
+                lastForward = forward
+                wasScrolling = scrolling
+            }
+    }
+}
+
+/** LazyColumn mit Ticken am oberen und unteren Ende */
+@Composable
+fun HapticLazyColumn(
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    content: LazyListScope.() -> Unit
+) {
+    val state = rememberLazyListState()
+    EdgeHaptics(state)
+    LazyColumn(modifier, state = state, contentPadding = contentPadding, content = content)
+}
+
+/** LazyVerticalGrid mit Ticken am oberen und unteren Ende */
+@Composable
+fun HapticLazyGrid(
+    columns: GridCells,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    horizontalArrangement: Arrangement.Horizontal = Arrangement.Start,
+    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
+    content: LazyGridScope.() -> Unit
+) {
+    val state = rememberLazyGridState()
+    EdgeHaptics(state)
+    LazyVerticalGrid(
+        columns = columns,
+        modifier = modifier,
+        state = state,
+        contentPadding = contentPadding,
+        horizontalArrangement = horizontalArrangement,
+        verticalArrangement = verticalArrangement,
+        content = content
+    )
 }
