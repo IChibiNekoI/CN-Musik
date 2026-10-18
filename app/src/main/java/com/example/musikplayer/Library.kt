@@ -626,8 +626,21 @@ private fun isNewerVersion(latest: String, current: String): Boolean {
     return false
 }
 
+/** Über F-Droid installiert? Dann aktualisiert F-Droid die App, sie sucht selbst nicht nach Updates. */
+private val FDROID_INSTALLERS = setOf(
+    "org.fdroid.fdroid", "org.fdroid.basic", "com.machiav3lli.fdroid", "eu.bubu1.fdroidclassic"
+)
+
+private fun isInstalledFromFDroid(ctx: Context): Boolean = try {
+    val installer = ctx.packageManager.getInstallSourceInfo(ctx.packageName).installingPackageName
+    installer != null && installer in FDROID_INSTALLERS
+} catch (e: Exception) {
+    false
+}
+
 /** Fragt das neueste GitHub-Release ab. Gibt null zurück, wenn kein Update da ist oder die Abfrage scheitert. */
 fun checkForUpdate(ctx: Context): UpdateInfo? {
+    if (isInstalledFromFDroid(ctx)) return null
     return try {
         val current = ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName
         if (current == null) return null
