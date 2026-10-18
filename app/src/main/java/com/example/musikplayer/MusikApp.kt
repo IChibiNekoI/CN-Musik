@@ -13,7 +13,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -23,16 +22,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Album
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Title
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -84,6 +73,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
         saveFavorites(ctx, favorites)
     }
     var headerLogo by remember { mutableStateOf(readHeaderLogo(ctx)) }
+    Haptics.load(ctx)
     var albumStyle by remember { mutableStateOf(readAlbumStyle(ctx)) }
     var playlistStyle by remember { mutableStateOf(readPlaylistStyle(ctx)) }
     var showSettings by remember { mutableStateOf(false) }
@@ -369,6 +359,8 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                 onPlayerBg = { CornerSettings.playerBg = it; savePlayerBg(ctx, it) },
                 menuUnified = CornerSettings.menuUnified,
                 onMenuUnified = { CornerSettings.menuUnified = it; saveMenuUnified(ctx, it) },
+                haptics = Haptics.enabled,
+                onHaptics = { Haptics.setEnabled(ctx, it); if (it) Haptics.tick(ctx) },
                 rescanning = rescanning,
                 onRescan = {
                     if (!rescanning) scope.launch {
@@ -442,6 +434,8 @@ fun AppSettingsSheet(
     onPlayerBg: (PlayerBackground) -> Unit,
     menuUnified: Boolean,
     onMenuUnified: (Boolean) -> Unit,
+    haptics: Boolean,
+    onHaptics: (Boolean) -> Unit,
     rescanning: Boolean,
     onRescan: () -> Unit,
     onDismiss: () -> Unit
@@ -583,6 +577,16 @@ fun AppSettingsSheet(
                     },
                     colors = clear,
                     modifier = Modifier.clickable { onShowAudioInfo(!showAudioInfo) }
+                )
+                ListItem(
+                    headlineContent = { Text("Haptisches Feedback") },
+                    supportingContent = { Text("Sanfte Vibration beim Tippen auf Tasten und beim Verschieben von Titeln") },
+                    leadingContent = { VibrationIcon() },
+                    trailingContent = {
+                        Switch(checked = haptics, onCheckedChange = null)
+                    },
+                    colors = clear,
+                    modifier = Modifier.clickable { onHaptics(!haptics) }
                 )
                 Spacer(Modifier.height(32.dp))
             }
