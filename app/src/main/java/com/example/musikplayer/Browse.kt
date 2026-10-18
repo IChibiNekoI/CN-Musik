@@ -473,7 +473,7 @@ fun LibraryScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
+            HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
                 itemsIndexed(results, key = { _, s -> s.id }) { i, s ->
                     SongRow(
                         s, s.id.toString() == currentId,
@@ -527,7 +527,7 @@ fun LibraryScreen(
                         modifier = Modifier.padding(16.dp)
                     )
                 }
-                LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
+                HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
                     itemsIndexed(sorted, key = { _, s -> s.id }) { i, s ->
                         SongRow(
                             s, s.id.toString() == currentId, { onPlay(sorted, i) }, { addSong = s },
@@ -541,7 +541,7 @@ fun LibraryScreen(
             1 -> {
                 val name = openAlbum
                 if (name == null && albumStyle.grid) {
-                    LazyVerticalGrid(
+                    HapticLazyGrid(
                         columns = GridCells.Fixed(albumStyle.cols),
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp + bottomSpace),
@@ -558,7 +558,7 @@ fun LibraryScreen(
                         }
                     }
                 } else if (name == null) {
-                    LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
+                    HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
                         items(albums, key = { it.first }) { (albumName, list) ->
                             ListItem(
                                 headlineContent = {
@@ -582,7 +582,7 @@ fun LibraryScreen(
                             .sortedWith(compareBy<Song>({ it.track }, { it.title.lowercase() }))
                     }
                     DetailHeader(name) { openAlbum = null }
-                    LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
+                    HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
                         itemsIndexed(ordered, key = { _, s -> s.id }) { i, s ->
                             SongRow(
                                 s, s.id.toString() == currentId, { onPlay(ordered, i) }, { addSong = s },
@@ -625,7 +625,7 @@ fun LibraryScreen(
                     )
                 }
                 if (pl == null && playlistStyle.grid) {
-                    LazyVerticalGrid(
+                    HapticLazyGrid(
                         columns = GridCells.Fixed(playlistStyle.cols),
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp + bottomSpace),
@@ -646,7 +646,7 @@ fun LibraryScreen(
                         }
                     }
                 } else if (pl == null) {
-                    LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
+                    HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
                         items(playlists, key = { it.id }) { p ->
                             ListItem(
                                 headlineContent = {
