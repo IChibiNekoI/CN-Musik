@@ -1,0 +1,4 @@
+- Additional design options for the player and menus have been added
+- Consistent animations have been implemented throughout the app
+- The way the player opens has been revised
+- Tracks in playlists and favorites can be reordered by long-pressing them
