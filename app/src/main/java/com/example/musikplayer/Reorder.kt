@@ -4,7 +4,6 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.scrollBy
@@ -12,7 +11,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -24,11 +22,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -55,6 +53,7 @@ fun ReorderableSongList(
 ) {
     val listState = rememberLazyListState()
     val density = LocalDensity.current
+    val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var order by remember(songs) { mutableStateOf(songs) }
     var dragKey by remember { mutableStateOf<Long?>(null) }
@@ -96,6 +95,7 @@ fun ReorderableSongList(
         if (firstIndex in minOf(from, to)..maxOf(from, to)) {
             listState.requestScrollToItem(firstIndex, firstOffset)
         }
+        Haptics.tick(ctx)
         order = order.toMutableList().apply { add(to, removeAt(from)) }
     }
 
@@ -107,6 +107,7 @@ fun ReorderableSongList(
         grabY = y - info.offset
         follow = 1f
         dragKey = key
+        Haptics.tick(ctx)
         liftJob?.cancel()
         liftJob = scope.launch {
             animate(lift, 1f, animationSpec = tween(260, easing = FastOutSlowInEasing)) { v, _ -> lift = v }
@@ -117,6 +118,7 @@ fun ReorderableSongList(
     fun endDrag() {
         if (dragKey == null || settleJob?.isActive == true) return
         val result = order
+        Haptics.tick(ctx)
         liftJob?.cancel()
         settleJob = scope.launch {
             // Die Zeile gleitet federnd an ihren Platz, Schatten und Karte blenden dabei aus
