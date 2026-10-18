@@ -1,13 +1,9 @@
 package com.example.musikplayer
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -26,7 +22,6 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -201,6 +196,21 @@ fun RefreshIcon(
             lineTo(w2.x, w2.y)
         }
         drawPath(head, c, style = st)
+    }
+}
+
+/** Vibrierendes Handy (haptisches Feedback) */
+@Composable
+fun VibrationIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        drawPath(polyPath(k, 8.2f, 3.5f, 15.8f, 3.5f, 15.8f, 20.5f, 8.2f, 20.5f, closed = true), c, style = st.rounded(2.2f * k))
+        seg(c, st, k, 4.8f, 8.5f, 4.8f, 15.5f)
+        seg(c, st, k, 2.3f, 10.2f, 2.3f, 13.8f)
+        seg(c, st, k, 19.2f, 8.5f, 19.2f, 15.5f)
+        seg(c, st, k, 21.7f, 10.2f, 21.7f, 13.8f)
     }
 }
 
