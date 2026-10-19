@@ -142,4 +142,6 @@
     <string name="header_fox">Sleepy fox</string>
     <string name="header_fox_sub">Unlocked secret</string>
     <string name="fox_unlocked">🦊 New header unlocked! You can find it in the settings under “Header”.</string>
+    <string name="queue">Queue</string>
+    <string name="queue_remove">Remove from queue</string>
 </resources>
