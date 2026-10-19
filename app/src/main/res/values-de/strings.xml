@@ -142,4 +142,6 @@
     <string name="header_fox">Müder Fuchs</string>
     <string name="header_fox_sub">Geheim freigeschaltet</string>
     <string name="fox_unlocked">🦊 Neue Kopfzeile freigeschaltet! Du findest sie in den Einstellungen unter „Kopfzeile“.</string>
+    <string name="queue">Warteschlange</string>
+    <string name="queue_remove">Aus Warteschlange entfernen</string>
 </resources>
