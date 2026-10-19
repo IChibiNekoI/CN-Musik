@@ -245,7 +245,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
             val bottomSpace = pad.calculateBottomPadding() + if (miniVisible) 100.dp else 0.dp
             if (!granted) {
                 Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.Center) {
-                    Text("Bitte erlaube den Zugriff auf deine Musik.")
+                    Text(str(R.string.permission_needed))
                 }
             } else {
                 LibraryScreen(
@@ -333,7 +333,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                 isFavorite = current.id in favorites,
                 onToggleFavorite = { toggleFavorite(current) },
                 onGoToAlbum = {
-                    albumRequest = current.album.ifBlank { "Unbekanntes Album" }
+                    albumRequest = current.album.ifBlank { str(R.string.unknown_album) }
                     showNow = false
                 },
                 onAddToPlaylist = { playlistRequest = current }
@@ -362,6 +362,14 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                 onMenuUnified = { CornerSettings.menuUnified = it; saveMenuUnified(ctx, it) },
                 haptics = Haptics.enabled,
                 onHaptics = { Haptics.setEnabled(ctx, it); if (it) Haptics.tick(ctx) },
+                language = Lang.load(ctx),
+                onLanguage = {
+                    if (it != Lang.load(ctx)) {
+                        Lang.save(ctx, it)
+                        // Activity neu aufbauen, damit alle Texte in der neuen Sprache geladen werden
+                        ctx.findActivity()?.recreate()
+                    }
+                },
                 rescanning = rescanning,
                 onRescan = {
                     if (!rescanning) scope.launch {
@@ -370,7 +378,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                         val base = withContext(Dispatchers.IO) { loadLibrary(ctx) }
                         allSongs = refreshTagsFromFiles(ctx, base, force = true)
                         rescanning = false
-                        Toast.makeText(ctx, "Bibliothek aktualisiert ($n Dateien geprüft)", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(ctx, plural(R.plurals.library_updated, n), Toast.LENGTH_SHORT).show()
                     }
                 },
                 onDismiss = { showSettings = false }
@@ -383,7 +391,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
 private fun SheetHeader(title: String, onBack: () -> Unit) {
     Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onBack) {
-            BackIcon(description = "Zurück")
+            BackIcon(description = str(R.string.back))
         }
         Text(title, style = MaterialTheme.typography.titleLarge)
     }
@@ -402,13 +410,13 @@ private fun SortOption(title: String, subtitle: String?, selected: Boolean, onCl
 
 @Composable
 private fun ViewStyleOptions(style: ViewStyle, onChange: (ViewStyle) -> Unit) {
-    SortOption("Liste", "Cover links, Titel daneben", !style.grid) {
+    SortOption(str(R.string.style_list), str(R.string.style_list_sub), !style.grid) {
         onChange(style.copy(grid = false))
     }
-    SortOption("Kacheln", "2 nebeneinander, große Cover", style.grid && style.cols == 2) {
+    SortOption(str(R.string.style_tiles), str(R.string.style_tiles2_sub), style.grid && style.cols == 2) {
         onChange(ViewStyle(grid = true, cols = 2))
     }
-    SortOption("Kacheln", "3 nebeneinander, kompakter", style.grid && style.cols == 3) {
+    SortOption(str(R.string.style_tiles), str(R.string.style_tiles3_sub), style.grid && style.cols == 3) {
         onChange(ViewStyle(grid = true, cols = 3))
     }
 }
@@ -437,6 +445,8 @@ fun AppSettingsSheet(
     onMenuUnified: (Boolean) -> Unit,
     haptics: Boolean,
     onHaptics: (Boolean) -> Unit,
+    language: AppLang,
+    onLanguage: (AppLang) -> Unit,
     rescanning: Boolean,
     onRescan: () -> Unit,
     onDismiss: () -> Unit
@@ -480,18 +490,18 @@ fun AppSettingsSheet(
         when (p) {
             "main" -> {
                 Text(
-                    "Einstellungen",
+                    str(R.string.settings),
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                 )
                 ListItem(
-                    headlineContent = { Text("Sortierung") },
+                    headlineContent = { Text(str(R.string.sort)) },
                     supportingContent = {
                         Text(
                             when (sort) {
-                                SortMode.NAME -> "Name (A–Z)"
-                                SortMode.MODIFIED -> "Datum modifiziert (neueste zuerst)"
-                                SortMode.DATE -> "Datum hinzugefügt (neueste zuerst)"
+                                SortMode.NAME -> str(R.string.sort_name_az)
+                                SortMode.MODIFIED -> str(R.string.sort_modified_summary)
+                                SortMode.DATE -> str(R.string.sort_added_summary)
                             }
                         )
                     },
@@ -503,7 +513,7 @@ fun AppSettingsSheet(
                     modifier = Modifier.clickable { page = "sort" }
                 )
                 ListItem(
-                    headlineContent = { Text("Index") },
+                    headlineContent = { Text(str(R.string.index)) },
                     leadingContent = { HashIcon() },
                     trailingContent = {
                         ChevronRightIcon()
@@ -512,7 +522,7 @@ fun AppSettingsSheet(
                     modifier = Modifier.clickable { page = "index" }
                 )
                 ListItem(
-                    headlineContent = { Text("Alben-Ansicht") },
+                    headlineContent = { Text(str(R.string.album_view)) },
                     supportingContent = { Text(albumStyle.label()) },
                     leadingContent = { AlbumDiscIcon() },
                     trailingContent = {
@@ -522,7 +532,7 @@ fun AppSettingsSheet(
                     modifier = Modifier.clickable { page = "albumView" }
                 )
                 ListItem(
-                    headlineContent = { Text("Playlist-Ansicht") },
+                    headlineContent = { Text(str(R.string.playlist_view)) },
                     supportingContent = { Text(playlistStyle.label()) },
                     leadingContent = { GridIcon() },
                     trailingContent = {
@@ -532,7 +542,7 @@ fun AppSettingsSheet(
                     modifier = Modifier.clickable { page = "playlistView" }
                 )
                 ListItem(
-                    headlineContent = { Text("Design") },
+                    headlineContent = { Text(str(R.string.design)) },
                     leadingContent = { CornersIcon() },
                     trailingContent = {
                         ChevronRightIcon()
@@ -541,8 +551,8 @@ fun AppSettingsSheet(
                     modifier = Modifier.clickable { page = "design" }
                 )
                 ListItem(
-                    headlineContent = { Text("Kopfzeile") },
-                    supportingContent = { Text(if (headerLogo) "ChibiNeko-Logo" else "Standard (Text „Musik“)") },
+                    headlineContent = { Text(str(R.string.header)) },
+                    supportingContent = { Text(if (headerLogo) str(R.string.header_logo) else str(R.string.header_summary_default)) },
                     leadingContent = { TitleTIcon() },
                     trailingContent = {
                         ChevronRightIcon()
@@ -551,7 +561,25 @@ fun AppSettingsSheet(
                     modifier = Modifier.clickable { page = "headerView" }
                 )
                 ListItem(
-                    headlineContent = { Text("Audioinfos im Player") },
+                    headlineContent = { Text(str(R.string.language)) },
+                    supportingContent = {
+                        Text(
+                            when (language) {
+                                AppLang.SYSTEM -> str(R.string.language_system)
+                                AppLang.DE -> "Deutsch"
+                                AppLang.EN -> "English"
+                            }
+                        )
+                    },
+                    leadingContent = { GlobeIcon() },
+                    trailingContent = {
+                        ChevronRightIcon()
+                    },
+                    colors = clear,
+                    modifier = Modifier.clickable { page = "language" }
+                )
+                ListItem(
+                    headlineContent = { Text(str(R.string.audio_info)) },
                     leadingContent = { InfoIcon() },
                     trailingContent = {
                         Switch(checked = showAudioInfo, onCheckedChange = null)
@@ -560,7 +588,7 @@ fun AppSettingsSheet(
                     modifier = Modifier.clickable { onShowAudioInfo(!showAudioInfo) }
                 )
                 ListItem(
-                    headlineContent = { Text("Haptisches Feedback") },
+                    headlineContent = { Text(str(R.string.haptics)) },
                     leadingContent = { VibrationIcon() },
                     trailingContent = {
                         Switch(checked = haptics, onCheckedChange = null)
@@ -571,13 +599,13 @@ fun AppSettingsSheet(
                 Spacer(Modifier.height(32.dp))
             }
             "index" -> {
-                SheetHeader("Index") { page = "main" }
+                SheetHeader(str(R.string.index)) { page = "main" }
                 ListItem(
-                    headlineContent = { Text("Musikordner") },
+                    headlineContent = { Text(str(R.string.music_folders)) },
                     supportingContent = {
                         Text(
-                            if (selected == null) "Alle Ordner"
-                            else "${all.count { it in current }} von ${all.size} Ordnern"
+                            if (selected == null) str(R.string.all_folders)
+                            else str(R.string.folders_count, all.count { it in current }, all.size)
                         )
                     },
                     leadingContent = { FolderIcon() },
@@ -588,9 +616,9 @@ fun AppSettingsSheet(
                     modifier = Modifier.clickable { page = "folders" }
                 )
                 ListItem(
-                    headlineContent = { Text("Bibliothek neu einlesen") },
+                    headlineContent = { Text(str(R.string.rescan)) },
                     supportingContent = {
-                        Text(if (rescanning) "Wird eingelesen …" else "Geänderte Tags und Cover übernehmen")
+                        Text(if (rescanning) str(R.string.rescan_busy) else str(R.string.rescan_summary))
                     },
                     leadingContent = { RefreshIcon() },
                     trailingContent = {
@@ -602,67 +630,76 @@ fun AppSettingsSheet(
                 Spacer(Modifier.height(32.dp))
             }
             "sort" -> {
-                SheetHeader("Sortierung") { page = "main" }
-                SortOption("Datum hinzugefügt", "Neueste zuerst", sort == SortMode.DATE) {
+                SheetHeader(str(R.string.sort)) { page = "main" }
+                SortOption(str(R.string.sort_added), str(R.string.sort_added_sub), sort == SortMode.DATE) {
                     onSort(SortMode.DATE)
                 }
-                SortOption("Datum modifiziert", "Zuletzt geändert zuerst", sort == SortMode.MODIFIED) {
+                SortOption(str(R.string.sort_modified), str(R.string.sort_modified_sub), sort == SortMode.MODIFIED) {
                     onSort(SortMode.MODIFIED)
                 }
-                SortOption("Name", "A bis Z", sort == SortMode.NAME) {
+                SortOption(str(R.string.sort_name), str(R.string.sort_name_sub), sort == SortMode.NAME) {
                     onSort(SortMode.NAME)
                 }
                 Spacer(Modifier.height(32.dp))
             }
+            "language" -> {
+                SheetHeader(str(R.string.language)) { page = "main" }
+                SortOption(str(R.string.language_system), str(R.string.language_system_sub), language == AppLang.SYSTEM) {
+                    onLanguage(AppLang.SYSTEM)
+                }
+                SortOption("Deutsch", null, language == AppLang.DE) { onLanguage(AppLang.DE) }
+                SortOption("English", null, language == AppLang.EN) { onLanguage(AppLang.EN) }
+                Spacer(Modifier.height(32.dp))
+            }
             "headerView" -> {
-                SheetHeader("Kopfzeile") { page = "main" }
-                SortOption("Standard", "Text „Musik“", !headerLogo) { onHeaderLogo(false) }
-                SortOption("ChibiNeko-Logo", "Bild statt Text", headerLogo) { onHeaderLogo(true) }
+                SheetHeader(str(R.string.header)) { page = "main" }
+                SortOption(str(R.string.standard), str(R.string.header_option_text), !headerLogo) { onHeaderLogo(false) }
+                SortOption(str(R.string.header_logo), str(R.string.header_option_logo_sub), headerLogo) { onHeaderLogo(true) }
                 Spacer(Modifier.height(32.dp))
             }
             "design" -> {
-                SheetHeader("Design") { page = "main" }
+                SheetHeader(str(R.string.design)) { page = "main" }
                 Text(
-                    "Rundungen",
+                    str(R.string.corners),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                 )
-                SortOption("Standard", null, cornerStyle == CornerStyle.STANDARD) {
+                SortOption(str(R.string.standard), null, cornerStyle == CornerStyle.STANDARD) {
                     onCornerStyle(CornerStyle.STANDARD)
                 }
                 SortOption(
-                    "Einheitlich",
-                    "Chips, Menüs, Felder und Dialoge runden im gleichen Stil",
+                    str(R.string.corners_uniform),
+                    str(R.string.corners_uniform_sub),
                     cornerStyle == CornerStyle.UNIFORM
                 ) { onCornerStyle(CornerStyle.UNIFORM) }
                 Text(
-                    "Player-Hintergrund",
+                    str(R.string.player_bg),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 8.dp)
                 )
-                SortOption("Einfarbig", "Wie bisher", playerBg == PlayerBackground.SOLID) {
+                SortOption(str(R.string.bg_solid), str(R.string.bg_solid_sub), playerBg == PlayerBackground.SOLID) {
                     onPlayerBg(PlayerBackground.SOLID)
                 }
                 SortOption(
-                    "Farbverlauf",
-                    "Oben die Farbe des Covers, nach unten weich auslaufend",
+                    str(R.string.bg_gradient),
+                    str(R.string.bg_gradient_sub),
                     playerBg == PlayerBackground.GRADIENT
                 ) { onPlayerBg(PlayerBackground.GRADIENT) }
                 SortOption(
-                    "Unschärfe",
-                    "Das Cover, sehr stark verschwommen, als Hintergrund",
+                    str(R.string.bg_blur),
+                    str(R.string.bg_blur_sub),
                     playerBg == PlayerBackground.BLUR
                 ) { onPlayerBg(PlayerBackground.BLUR) }
                 // Kippschalter: Menüs, Dialoge und Einstellungen wie der Player (nur bei Unschärfe)
                 val menuSwitchEnabled = playerBg == PlayerBackground.BLUR
                 ListItem(
-                    headlineContent = { Text("Menü-Design einheitlich") },
+                    headlineContent = { Text(str(R.string.menu_unified)) },
                     supportingContent = {
                         Text(
-                            if (menuSwitchEnabled) "Die Hauptseite (Titel, Album, Playlists, Favoriten) bekommt den Hintergrund des Players"
-                            else "Nur bei Unschärfe verfügbar"
+                            if (menuSwitchEnabled) str(R.string.menu_unified_on)
+                            else str(R.string.menu_unified_off)
                         )
                     },
                     trailingContent = {
@@ -674,26 +711,26 @@ fun AppSettingsSheet(
                 Spacer(Modifier.height(32.dp))
             }
             "albumView" -> {
-                SheetHeader("Alben-Ansicht") { page = "main" }
+                SheetHeader(str(R.string.album_view)) { page = "main" }
                 ViewStyleOptions(albumStyle, onAlbumStyle)
                 Spacer(Modifier.height(32.dp))
             }
             "playlistView" -> {
-                SheetHeader("Playlist-Ansicht") { page = "main" }
+                SheetHeader(str(R.string.playlist_view)) { page = "main" }
                 ViewStyleOptions(playlistStyle, onPlaylistStyle)
                 Spacer(Modifier.height(32.dp))
             }
             else -> {
-                SheetHeader("Musikordner") { page = "index" }
+                SheetHeader(str(R.string.music_folders)) { page = "index" }
                 Text(
-                    "Nur Songs aus angehakten Ordnern werden angezeigt.",
+                    str(R.string.folders_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 24.dp)
                 )
                 Row(Modifier.padding(horizontal = 16.dp)) {
-                    TextButton(onClick = { onFolders(all) }) { Text("Alle") }
-                    TextButton(onClick = { onFolders(emptySet()) }) { Text("Keine") }
+                    TextButton(onClick = { onFolders(all) }) { Text(str(R.string.all)) }
+                    TextButton(onClick = { onFolders(emptySet()) }) { Text(str(R.string.none)) }
                 }
                 Column(
                     Modifier
@@ -704,9 +741,9 @@ fun AppSettingsSheet(
                     counts.forEach { (folder, n) ->
                         ListItem(
                             headlineContent = {
-                                Text(folder.trimEnd('/').ifEmpty { "Hauptverzeichnis" })
+                                Text(folder.trimEnd('/').ifEmpty { str(R.string.root_folder) })
                             },
-                            supportingContent = { Text("$n Songs") },
+                            supportingContent = { Text(plural(R.plurals.n_songs, n)) },
                             trailingContent = {
                                 Checkbox(checked = folder in current, onCheckedChange = null)
                             },
