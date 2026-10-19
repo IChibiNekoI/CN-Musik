@@ -53,31 +53,63 @@ fun PlayerBackdrop(song: Song, mode: PlayerBackground, open: Animatable<Float, A
         val blurred by produceState<Bitmap?>(null, song.id, ver) {
             value = loadBlurredBackdrop(ctx, song)
         }
-        Crossfade(
-            targetState = blurred,
-            modifier = Modifier.fillMaxSize().then(fade),
-            animationSpec = androidx.compose.animation.core.tween(Motion.SLOW),
-            label = "backdrop"
-        ) { b ->
-            if (b != null) {
-                Box(Modifier.fillMaxSize()) {
-                    Image(
-                        b.asImageBitmap(), contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        filterQuality = FilterQuality.High
+        Box(Modifier.fillMaxSize().then(fade)) {
+            SoftCoverImage(blurred, Modifier.fillMaxSize())
+            // Schleier in der Hintergrundfarbe, nach unten (zu Titel und Tasten) dunkler: bleibt ruhig und gut lesbar.
+            // Liegt über beiden Bildern, damit er beim Überblenden nicht flackert.
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(
+                        0f to scheme.surface.copy(alpha = 0.5f),
+                        1f to scheme.surface.copy(alpha = 0.78f)
                     )
-                    // Schleier in der Hintergrundfarbe, nach unten (zu Titel und Tasten) dunkler: bleibt ruhig und gut lesbar
-                    Box(
-                        Modifier.fillMaxSize().background(
-                            Brush.verticalGradient(
-                                0f to scheme.surface.copy(alpha = 0.5f),
-                                1f to scheme.surface.copy(alpha = 0.78f)
-                            )
-                        )
-                    )
-                }
-            }
+                )
+            )
+        }
+    }
+}
+
+/**
+ * Zeigt ein Bild und blendet bei einem neuen Bild weich über: das alte bleibt voll sichtbar darunter,
+ * das neue erscheint darüber und "setzt sich" dabei leicht (kleine Zoom-Bewegung).
+ * Kein Durchscheinen des Untergrunds wie beim normalen Crossfade.
+ */
+@Composable
+fun SoftCoverImage(bitmap: Bitmap?, modifier: Modifier = Modifier) {
+    var below by remember { mutableStateOf<Bitmap?>(null) }
+    var top by remember { mutableStateOf(bitmap) }
+    val a = remember { Animatable(1f) }
+    LaunchedEffect(bitmap) {
+        if (bitmap === top) return@LaunchedEffect
+        below = top
+        top = bitmap
+        a.snapTo(0f)
+        a.animateTo(1f, tween(Motion.COLOR, easing = Motion.Soft))
+        below = null
+    }
+    Box(modifier) {
+        below?.let { b ->
+            Image(
+                b.asImageBitmap(), contentDescription = null,
+                modifier = Modifier.fillMaxSize().graphicsLayer {
+                    // fehlt ein neues Bild (z. B. Unschärfe aus), blendet das alte aus
+                    alpha = if (top != null) 1f else 1f - a.value
+                },
+                contentScale = ContentScale.Crop,
+                filterQuality = FilterQuality.High
+            )
+        }
+        top?.let { t ->
+            Image(
+                t.asImageBitmap(), contentDescription = null,
+                modifier = Modifier.fillMaxSize().graphicsLayer {
+                    alpha = a.value
+                    val sc = 1.12f - 0.12f * a.value
+                    scaleX = sc; scaleY = sc
+                },
+                contentScale = ContentScale.Crop,
+                filterQuality = FilterQuality.High
+            )
         }
     }
 }
