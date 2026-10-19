@@ -278,7 +278,8 @@ fun LibraryScreen(
     playlists: List<Playlist>,
     albumStyle: ViewStyle = ViewStyle(),
     playlistStyle: ViewStyle = ViewStyle(),
-    headerLogo: Boolean = false,
+    headerStyle: HeaderStyle = HeaderStyle.TEXT,
+    onHeaderTap: () -> Unit = {},
     update: UpdateInfo? = null,
     favorites: List<Long> = emptyList(),
     onToggleFavorite: (Song) -> Unit = {},
@@ -410,22 +411,36 @@ fun LibraryScreen(
                     )
                 )
             } else {
-                if (headerLogo) {
-                    Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                // Jeder Tipp auf die Kopfzeile wird gezählt (Easter Egg), ohne sichtbare Welle
+                val headerTap = remember { MutableInteractionSource() }
+                when (headerStyle) {
+                    HeaderStyle.LOGO -> Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                         Image(
                             painter = painterResource(R.drawable.title_logo),
                             contentDescription = "ChibiNeko",
                             // Höhe des Logos hier ändern; die Breite folgt dem Seitenverhältnis (362:68)
-                            modifier = Modifier.height(36.dp).aspectRatio(362f / 68f),
+                            modifier = Modifier.height(36.dp).aspectRatio(362f / 68f)
+                                .clickable(interactionSource = headerTap, indication = null) { onHeaderTap() },
                             colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onBackground)
                         )
                     }
-                } else {
-                    Text(
-                        str(R.string.app_header_text),
-                        style = MaterialTheme.typography.headlineLarge,
-                        modifier = Modifier.weight(1f)
-                    )
+                    HeaderStyle.FOX -> Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                        Image(
+                            painter = painterResource(R.drawable.header_fox),
+                            contentDescription = null,
+                            // Höhe des Fuchses hier ändern; die Breite folgt dem Seitenverhältnis (640:390)
+                            modifier = Modifier.height(52.dp).aspectRatio(640f / 390f)
+                                .clickable(interactionSource = headerTap, indication = null) { onHeaderTap() }
+                        )
+                    }
+                    HeaderStyle.TEXT -> {
+                        Text(
+                            str(R.string.app_header_text),
+                            style = MaterialTheme.typography.headlineLarge,
+                            modifier = Modifier.clickable(interactionSource = headerTap, indication = null) { onHeaderTap() }
+                        )
+                        Spacer(Modifier.weight(1f))
+                    }
                 }
                 if (tab == 2) {
                     Box {
