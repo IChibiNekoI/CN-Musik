@@ -41,6 +41,7 @@ import kotlin.math.max
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.graphics.graphicsLayer
@@ -226,10 +227,14 @@ private fun NowPlayingSheetContent(
     var queueShown by remember { mutableStateOf(false) }
     var queueZoneTop by remember { mutableFloatStateOf(Float.MAX_VALUE) }
     var dragFromQueueZone by remember { mutableStateOf(false) }
+    var queueFollowing by remember { mutableStateOf(false) }   // Warteschlange hängt gerade am Finger
     var upDrag by remember { mutableFloatStateOf(0f) }
+    var rootHeightPx by remember { mutableFloatStateOf(1f) }
     val queueScope = rememberCoroutineScope()
-    val queueUpPx = with(LocalDensity.current) { 48.dp.toPx() }
     val queueZonePad = with(LocalDensity.current) { 24.dp.toPx() }
+    // Das Theme wechselt bei geöffneter Warteschlange sofort (keine Welle)
+    SideEffect { PlayerUiState.queueOpen = queueShown }
+    DisposableEffect(Unit) { onDispose { PlayerUiState.queueOpen = false } }
     fun openQueue() {
         queueShown = true
         queueScope.launch { queueProgress.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 320f)) }
@@ -241,8 +246,28 @@ private fun NowPlayingSheetContent(
         }
     }
     val dragState = androidx.compose.foundation.gestures.rememberDraggableState { delta ->
-        if (delta < 0f && offsetY <= 0f) upDrag += delta   // nach oben gewischt (Player lässt sich nicht weiter hochziehen)
-        offsetY = (offsetY + delta).coerceAtLeast(0f)
+        var rest = delta
+        if (dragFromQueueZone && !queueShown || queueFollowing) {
+            if (delta < 0f && offsetY <= 0f) {
+                // nach oben gewischt: die Warteschlange folgt dem Finger
+                upDrag += delta
+                rest = 0f
+            } else if (delta > 0f && upDrag < 0f) {
+                // wieder zurück nach unten: erst die Warteschlange zurückschieben, dann erst den Player ziehen
+                val used = minOf(delta, -upDrag)
+                upDrag += used
+                rest = delta - used
+            }
+            if (upDrag < 0f) {
+                queueFollowing = true
+                queueShown = true
+            }
+            if (queueFollowing) {
+                val p = (-upDrag / (rootHeightPx * QUEUE_HEIGHT_FRACTION)).coerceIn(0f, 1f)
+                queueScope.launch { queueProgress.snapTo(p) }
+            }
+        }
+        offsetY = (offsetY + rest).coerceAtLeast(0f)
     }
     androidx.activity.compose.BackHandler { onDismiss() }
     // Zurück-Taste schließt zuerst die Warteschlange
@@ -256,7 +281,7 @@ private fun NowPlayingSheetContent(
     val sheetColor = MaterialTheme.colorScheme.surface
     // open.value wird nur in Lambdas der Zeichenphase gelesen; der Inhalt wird pro Frame nicht neu komponiert
     val flying by remember { derivedStateOf { open.value < 1f } }
-    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().onSizeChanged { rootHeightPx = it.height.toFloat().coerceAtLeast(1f) }) {
         // Abdunkelung der Liste hinter dem aufgehenden Player
         if (origin != null) {
             Box(
@@ -280,8 +305,12 @@ private fun NowPlayingSheetContent(
                         upDrag = 0f
                     },
                     onDragStopped = { velocity ->
-                        if (dragFromQueueZone && offsetY <= 0f && !queueShown && (upDrag < -queueUpPx || velocity < -900f)) {
-                            openQueue()
+                        if (queueFollowing) {
+                            // Loslassen: ab etwa einem Drittel oder bei schnellem Wischen ganz öffnen, sonst wieder schließen
+                            queueFollowing = false
+                            val shownFraction = -upDrag / (rootHeightPx * QUEUE_HEIGHT_FRACTION)
+                            upDrag = 0f
+                            if (shownFraction > 0.3f || velocity < -900f) openQueue() else closeQueue()
                         } else if (offsetY > 400f || velocity > 1200f) {
                             androidx.compose.animation.core.animate(
                                 offsetY, 3000f,
