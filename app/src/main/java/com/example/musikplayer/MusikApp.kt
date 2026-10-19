@@ -72,7 +72,11 @@ fun MusikApp(openPlayerSignal: Int = 0) {
         favorites = if (s.id in favorites) favorites - s.id else listOf(s.id) + favorites
         saveFavorites(ctx, favorites)
     }
-    var headerLogo by remember { mutableStateOf(readHeaderLogo(ctx)) }
+    var headerStyle by remember { mutableStateOf(readHeaderStyle(ctx)) }
+    var foxUnlocked by remember { mutableStateOf(readFoxUnlocked(ctx)) }
+    // Easter Egg: 50 Tipps auf die Kopfzeile hintereinander (Pause zwischen zwei Tipps höchstens 2 Sekunden)
+    var headerTaps by remember { mutableStateOf(0) }
+    var lastHeaderTap by remember { mutableStateOf(0L) }
     Haptics.load(ctx)
     var albumStyle by remember { mutableStateOf(readAlbumStyle(ctx)) }
     var playlistStyle by remember { mutableStateOf(readPlaylistStyle(ctx)) }
@@ -257,7 +261,18 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                     playlists = playlists,
                     albumStyle = albumStyle,
                     playlistStyle = playlistStyle,
-                    headerLogo = headerLogo,
+                    headerStyle = headerStyle,
+                    onHeaderTap = {
+                        val now = android.os.SystemClock.elapsedRealtime()
+                        headerTaps = if (now - lastHeaderTap > 2000) 1 else headerTaps + 1
+                        lastHeaderTap = now
+                        if (headerTaps >= 50 && !foxUnlocked) {
+                            foxUnlocked = true
+                            saveFoxUnlocked(ctx)
+                            Haptics.tick(ctx)
+                            Toast.makeText(ctx, str(R.string.fox_unlocked), Toast.LENGTH_LONG).show()
+                        }
+                    },
                     update = update,
                     favorites = favorites,
                     onToggleFavorite = toggleFavorite,
@@ -352,8 +367,9 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                 onAlbumStyle = { albumStyle = it; saveAlbumStyle(ctx, it) },
                 playlistStyle = playlistStyle,
                 onPlaylistStyle = { playlistStyle = it; savePlaylistStyle(ctx, it) },
-                headerLogo = headerLogo,
-                onHeaderLogo = { headerLogo = it; saveHeaderLogo(ctx, it) },
+                headerStyle = headerStyle,
+                foxUnlocked = foxUnlocked,
+                onHeaderStyle = { headerStyle = it; saveHeaderStyle(ctx, it) },
                 cornerStyle = CornerSettings.style,
                 onCornerStyle = { CornerSettings.style = it; saveCornerStyle(ctx, it) },
                 playerBg = CornerSettings.playerBg,
@@ -435,8 +451,9 @@ fun AppSettingsSheet(
     onAlbumStyle: (ViewStyle) -> Unit,
     playlistStyle: ViewStyle,
     onPlaylistStyle: (ViewStyle) -> Unit,
-    headerLogo: Boolean,
-    onHeaderLogo: (Boolean) -> Unit,
+    headerStyle: HeaderStyle,
+    foxUnlocked: Boolean,
+    onHeaderStyle: (HeaderStyle) -> Unit,
     cornerStyle: CornerStyle,
     onCornerStyle: (CornerStyle) -> Unit,
     playerBg: PlayerBackground,
@@ -552,7 +569,13 @@ fun AppSettingsSheet(
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.header)) },
-                    supportingContent = { Text(if (headerLogo) str(R.string.header_logo) else str(R.string.header_summary_default)) },
+                    supportingContent = { Text(
+                            when (headerStyle) {
+                                HeaderStyle.LOGO -> str(R.string.header_logo)
+                                HeaderStyle.FOX -> str(R.string.header_fox)
+                                HeaderStyle.TEXT -> str(R.string.header_summary_default)
+                            }
+                        ) },
                     leadingContent = { TitleTIcon() },
                     trailingContent = {
                         ChevronRightIcon()
@@ -653,8 +676,17 @@ fun AppSettingsSheet(
             }
             "headerView" -> {
                 SheetHeader(str(R.string.header)) { page = "main" }
-                SortOption(str(R.string.standard), str(R.string.header_option_text), !headerLogo) { onHeaderLogo(false) }
-                SortOption(str(R.string.header_logo), str(R.string.header_option_logo_sub), headerLogo) { onHeaderLogo(true) }
+                SortOption(str(R.string.standard), str(R.string.header_option_text), headerStyle == HeaderStyle.TEXT) {
+                    onHeaderStyle(HeaderStyle.TEXT)
+                }
+                SortOption(str(R.string.header_logo), str(R.string.header_option_logo_sub), headerStyle == HeaderStyle.LOGO) {
+                    onHeaderStyle(HeaderStyle.LOGO)
+                }
+                if (foxUnlocked) {
+                    SortOption(str(R.string.header_fox), str(R.string.header_fox_sub), headerStyle == HeaderStyle.FOX) {
+                        onHeaderStyle(HeaderStyle.FOX)
+                    }
+                }
                 Spacer(Modifier.height(32.dp))
             }
             "design" -> {
