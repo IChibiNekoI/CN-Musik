@@ -350,7 +350,7 @@ fun FavoriteButton(
             },
             iconSize = iconSize,
             tint = MaterialTheme.colorScheme.primary,
-            description = if (isFavorite) "Aus Favoriten entfernen" else "Zu Favoriten hinzufügen",
+            description = if (isFavorite) str(R.string.fav_remove) else str(R.string.fav_add),
             filled = isFavorite
         )
     }
@@ -447,5 +447,18 @@ fun MusicNoteIcon(
             cubicTo(14.2f * k, 5.4f * k, 17.3f * k, 6.8f * k, 17.6f * k, 10.8f * k)
         }
         drawPath(flag, c, style = st)
+    }
+}
+
+/** Globus (Sprache) */
+@Composable
+fun GlobeIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        drawCircle(c, radius = 9f * k, center = Offset(12f * k, 12f * k), style = st)
+        drawOval(c, topLeft = Offset(8.2f * k, 3f * k), size = Size(7.6f * k, 18f * k), style = st)
+        seg(c, st, k, 3f, 12f, 21f, 12f)
     }
 }
