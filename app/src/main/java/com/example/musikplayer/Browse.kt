@@ -35,6 +35,7 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
@@ -292,6 +293,7 @@ fun LibraryScreen(
     var openAlbum by remember { mutableStateOf<String?>(null) }
     var openPlaylist by remember { mutableStateOf<String?>(null) }
     var addSong by remember { mutableStateOf<Song?>(null) }
+    var pickFor by remember { mutableStateOf<String?>(null) }   // Playlist, zu der Songs ausgewählt werden
     var creating by remember { mutableStateOf(false) }
     var pendingSong by remember { mutableStateOf<Song?>(null) }
     var deleteTarget by remember { mutableStateOf<Playlist?>(null) }
@@ -673,11 +675,28 @@ fun LibraryScreen(
                     val list = pl.songIds.mapNotNull { byId[it] }
                     DetailHeader(pl.name) { openPlaylist = null }
                     if (list.isEmpty()) {
-                        Text(
-                            str(R.string.playlist_empty),
-                            modifier = Modifier.padding(16.dp)
-                        )
-                    }
+                        // Leere Playlist: Bild und darunter eine Taste zum Hinzufügen von Liedern
+                        Column(
+                            Modifier.weight(1f).fillMaxWidth().padding(horizontal = 32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Image(
+                                painter = painterResource(R.drawable.playlist_empty),
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxWidth(0.8f),
+                                contentScale = ContentScale.Fit,
+                                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                            )
+                            Spacer(Modifier.height(24.dp))
+                            FilledTonalButton(onClick = { pickFor = pl.id }) {
+                                PlusIcon(iconSize = 20.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Text(str(R.string.add_songs))
+                            }
+                            Spacer(Modifier.height(bottomSpace))
+                        }
+                    } else
                     // Titel 1,5 s gedrückt halten und ziehen, um ihn zu verschieben
                     ReorderableSongList(
                         songs = list,
@@ -732,6 +751,46 @@ fun LibraryScreen(
             },
             dismissButton = { TextButton(onClick = { showUpdate = false }) { Text(str(R.string.later)) } }
         )
+    }
+
+    pickFor?.let { plId ->
+        val target = playlists.firstOrNull { it.id == plId }
+        if (target == null) { pickFor = null } else {
+            var chosen by remember(plId) { mutableStateOf(setOf<Long>()) }
+            val candidates = remember(songs, target.songIds) { songs.filter { it.id !in target.songIds } }
+            AlertDialog(
+                onDismissRequest = { pickFor = null },
+                title = { Text(str(R.string.add_songs)) },
+                text = {
+                    LazyColumn(Modifier.fillMaxWidth()) {
+                        items(candidates, key = { it.id }) { s ->
+                            val on = s.id in chosen
+                            ListItem(
+                                headlineContent = { Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                supportingContent = { Text(s.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                leadingContent = { Checkbox(checked = on, onCheckedChange = null) },
+                                colors = clearColors(),
+                                modifier = Modifier.clickable { chosen = if (on) chosen - s.id else chosen + s.id }
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = chosen.isNotEmpty(),
+                        onClick = {
+                            // in der Reihenfolge der Bibliothek hinzufügen
+                            val add = candidates.filter { it.id in chosen }.map { it.id }
+                            onPlaylistsChange(
+                                playlists.map { if (it.id == plId) it.copy(songIds = it.songIds + add) else it }
+                            )
+                            pickFor = null
+                        }
+                    ) { Text(str(R.string.add_n, chosen.size)) }
+                },
+                dismissButton = { TextButton(onClick = { pickFor = null }) { Text(str(R.string.cancel)) } }
+            )
+        }
     }
 
     addSong?.let { s ->
