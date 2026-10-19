@@ -146,7 +146,7 @@ private fun GridTile(
                 }
                 if (onDelete != null) {
                     IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                        TrashIcon(iconSize = 18.dp, description = "Löschen")
+                        TrashIcon(iconSize = 18.dp, description = str(R.string.delete))
                     }
                 }
             }
@@ -161,7 +161,7 @@ fun DetailHeader(title: String, onBack: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBack) {
-            BackIcon(description = "Zurück")
+            BackIcon(description = str(R.string.back))
         }
         Text(
             title,
@@ -215,28 +215,28 @@ fun SongRow(
         trailingContent = {
             Box {
                 IconButton(onClick = { expanded = true }) {
-                    MoreVertIcon(description = "Mehr")
+                    MoreVertIcon(description = str(R.string.more))
                 }
                 DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     DropdownMenuItem(
-                        text = { Text("Titel-Infos") },
+                        text = { Text(str(R.string.track_info)) },
                         leadingIcon = { InfoIcon() },
                         onClick = { expanded = false; showInfo = true }
                     )
                     DropdownMenuItem(
-                        text = { Text("Tags bearbeiten") },
+                        text = { Text(str(R.string.edit_tags)) },
                         leadingIcon = { EditIcon() },
                         onClick = { expanded = false; showTags = true }
                     )
                     DropdownMenuItem(
                         text = {
-                            Text(if (isFavorite) "Aus Favoriten entfernen" else "Zu Favoriten hinzufügen")
+                            Text(if (isFavorite) str(R.string.fav_remove) else str(R.string.fav_add))
                         },
                         leadingIcon = { HeartIcon(filled = isFavorite) },
                         onClick = { expanded = false; onToggleFavorite() }
                     )
                     DropdownMenuItem(
-                        text = { Text("Zur Playlist hinzufügen") },
+                        text = { Text(str(R.string.add_to_playlist)) },
                         leadingIcon = {
                             PlaylistAddIcon()
                         },
@@ -244,7 +244,7 @@ fun SongRow(
                     )
                     if (onRemove != null) {
                         DropdownMenuItem(
-                            text = { Text("Aus Playlist entfernen") },
+                            text = { Text(str(R.string.remove_from_playlist)) },
                             leadingIcon = { TrashIcon() },
                             onClick = { expanded = false; onRemove() }
                         )
@@ -307,13 +307,13 @@ fun LibraryScreen(
         if (uri != null) scope.launch {
             val r = withContext(Dispatchers.IO) { importM3u(ctx, uri, songs) }
             if (r == null || r.ids.isEmpty()) {
-                Toast.makeText(ctx, "Keine passenden Titel in der Playlist gefunden", Toast.LENGTH_LONG).show()
+                Toast.makeText(ctx, str(R.string.toast_no_match), Toast.LENGTH_LONG).show()
             } else {
                 onPlaylistsChange(
                     playlists + Playlist(System.currentTimeMillis().toString(), r.name, r.ids)
                 )
                 Toast.makeText(
-                    ctx, "${r.name}: ${r.ids.size} von ${r.total} Titeln importiert", Toast.LENGTH_LONG
+                    ctx, str(R.string.toast_import_done, r.name, r.ids.size, r.total), Toast.LENGTH_LONG
                 ).show()
             }
         }
@@ -321,7 +321,7 @@ fun LibraryScreen(
 
     val sorted = remember(songs, sort) { sortSongs(songs, sort) }
     val albums = remember(songs) {
-        songs.groupBy { it.album.ifBlank { "Unbekanntes Album" } }
+        songs.groupBy { it.album.ifBlank { str(R.string.unknown_album) } }
             .toList().sortedBy { it.first.lowercase() }
     }
     val byId = remember(songs) { songs.associateBy { it.id } }
@@ -340,7 +340,7 @@ fun LibraryScreen(
             tab = 1
             openAlbum = name
         } else {
-            Toast.makeText(ctx, "Album nicht gefunden", Toast.LENGTH_SHORT).show()
+            Toast.makeText(ctx, str(R.string.toast_album_missing), Toast.LENGTH_SHORT).show()
         }
         onAlbumRequestHandled()
     }
@@ -380,18 +380,18 @@ fun LibraryScreen(
         ) {
             if (searching) {
                 IconButton(onClick = { searching = false; query = "" }) {
-                    BackIcon(description = "Suche schließen")
+                    BackIcon(description = str(R.string.search_close))
                 }
                 TextField(
                     value = query,
                     onValueChange = { query = it },
                     modifier = Modifier.weight(1f).focusRequester(searchFocus),
-                    placeholder = { Text("Titel, Künstler oder Album") },
+                    placeholder = { Text(str(R.string.search_hint)) },
                     singleLine = true,
                     trailingIcon = {
                         if (query.isNotEmpty()) {
                             IconButton(onClick = { query = "" }) {
-                                CloseIcon(description = "Leeren")
+                                CloseIcon(description = str(R.string.clear))
                             }
                         }
                     },
@@ -417,7 +417,7 @@ fun LibraryScreen(
                     }
                 } else {
                     Text(
-                        "Musik",
+                        str(R.string.app_header_text),
                         style = MaterialTheme.typography.headlineLarge,
                         modifier = Modifier.weight(1f)
                     )
@@ -425,11 +425,11 @@ fun LibraryScreen(
                 if (tab == 2) {
                     Box {
                         IconButton(onClick = { plusMenu = true }) {
-                            PlusIcon(description = "Playlist hinzufügen")
+                            PlusIcon(description = str(R.string.playlist_add_cd))
                         }
                         DropdownMenu(expanded = plusMenu, onDismissRequest = { plusMenu = false }) {
                             DropdownMenuItem(
-                                text = { Text("Neue Playlist") },
+                                text = { Text(str(R.string.playlist_new)) },
                                 leadingIcon = { PlusIcon() },
                                 onClick = {
                                     plusMenu = false
@@ -438,7 +438,7 @@ fun LibraryScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("M3U-Playlist importieren") },
+                                text = { Text(str(R.string.playlist_import)) },
                                 leadingIcon = { FolderIcon() },
                                 onClick = {
                                     plusMenu = false
@@ -452,23 +452,23 @@ fun LibraryScreen(
                     UpdateButton(onClick = { showUpdate = true })
                 }
                 IconButton(onClick = { searching = true }) {
-                    SearchIcon(description = "Suchen")
+                    SearchIcon(description = str(R.string.search))
                 }
                 IconButton(onClick = onSettings) {
-                    SettingsGearIcon(description = "Einstellungen")
+                    SettingsGearIcon(description = str(R.string.settings))
                 }
             }
         }
         if (searching) {
             if (query.isBlank()) {
                 Text(
-                    "Suche nach Titel, Künstler oder Album.",
+                    str(R.string.search_prompt),
                     modifier = Modifier.padding(16.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else if (results.isEmpty()) {
                 Text(
-                    "Keine Treffer.",
+                    str(R.string.no_results),
                     modifier = Modifier.padding(16.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -490,8 +490,8 @@ fun LibraryScreen(
             Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val tabLabels = if (favorites.isNotEmpty()) listOf("Titel", "Album", "Playlists", "Favoriten")
-            else listOf("Titel", "Album", "Playlists")
+            val tabLabels = if (favorites.isNotEmpty()) listOf(str(R.string.tab_tracks), str(R.string.tab_albums), str(R.string.tab_playlists), str(R.string.tab_favorites))
+            else listOf(str(R.string.tab_tracks), str(R.string.tab_albums), str(R.string.tab_playlists))
             tabLabels.forEachIndexed { i, label ->
                 FilterChip(
                     selected = effTab == i,
@@ -523,7 +523,7 @@ fun LibraryScreen(
             0 -> {
                 if (sorted.isEmpty()) {
                     Text(
-                        "Keine Songs gefunden. Prüfe die Musikordner in den Einstellungen.",
+                        str(R.string.no_songs),
                         modifier = Modifier.padding(16.dp)
                     )
                 }
@@ -566,7 +566,7 @@ fun LibraryScreen(
                                 },
                                 supportingContent = {
                                     Text(
-                                        "${list.first().artist} · ${list.size} Titel",
+                                        "${list.first().artist} · ${plural(R.plurals.n_tracks, list.size)}",
                                         maxLines = 1, overflow = TextOverflow.Ellipsis
                                     )
                                 },
@@ -619,7 +619,7 @@ fun LibraryScreen(
                 val pl = playlists.firstOrNull { it.id == openPlaylist }
                 if (pl == null && playlists.isEmpty()) {
                     Text(
-                        "Noch keine Playlists. Tippe oben auf +, um eine zu erstellen oder zu importieren.",
+                        str(R.string.no_playlists),
                         modifier = Modifier.padding(16.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -638,7 +638,7 @@ fun LibraryScreen(
                             }
                             GridTile(
                                 title = p.name,
-                                subtitle = "${p.songIds.size} Titel",
+                                subtitle = plural(R.plurals.n_tracks, p.songIds.size),
                                 onClick = { openPlaylist = p.id },
                                 onDelete = { deleteTarget = p },
                                 cover = { w -> PlaylistCover(covers, w) }
@@ -652,7 +652,7 @@ fun LibraryScreen(
                                 headlineContent = {
                                     Text(p.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 },
-                                supportingContent = { Text("${p.songIds.size} Titel") },
+                                supportingContent = { Text(plural(R.plurals.n_tracks, p.songIds.size)) },
                                 leadingContent = {
                                     val covers = remember(p.songIds, byId) {
                                         p.songIds.asSequence().mapNotNull { byId[it] }.take(4).toList()
@@ -661,7 +661,7 @@ fun LibraryScreen(
                                 },
                                 trailingContent = {
                                     IconButton(onClick = { deleteTarget = p }) {
-                                        TrashIcon(description = "Löschen")
+                                        TrashIcon(description = str(R.string.delete))
                                     }
                                 },
                                 colors = clearColors(),
@@ -674,7 +674,7 @@ fun LibraryScreen(
                     DetailHeader(pl.name) { openPlaylist = null }
                     if (list.isEmpty()) {
                         Text(
-                            "Noch keine Titel. Füge Songs über das Menü (⋮) hinzu.",
+                            str(R.string.playlist_empty),
                             modifier = Modifier.padding(16.dp)
                         )
                     }
@@ -718,30 +718,30 @@ fun LibraryScreen(
     if (showUpdate && update != null) {
         AlertDialog(
             onDismissRequest = { showUpdate = false },
-            title = { Text("Update verfügbar") },
-            text = { Text("Version ${update.version} ist auf GitHub veröffentlicht.") },
+            title = { Text(str(R.string.update_available)) },
+            text = { Text(str(R.string.update_text, update.version)) },
             confirmButton = {
                 TextButton(onClick = {
                     showUpdate = false
                     try {
                         ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.url)))
                     } catch (e: Exception) {
-                        Toast.makeText(ctx, "Link konnte nicht geöffnet werden", Toast.LENGTH_LONG).show()
+                        Toast.makeText(ctx, str(R.string.toast_link_failed), Toast.LENGTH_LONG).show()
                     }
-                }) { Text("Herunterladen") }
+                }) { Text(str(R.string.download)) }
             },
-            dismissButton = { TextButton(onClick = { showUpdate = false }) { Text("Später") } }
+            dismissButton = { TextButton(onClick = { showUpdate = false }) { Text(str(R.string.later)) } }
         )
     }
 
     addSong?.let { s ->
         AlertDialog(
             onDismissRequest = { addSong = null },
-            title = { Text("Zur Playlist hinzufügen") },
+            title = { Text(str(R.string.add_to_playlist)) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     ListItem(
-                        headlineContent = { Text("Neue Playlist…") },
+                        headlineContent = { Text(str(R.string.playlist_new_dots)) },
                         leadingContent = { PlusIcon() },
                         colors = clearColors(),
                         modifier = Modifier.clickable {
@@ -767,7 +767,7 @@ fun LibraryScreen(
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(onClick = { addSong = null }) { Text("Abbrechen") } }
+            dismissButton = { TextButton(onClick = { addSong = null }) { Text(str(R.string.cancel)) } }
         )
     }
 
@@ -775,13 +775,13 @@ fun LibraryScreen(
         var name by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { pendingSong = null; creating = false },
-            title = { Text("Neue Playlist") },
+            title = { Text(str(R.string.playlist_new)) },
             text = {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     singleLine = true,
-                    label = { Text("Name") }
+                    label = { Text(str(R.string.name)) }
                 )
             },
             confirmButton = {
@@ -797,10 +797,10 @@ fun LibraryScreen(
                         pendingSong = null
                         creating = false
                     }
-                ) { Text("Erstellen") }
+                ) { Text(str(R.string.create)) }
             },
             dismissButton = {
-                TextButton(onClick = { pendingSong = null; creating = false }) { Text("Abbrechen") }
+                TextButton(onClick = { pendingSong = null; creating = false }) { Text(str(R.string.cancel)) }
             }
         )
     }
@@ -808,15 +808,15 @@ fun LibraryScreen(
     deleteTarget?.let { t ->
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
-            title = { Text("Playlist löschen?") },
-            text = { Text("${t.name} wird gelöscht. Die Songs bleiben erhalten.") },
+            title = { Text(str(R.string.playlist_delete_title)) },
+            text = { Text(str(R.string.playlist_delete_text, t.name)) },
             confirmButton = {
                 TextButton(onClick = {
                     onPlaylistsChange(playlists.filter { it.id != t.id })
                     deleteTarget = null
-                }) { Text("Löschen") }
+                }) { Text(str(R.string.delete)) }
             },
-            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Abbrechen") } }
+            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text(str(R.string.cancel)) } }
         )
     }
 }
