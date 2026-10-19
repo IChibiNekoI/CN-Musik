@@ -55,7 +55,7 @@ fun saveSort(ctx: Context, mode: SortMode) {
 /** Darstellung einer Übersicht: Liste oder Kacheln (2 oder 3 nebeneinander). */
 data class ViewStyle(val grid: Boolean = false, val cols: Int = 2)
 
-fun ViewStyle.label(): String = if (!grid) "Liste" else "Kacheln · $cols nebeneinander"
+fun ViewStyle.label(): String = if (!grid) str(R.string.style_list) else str(R.string.style_tiles_cols, cols)
 
 private fun encodeStyle(v: ViewStyle): String = if (!v.grid) "list" else "grid${v.cols}"
 
@@ -429,8 +429,8 @@ fun loadLibrary(ctx: Context): List<Song> {
             val folder = raw
             list += Song(
                 id = id,
-                title = c.getString(titleCol) ?: "Unbekannt",
-                artist = c.getString(artistCol) ?: "Unbekannt",
+                title = c.getString(titleCol) ?: str(R.string.unknown),
+                artist = c.getString(artistCol) ?: str(R.string.unknown),
                 uri = ContentUris.withAppendedId(collection, id),
                 folder = folder,
                 album = c.getString(albumCol) ?: "",
@@ -543,7 +543,7 @@ fun importM3u(ctx: Context, uri: Uri, songs: List<Song>): M3uResult? {
     ctx.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
         if (c.moveToFirst()) displayName = c.getString(0)
     }
-    val name = displayName?.substringBeforeLast('.')?.trim().orEmpty().ifEmpty { "Importierte Playlist" }
+    val name = displayName?.substringBeforeLast('.')?.trim().orEmpty().ifEmpty { str(R.string.imported_playlist) }
 
     val byFile = songs.filter { it.fileName.isNotEmpty() }.groupBy { normKey(it.fileName) }
     val byTitle = songs.groupBy { normKey(it.title) }
