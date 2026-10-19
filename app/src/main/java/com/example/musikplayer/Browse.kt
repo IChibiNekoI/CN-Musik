@@ -821,14 +821,32 @@ fun LibraryScreen(
                             LazyColumn(Modifier.weight(1f, fill = false).fillMaxWidth()) {
                                 items(shown, key = { it.id }) { s ->
                                     val on = s.id in chosen
-                                    ListItem(
-                                        headlineContent = { Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                        supportingContent = { Text(s.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                        leadingContent = { Cover(s, 48.dp) },
-                                        trailingContent = { Checkbox(checked = on, onCheckedChange = null) },
-                                        colors = clearColors(),
-                                        modifier = Modifier.clickable { chosen = if (on) chosen - s.id else chosen + s.id }
-                                    )
+                                    // Gleiche Optik wie die Titelübersicht: bei "Einheitlich" abgerundete, eingerückte Berührungswelle
+                                    val rounded = LocalCornerStyle.current == CornerStyle.UNIFORM
+                                    val pressSource = remember { MutableInteractionSource() }
+                                    val toggle = { chosen = if (on) chosen - s.id else chosen + s.id }
+                                    Box(Modifier.fillMaxWidth()) {
+                                        if (rounded) {
+                                            Box(
+                                                Modifier
+                                                    .matchParentSize()
+                                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                                                    .clip(RoundedCornerShape(20.dp))
+                                                    .indication(pressSource, LocalIndication.current)
+                                            )
+                                        }
+                                        ListItem(
+                                            headlineContent = { Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                            supportingContent = { Text(s.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                            leadingContent = { Cover(s, 48.dp) },
+                                            trailingContent = { Checkbox(checked = on, onCheckedChange = null) },
+                                            colors = clearColors(),
+                                            modifier = if (rounded) {
+                                                Modifier.clip(RoundedCornerShape(20.dp))
+                                                    .clickable(interactionSource = pressSource, indication = null) { toggle() }
+                                            } else Modifier.clickable { toggle() }
+                                        )
+                                    }
                                 }
                             }
                         }
