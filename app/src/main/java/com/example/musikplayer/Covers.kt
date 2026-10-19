@@ -153,6 +153,8 @@ fun Cover(song: Song, size: Dp, corner: Dp = 12.dp, fallbackSize: Dp? = null) {
             b = loadCoverBitmap(ctx, song, ver, px)
             if (b != null) CoverCache.put(key, b)
         }
+        // Farbe fürs Theme gleich mit ermitteln (winzig, läuft im Hintergrund), damit der Titelwechsel nicht warten muss
+        if (b != null) withContext(Dispatchers.Default) { rememberSeed(song.id, ver, b) }
         value = b
     }
     Box(
