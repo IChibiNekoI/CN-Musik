@@ -75,10 +75,10 @@ object TagEvents {
 
 /** Schlüssel in TagLib (Reihenfolge = Reihenfolge im Dialog) */
 private val TAG_FIELDS = listOf(
-    "TITLE" to "Titel",
-    "ARTIST" to "Künstler",
-    "ALBUM" to "Album",
-    "ALBUMARTIST" to "Albumkünstler"
+    "TITLE" to R.string.tag_title,
+    "ARTIST" to R.string.tag_artist,
+    "ALBUM" to R.string.tag_album,
+    "ALBUMARTIST" to R.string.tag_albumartist
 )
 
 /** Alle Schlüssel, die gelesen und geschrieben werden (Track und Jahr stehen oben neben dem Cover) */
@@ -202,7 +202,7 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
         if (uri != null) scope.launch {
             val r = withContext(Dispatchers.IO) { loadCoverImage(ctx, uri) }
             if (r == null) {
-                error = "Das Bild konnte nicht geladen werden."
+                error = str(R.string.tag_image_failed)
             } else {
                 error = null
                 newCover = r.first
@@ -229,7 +229,7 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
             permTick++
         } else {
             saving = false
-            error = "Keine Schreibberechtigung erteilt."
+            error = str(R.string.tag_no_permission)
         }
     }
 
@@ -241,7 +241,7 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
             val out = withContext(Dispatchers.IO) { writeTagValues(ctx, song, orig, fields.toMap(), newCover) }
             val sec = out.security
             if (out.ok) {
-                Toast.makeText(ctx, "Tags gespeichert", Toast.LENGTH_SHORT).show()
+                Toast.makeText(ctx, str(R.string.toast_tags_saved), Toast.LENGTH_SHORT).show()
                 TagEvents.tick++
                 onDismiss()
             } else if (sec != null && askIfNeeded) {
@@ -249,7 +249,7 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
                 launcher.launch(IntentSenderRequest.Builder(sender).build())
             } else {
                 saving = false
-                error = "Speichern fehlgeschlagen. Das Dateiformat wird evtl. nicht unterstützt."
+                error = str(R.string.tag_save_failed)
             }
         }
     }
@@ -263,12 +263,12 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
         modifier = Modifier.fillMaxWidth(0.94f),
         properties = DialogProperties(usePlatformDefaultWidth = false),
         onDismissRequest = { if (!saving) onDismiss() },
-        title = { Text("Tags bearbeiten") },
+        title = { Text(str(R.string.edit_tags)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 when {
-                    failedToLoad -> Text("Die Tags dieser Datei konnten nicht gelesen werden.")
-                    original == null -> Text("Lade …")
+                    failedToLoad -> Text(str(R.string.tag_read_failed))
+                    original == null -> Text(str(R.string.loading))
                     else -> {
                         val fieldShape = RoundedCornerShape(20.dp)
                         // Oben: Cover links, Track-Nummer und Jahr rechts daneben
@@ -300,7 +300,7 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
                                         .background(Color.Black.copy(alpha = 0.6f)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    EditIcon(tint = Color.White, description = "Cover ändern")
+                                    EditIcon(tint = Color.White, description = str(R.string.tag_change_cover))
                                 }
                             }
                             Spacer(Modifier.width(12.dp))
@@ -308,7 +308,7 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
                                 OutlinedTextField(
                                     value = fields["TRACKNUMBER"] ?: "",
                                     onValueChange = { fields["TRACKNUMBER"] = it },
-                                    label = { Text("Track Nummer") },
+                                    label = { Text(str(R.string.tag_track_number)) },
                                     trailingIcon = { HashIcon() },
                                     singleLine = true,
                                     enabled = !saving,
@@ -319,7 +319,7 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
                                 OutlinedTextField(
                                     value = fields["DATE"] ?: "",
                                     onValueChange = { fields["DATE"] = it },
-                                    label = { Text("Jahr") },
+                                    label = { Text(str(R.string.tag_year)) },
                                     trailingIcon = { CalendarIcon() },
                                     singleLine = true,
                                     enabled = !saving,
@@ -333,7 +333,7 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
                             OutlinedTextField(
                                 value = fields[key] ?: "",
                                 onValueChange = { fields[key] = it },
-                                label = { Text(label) },
+                                label = { Text(str(label)) },
                                 singleLine = true,
                                 enabled = !saving,
                                 shape = fieldShape,
@@ -350,11 +350,11 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
         },
         confirmButton = {
             TextButton(onClick = { save(true) }, enabled = original != null && !saving) {
-                Text(if (saving) "Speichere …" else "Speichern")
+                Text(if (saving) str(R.string.saving) else str(R.string.save))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !saving) { Text("Abbrechen") }
+            TextButton(onClick = onDismiss, enabled = !saving) { Text(str(R.string.cancel)) }
         }
     )
 }
