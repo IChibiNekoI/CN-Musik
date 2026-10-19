@@ -265,6 +265,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                     onPlaylistsChange = { playlists = it; savePlaylists(ctx, it) },
                     onPlay = { list, index ->
                         controller?.let { c ->
+                            SkipDirection.dir = 1
                             c.setMediaItems(toMediaItems(list), index, 0L)
                             c.prepare()
                             c.play()
