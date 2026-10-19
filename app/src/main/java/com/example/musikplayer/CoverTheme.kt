@@ -160,6 +160,8 @@ fun CoverTheme(song: Song?, dark: Boolean, content: @Composable () -> Unit) {
     val target = remember(sd, dark, base) {
         if (sd != null) tonesFromSeed(sd, dark) else tonesOf(base)
     }
+    // Mit Unschärfe darf der Wechsel lang und verspielt sein, bei einfarbigem Hintergrund (und Verlauf) geht er flotter
+    val duration = if (CornerSettings.playerBg == PlayerBackground.BLUR) Motion.COLOR else Motion.COLOR_QUICK
     var from by remember { mutableStateOf(target) }
     var to by remember { mutableStateOf(target) }
     val t = remember { Animatable(1f) }
@@ -168,7 +170,7 @@ fun CoverTheme(song: Song?, dark: Boolean, content: @Composable () -> Unit) {
         from = lerpTones(from, to, t.value)
         to = target
         t.snapTo(0f)
-        t.animateTo(1f, androidx.compose.animation.core.tween(Motion.COLOR, easing = androidx.compose.animation.core.LinearEasing))
+        t.animateTo(1f, androidx.compose.animation.core.tween(duration, easing = androidx.compose.animation.core.LinearEasing))
     }
     val shown = lerpTones(from, to, t.value)
 
