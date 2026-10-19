@@ -18,6 +18,13 @@ class MainActivity : ComponentActivity() {
     // zählt hoch, sobald der Player geöffnet werden soll (Tipp auf die Benachrichtigung)
     private var openPlayerSignal by mutableIntStateOf(0)
 
+    // Sprache: Deutsch oder Englisch (automatisch nach Gerät oder in den Einstellungen gewählt)
+    override fun attachBaseContext(newBase: android.content.Context) {
+        val wrapped = Lang.wrap(newBase)
+        strCtx = wrapped
+        super.attachBaseContext(wrapped)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
