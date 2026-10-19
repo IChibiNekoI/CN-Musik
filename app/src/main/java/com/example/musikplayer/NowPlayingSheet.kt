@@ -298,7 +298,7 @@ private fun NowPlayingSheetContent(
                     Box(Modifier.fillMaxWidth().reveal({ open.value }, 0.30f, 0.75f, 0.dp)) {
                         CloseSheetButton(onClick = onDismiss, modifier = Modifier.align(Alignment.CenterStart))
                         Text(
-                            song.album.ifBlank { "Unbekanntes Album" },
+                            song.album.ifBlank { str(R.string.unknown_album) },
                             // Albumname: genau in der Mitte des Bildschirms, solange er nicht zu lang ist.
                             // Ist er zu lang, beginnt er direkt neben dem Pfeil und füllt den Platz bis zur Menü-Taste.
                             // Platz links: Pfeil 48 dp + 8 dp Abstand, rechts: Menü-Taste 36 dp + 8 dp Abstand
@@ -325,22 +325,22 @@ private fun NowPlayingSheetContent(
                             MoreButton(onClick = { menuOpen = true }, modifier = Modifier.padding(end = 4.dp))
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(
-                                    text = { Text("Titel-Infos") },
+                                    text = { Text(str(R.string.track_info)) },
                                     leadingIcon = { InfoIcon() },
                                     onClick = { menuOpen = false; showInfo = true }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Tags bearbeiten") },
+                                    text = { Text(str(R.string.edit_tags)) },
                                     leadingIcon = { EditIcon() },
                                     onClick = { menuOpen = false; showTags = true }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Zum Album gehen") },
+                                    text = { Text(str(R.string.go_to_album)) },
                                     leadingIcon = { AlbumDiscIcon() },
                                     onClick = { menuOpen = false; onGoToAlbum() }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Zu Playlist hinzufügen") },
+                                    text = { Text(str(R.string.add_to_playlist_np)) },
                                     leadingIcon = {
                                         PlaylistAddIcon()
                                     },
