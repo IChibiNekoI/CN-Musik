@@ -20,6 +20,16 @@ private class CoverSeed(val h: Float, val s: Float, val neutral: Boolean)
 
 private object SeedCache : LruCache<String, CoverSeed>(100)
 
+/**
+ * Merkt sich die Cover-Farbe schon, sobald irgendwo (Liste, Kacheln) das Cover geladen wurde.
+ * Beim Titelwechsel ist die Farbe dann sofort da und der Übergang startet ohne Wartezeit.
+ */
+fun rememberSeed(songId: Long, ver: Int, bmp: Bitmap) {
+    val key = "${songId}_$ver"
+    if (SeedCache.get(key) != null) return
+    seedFromBitmap(bmp)?.let { SeedCache.put(key, it) }
+}
+
 /** Leert den Zwischenspeicher der Cover-Farben. */
 fun clearSeedCache() = SeedCache.evictAll()
 
@@ -153,7 +163,10 @@ fun CoverTheme(song: Song?, dark: Boolean, content: @Composable () -> Unit) {
         val seedKey = "${sg?.id}_$coverVer"
         value = if (sg == null) null else SeedCache.get(seedKey) ?: withContext(Dispatchers.IO) {
             try {
-                seedFromBitmap(ctx.contentResolver.loadThumbnail(sg.uri, Size(96, 96), null))
+                // aus dem Platten-Cache (schnell), nur im Notfall direkt aus der Datei
+                (loadCoverBitmap(ctx, sg, coverVer, 96)
+                    ?: ctx.contentResolver.loadThumbnail(sg.uri, Size(96, 96), null))
+                    ?.let { seedFromBitmap(it) }
             } catch (e: Exception) {
                 null
             }
