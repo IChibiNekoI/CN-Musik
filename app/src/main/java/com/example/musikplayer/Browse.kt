@@ -792,8 +792,15 @@ fun LibraryScreen(
                     val dp = px?.let { with(density) { it.toDp() } - sideGap } ?: 28.dp
                     dp.coerceIn(16.dp, 56.dp)
                 }
+                val noRipple = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                Box(
+                    Modifier.fillMaxSize().clickable(interactionSource = noRipple, indication = null) { pickFor = null },
+                    contentAlignment = Alignment.Center
+                ) {
                 Surface(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = sideGap, vertical = 56.dp),
+                    // fängt Tipps im Fenster selbst ab, damit nur Tipps daneben den Dialog schließen
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = sideGap, vertical = 56.dp)
+                        .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) {},
                     shape = RoundedCornerShape(dialogCorner),
                     color = AlertDialogDefaults.containerColor,
                     tonalElevation = AlertDialogDefaults.TonalElevation
@@ -817,7 +824,8 @@ fun LibraryScreen(
                                     ListItem(
                                         headlineContent = { Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                         supportingContent = { Text(s.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                        leadingContent = { Checkbox(checked = on, onCheckedChange = null) },
+                                        leadingContent = { Cover(s, 48.dp) },
+                                        trailingContent = { Checkbox(checked = on, onCheckedChange = null) },
                                         colors = clearColors(),
                                         modifier = Modifier.clickable { chosen = if (on) chosen - s.id else chosen + s.id }
                                     )
@@ -865,6 +873,7 @@ fun LibraryScreen(
                         }
                     }
                 }
+                }   // Ende Box
             }
         }
     }
