@@ -457,7 +457,7 @@ fun AppSettingsSheet(
             targetState = page,
             transitionSpec = {
                 val ease = Motion.Ease
-                if (targetState == "main") {
+                if (targetState == "main" || (targetState == "index" && initialState == "folders")) {
                     // zurück: neue Seite kommt von links
                     (slideInHorizontally(tween(Motion.MEDIUM, easing = ease)) { w -> -w / 5 } +
                         fadeIn(tween(Motion.MEDIUM - 60, delayMillis = 60))) togetherWith
@@ -502,19 +502,13 @@ fun AppSettingsSheet(
                     modifier = Modifier.clickable { page = "sort" }
                 )
                 ListItem(
-                    headlineContent = { Text("Musikordner") },
-                    supportingContent = {
-                        Text(
-                            if (selected == null) "Alle Ordner"
-                            else "${all.count { it in current }} von ${all.size} Ordnern"
-                        )
-                    },
-                    leadingContent = { FolderIcon() },
+                    headlineContent = { Text("Index") },
+                    leadingContent = { HashIcon() },
                     trailingContent = {
                         ChevronRightIcon()
                     },
                     colors = clear,
-                    modifier = Modifier.clickable { page = "folders" }
+                    modifier = Modifier.clickable { page = "index" }
                 )
                 ListItem(
                     headlineContent = { Text("Alben-Ansicht") },
@@ -556,18 +550,6 @@ fun AppSettingsSheet(
                     modifier = Modifier.clickable { page = "headerView" }
                 )
                 ListItem(
-                    headlineContent = { Text("Bibliothek neu einlesen") },
-                    supportingContent = {
-                        Text(if (rescanning) "Wird eingelesen …" else "Geänderte Tags und Cover übernehmen")
-                    },
-                    leadingContent = { RefreshIcon() },
-                    trailingContent = {
-                        if (rescanning) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-                    },
-                    colors = clear,
-                    modifier = Modifier.clickable { onRescan() }
-                )
-                ListItem(
                     headlineContent = { Text("Audioinfos im Player") },
                     leadingContent = { InfoIcon() },
                     trailingContent = {
@@ -584,6 +566,37 @@ fun AppSettingsSheet(
                     },
                     colors = clear,
                     modifier = Modifier.clickable { onHaptics(!haptics) }
+                )
+                Spacer(Modifier.height(32.dp))
+            }
+            "index" -> {
+                SheetHeader("Index") { page = "main" }
+                ListItem(
+                    headlineContent = { Text("Musikordner") },
+                    supportingContent = {
+                        Text(
+                            if (selected == null) "Alle Ordner"
+                            else "${all.count { it in current }} von ${all.size} Ordnern"
+                        )
+                    },
+                    leadingContent = { FolderIcon() },
+                    trailingContent = {
+                        ChevronRightIcon()
+                    },
+                    colors = clear,
+                    modifier = Modifier.clickable { page = "folders" }
+                )
+                ListItem(
+                    headlineContent = { Text("Bibliothek neu einlesen") },
+                    supportingContent = {
+                        Text(if (rescanning) "Wird eingelesen …" else "Geänderte Tags und Cover übernehmen")
+                    },
+                    leadingContent = { RefreshIcon() },
+                    trailingContent = {
+                        if (rescanning) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                    },
+                    colors = clear,
+                    modifier = Modifier.clickable { onRescan() }
                 )
                 Spacer(Modifier.height(32.dp))
             }
@@ -670,7 +683,7 @@ fun AppSettingsSheet(
                 Spacer(Modifier.height(32.dp))
             }
             else -> {
-                SheetHeader("Musikordner") { page = "main" }
+                SheetHeader("Musikordner") { page = "index" }
                 Text(
                     "Nur Songs aus angehakten Ordnern werden angezeigt.",
                     style = MaterialTheme.typography.bodySmall,
