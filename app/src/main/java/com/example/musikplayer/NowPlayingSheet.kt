@@ -114,6 +114,7 @@ fun NowPlayingSheet(
     shuffle: Boolean,
     repeat: Int,
     c: MediaController,
+    library: List<Song> = emptyList(),
     showAudioInfo: Boolean = false,
     origin: MiniOrigin? = null,
     controlledOpen: Animatable<Float, AnimationVector1D>? = null,
@@ -140,7 +141,7 @@ fun NowPlayingSheet(
         }
     }
     CoverTheme(song, dark = true) {
-        NowPlayingSheetContent(song, isPlaying, shuffle, repeat, c, showAudioInfo, origin, controlledOpen, onGoToAlbum, onAddToPlaylist, isFavorite, onToggleFavorite, onDismiss)
+        NowPlayingSheetContent(song, isPlaying, shuffle, repeat, c, library, showAudioInfo, origin, controlledOpen, onGoToAlbum, onAddToPlaylist, isFavorite, onToggleFavorite, onDismiss)
     }
 }
 
@@ -151,6 +152,7 @@ private fun NowPlayingSheetContent(
     shuffle: Boolean,
     repeat: Int,
     c: MediaController,
+    library: List<Song>,
     showAudioInfo: Boolean,
     origin: MiniOrigin?,
     controlledOpen: Animatable<Float, AnimationVector1D>?,
@@ -219,10 +221,32 @@ private fun NowPlayingSheetContent(
     val shownMs = (shownFraction * duration).toLong()
 
           var offsetY by remember { mutableFloatStateOf(0f) }
+    // Warteschlange: von unten hochwischen (Start im Bereich unter den Tasten) öffnet sie
+    val queueProgress = remember { Animatable(0f) }
+    var queueShown by remember { mutableStateOf(false) }
+    var queueZoneTop by remember { mutableFloatStateOf(Float.MAX_VALUE) }
+    var dragFromQueueZone by remember { mutableStateOf(false) }
+    var upDrag by remember { mutableFloatStateOf(0f) }
+    val queueScope = rememberCoroutineScope()
+    val queueUpPx = with(LocalDensity.current) { 48.dp.toPx() }
+    val queueZonePad = with(LocalDensity.current) { 24.dp.toPx() }
+    fun openQueue() {
+        queueShown = true
+        queueScope.launch { queueProgress.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 320f)) }
+    }
+    fun closeQueue() {
+        queueScope.launch {
+            queueProgress.animateTo(0f, tween(240, easing = FastOutSlowInEasing))
+            queueShown = false
+        }
+    }
     val dragState = androidx.compose.foundation.gestures.rememberDraggableState { delta ->
+        if (delta < 0f && offsetY <= 0f) upDrag += delta   // nach oben gewischt (Player lässt sich nicht weiter hochziehen)
         offsetY = (offsetY + delta).coerceAtLeast(0f)
     }
     androidx.activity.compose.BackHandler { onDismiss() }
+    // Zurück-Taste schließt zuerst die Warteschlange
+    androidx.activity.compose.BackHandler(enabled = queueShown) { closeQueue() }
     // Ecken werden beim Runterziehen nach und nach rund (bis 38.dp)
     val density = LocalDensity.current.density
     // Endposition des großen Covers (für die Flug-Animation) und ob geflogen wird
@@ -251,8 +275,14 @@ private fun NowPlayingSheetContent(
                 .draggable(
                     state = dragState,
                     orientation = androidx.compose.foundation.gestures.Orientation.Vertical,
+                    onDragStarted = { start ->
+                        dragFromQueueZone = start.y >= queueZoneTop - queueZonePad
+                        upDrag = 0f
+                    },
                     onDragStopped = { velocity ->
-                        if (offsetY > 400f || velocity > 1200f) {
+                        if (dragFromQueueZone && offsetY <= 0f && !queueShown && (upDrag < -queueUpPx || velocity < -900f)) {
+                            openQueue()
+                        } else if (offsetY > 400f || velocity > 1200f) {
                             androidx.compose.animation.core.animate(
                                 offsetY, 3000f,
                                 animationSpec = androidx.compose.animation.core.tween(200)
@@ -481,7 +511,9 @@ private fun NowPlayingSheetContent(
                         )
                     }
                     Box(
-                        Modifier.fillMaxWidth().weight(1.95f).reveal({ open.value }, 0.60f, 1.0f, 16.dp),   // Abstand unten
+                        Modifier.fillMaxWidth().weight(1.95f)
+                            .onGloballyPositioned { queueZoneTop = it.boundsInRoot().top }
+                            .reveal({ open.value }, 0.60f, 1.0f, 16.dp),   // Abstand unten
                         contentAlignment = Alignment.BottomCenter
                     ) {
                         audioInfo?.let {
@@ -524,6 +556,9 @@ private fun NowPlayingSheetContent(
             ) {
                 Cover(song, finalDp, corner = 0.dp, fallbackSize = 56.dp)
             }
+        }
+        if (queueShown) {
+            QueuePanel(c, library, queueProgress) { closeQueue() }
         }
     }
 }
