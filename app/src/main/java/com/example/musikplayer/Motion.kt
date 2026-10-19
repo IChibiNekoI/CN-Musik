@@ -1,6 +1,7 @@
 package com.example.musikplayer
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
@@ -33,7 +34,13 @@ object Motion {
     /** große Bewegungen */
     const val SLOW = 420
 
+    /** Farbwechsel beim Titelwechsel: lang und weich */
+    const val COLOR = 1300
+
     val Ease = FastOutSlowInEasing
+
+    /** Sehr sanfter Start und langes, weiches Ausklingen (für Farb- und Hintergrundwechsel) */
+    val Soft = CubicBezierEasing(0.4f, 0f, 0.1f, 1f)
 
     /** Federt kurz über das Ziel hinaus und beruhigt sich dann */
     fun <T> pop(): SpringSpec<T> = spring(dampingRatio = 0.5f, stiffness = 500f)
