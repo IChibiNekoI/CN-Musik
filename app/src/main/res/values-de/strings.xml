@@ -139,4 +139,7 @@
     </plurals>
     <string name="add_songs">Lieder hinzufügen</string>
     <string name="add_n">Hinzufügen (%1$d)</string>
+    <string name="header_fox">Müder Fuchs</string>
+    <string name="header_fox_sub">Geheim freigeschaltet</string>
+    <string name="fox_unlocked">🦊 Neue Kopfzeile freigeschaltet! Du findest sie in den Einstellungen unter „Kopfzeile“.</string>
 </resources>
