@@ -1,5 +1,17 @@
 package com.example.musikplayer
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -104,27 +116,42 @@ fun MiniPlayer(
             Modifier.fillMaxWidth().padding(start = 14.dp, end = 0.dp, top = 12.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                Modifier.weight(1f).clickable(
+            // Beim Titelwechsel gleiten Cover und Text mit einer kleinen Feder hinein (vorwärts von rechts, zurück von links)
+            AnimatedContent(
+                targetState = song,
+                contentKey = { it.id },
+                modifier = Modifier.weight(1f).clipToBounds().clickable(
                     interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                     indication = null   // kein Aufleuchten beim Drücken/Halten
                 ) { openPlayer() },
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(Modifier.onGloballyPositioned { coverRef[0] = it }) { Cover(song, 56.dp) }
-                Column(Modifier.padding(start = 14.dp)) {
-                    Text(
-                        song.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        song.artist,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                transitionSpec = {
+                    val dir = SkipDirection.dir
+                    val slide = spring<androidx.compose.ui.unit.IntOffset>(dampingRatio = 0.72f, stiffness = 420f)
+                    (slideInHorizontally(slide) { w -> dir * w / 3 } +
+                        scaleIn(spring(dampingRatio = 0.6f, stiffness = 420f), initialScale = 0.8f) +
+                        fadeIn(tween(Motion.MEDIUM - 80, delayMillis = 70))) togetherWith
+                        (slideOutHorizontally(tween(Motion.MEDIUM, easing = Motion.Ease)) { w -> -dir * w / 4 } +
+                            scaleOut(tween(Motion.MEDIUM, easing = Motion.Ease), targetScale = 0.9f) +
+                            fadeOut(tween(Motion.FAST))) using SizeTransform(clip = false)
+                },
+                label = "miniSong"
+            ) { s ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.onGloballyPositioned { if (s.id == song.id) coverRef[0] = it }) { Cover(s, 56.dp) }
+                    Column(Modifier.padding(start = 14.dp)) {
+                        Text(
+                            s.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            s.artist,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
             SkipButton(forward = false, onClick = { skipPrev(c) }, iconSize = 24.dp)
