@@ -83,17 +83,17 @@ fun SongInfoDialog(song: Song, onDismiss: () -> Unit) {
     }
     val d = details
     val rows = listOf(
-        "Titel" to song.title.ifBlank { "–" },
-        "Künstler" to song.artist.ifBlank { "–" },
-        "Album" to song.album.ifBlank { "–" },
-        "Albumkünstler" to (if (d == null) "…" else d.albumArtist ?: "–"),
-        "Dauer" to (if (d == null) "…" else if (d.durationMs > 0) fmtDuration(d.durationMs) else "–"),
-        "Datum hinzugefügt" to (if (d == null) "…" else fmtDate(d.addedSec)),
-        "Datum modifiziert" to (if (d == null) "…" else fmtDate(d.modifiedSec))
+        str(R.string.tag_title) to song.title.ifBlank { "–" },
+        str(R.string.tag_artist) to song.artist.ifBlank { "–" },
+        str(R.string.tag_album) to song.album.ifBlank { "–" },
+        str(R.string.tag_albumartist) to (if (d == null) "…" else d.albumArtist ?: "–"),
+        str(R.string.info_duration) to (if (d == null) "…" else if (d.durationMs > 0) fmtDuration(d.durationMs) else "–"),
+        str(R.string.info_added) to (if (d == null) "…" else fmtDate(d.addedSec)),
+        str(R.string.info_modified) to (if (d == null) "…" else fmtDate(d.modifiedSec))
     )
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Titel-Infos") },
+        title = { Text(str(R.string.track_info)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 rows.forEachIndexed { i, (label, value) ->
@@ -107,6 +107,6 @@ fun SongInfoDialog(song: Song, onDismiss: () -> Unit) {
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Schließen") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text(str(R.string.close)) } }
     )
 }
