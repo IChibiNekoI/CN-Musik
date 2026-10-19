@@ -49,9 +49,12 @@ fun ReorderableSongList(
     onReorder: (List<Song>) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
+    enabled: Boolean = true,          // false: Liste ohne Umsortieren (z. B. bei Zufallswiedergabe)
+    initialIndex: Int = 0,            // Eintrag, bei dem die Liste beginnt
     row: @Composable (index: Int, song: Song, itemModifier: Modifier) -> Unit
 ) {
-    val listState = rememberLazyListState()
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
+    val currentEnabled by rememberUpdatedState(enabled)
     val density = LocalDensity.current
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -180,6 +183,7 @@ fun ReorderableSongList(
             awaitEachGesture {
                 // Bis zum langen Drücken wird nur beobachtet (Initial, nichts verbraucht): Tippen und Scrollen laufen normal
                 val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                if (!currentEnabled) return@awaitEachGesture
                 val slop = viewConfiguration.touchSlop
                 val startItem = listState.layoutInfo.visibleItemsInfo
                     .firstOrNull { down.position.y >= it.offset && down.position.y < it.offset + it.size }
