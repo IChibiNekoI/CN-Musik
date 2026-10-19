@@ -30,6 +30,11 @@ fun rememberSeed(songId: Long, ver: Int, bmp: Bitmap) {
     seedFromBitmap(bmp)?.let { SeedCache.put(key, it) }
 }
 
+/** Zustand des Players, den das Theme kennen muss */
+object PlayerUiState {
+    var queueOpen by androidx.compose.runtime.mutableStateOf(false)
+}
+
 /** Leert den Zwischenspeicher der Cover-Farben. */
 fun clearSeedCache() = SeedCache.evictAll()
 
@@ -179,7 +184,8 @@ fun CoverTheme(song: Song?, dark: Boolean, content: @Composable () -> Unit) {
         if (sd != null) tonesFromSeed(sd, dark) else tonesOf(base)
     }
     // Mit Unschärfe darf der Wechsel lang und verspielt sein, bei einfarbigem Hintergrund (und Verlauf) geht er flotter
-    val wave = CornerSettings.playerBg == PlayerBackground.BLUR
+    // Bei geöffneter Warteschlange liegt eine einfarbige Fläche im Bild: alle Farben sofort gemeinsam wechseln, keine Welle
+    val wave = CornerSettings.playerBg == PlayerBackground.BLUR && !PlayerUiState.queueOpen
     val duration = if (wave) Motion.COLOR else Motion.COLOR_QUICK
     var from by remember { mutableStateOf(target) }
     var to by remember { mutableStateOf(target) }
