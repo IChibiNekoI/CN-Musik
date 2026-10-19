@@ -757,39 +757,96 @@ fun LibraryScreen(
         val target = playlists.firstOrNull { it.id == plId }
         if (target == null) { pickFor = null } else {
             var chosen by remember(plId) { mutableStateOf(setOf<Long>()) }
+            var filter by remember(plId) { mutableStateOf("") }
             val candidates = remember(songs, target.songIds) { songs.filter { it.id !in target.songIds } }
-            AlertDialog(
+            val shown = remember(candidates, filter) {
+                val q = filter.trim()
+                if (q.isEmpty()) candidates
+                else candidates.filter {
+                    it.title.contains(q, ignoreCase = true) ||
+                        it.artist.contains(q, ignoreCase = true) ||
+                        it.album.contains(q, ignoreCase = true)
+                }
+            }
+            // Eigenes Fenster: gleich viel Rand links und rechts, oben und unten bleibt Platz
+            androidx.compose.ui.window.Dialog(
                 onDismissRequest = { pickFor = null },
-                title = { Text(str(R.string.add_songs)) },
-                text = {
-                    LazyColumn(Modifier.fillMaxWidth()) {
-                        items(candidates, key = { it.id }) { s ->
-                            val on = s.id in chosen
-                            ListItem(
-                                headlineContent = { Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                supportingContent = { Text(s.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                leadingContent = { Checkbox(checked = on, onCheckedChange = null) },
-                                colors = clearColors(),
-                                modifier = Modifier.clickable { chosen = if (on) chosen - s.id else chosen + s.id }
+                properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 56.dp),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = AlertDialogDefaults.containerColor,
+                    tonalElevation = AlertDialogDefaults.TonalElevation
+                ) {
+                    Column(Modifier.padding(top = 24.dp, bottom = 12.dp)) {
+                        Text(
+                            str(R.string.add_songs),
+                            style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.padding(horizontal = 24.dp)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        if (shown.isEmpty()) {
+                            Text(
+                                str(R.string.no_results),
+                                modifier = Modifier.weight(1f, fill = false).padding(24.dp)
                             )
+                        } else {
+                            LazyColumn(Modifier.weight(1f, fill = false).fillMaxWidth()) {
+                                items(shown, key = { it.id }) { s ->
+                                    val on = s.id in chosen
+                                    ListItem(
+                                        headlineContent = { Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                        supportingContent = { Text(s.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                        leadingContent = { Checkbox(checked = on, onCheckedChange = null) },
+                                        colors = clearColors(),
+                                        modifier = Modifier.clickable { chosen = if (on) chosen - s.id else chosen + s.id }
+                                    )
+                                }
+                            }
+                        }
+                        // Suche direkt über den Tasten
+                        TextField(
+                            value = filter,
+                            onValueChange = { filter = it },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                            placeholder = { Text(str(R.string.search_hint)) },
+                            leadingIcon = { SearchIcon() },
+                            trailingIcon = {
+                                if (filter.isNotEmpty()) {
+                                    IconButton(onClick = { filter = "" }) {
+                                        CloseIcon(description = str(R.string.clear))
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            shape = MaterialTheme.shapes.extraLarge,
+                            colors = TextFieldDefaults.colors(
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                disabledIndicatorColor = Color.Transparent
+                            )
+                        )
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            TextButton(onClick = { pickFor = null }) { Text(str(R.string.cancel)) }
+                            TextButton(
+                                enabled = chosen.isNotEmpty(),
+                                onClick = {
+                                    // in der Reihenfolge der Bibliothek hinzufügen
+                                    val add = candidates.filter { it.id in chosen }.map { it.id }
+                                    onPlaylistsChange(
+                                        playlists.map { if (it.id == plId) it.copy(songIds = it.songIds + add) else it }
+                                    )
+                                    pickFor = null
+                                }
+                            ) { Text(str(R.string.add_n, chosen.size)) }
                         }
                     }
-                },
-                confirmButton = {
-                    TextButton(
-                        enabled = chosen.isNotEmpty(),
-                        onClick = {
-                            // in der Reihenfolge der Bibliothek hinzufügen
-                            val add = candidates.filter { it.id in chosen }.map { it.id }
-                            onPlaylistsChange(
-                                playlists.map { if (it.id == plId) it.copy(songIds = it.songIds + add) else it }
-                            )
-                            pickFor = null
-                        }
-                    ) { Text(str(R.string.add_n, chosen.size)) }
-                },
-                dismissButton = { TextButton(onClick = { pickFor = null }) { Text(str(R.string.cancel)) } }
-            )
+                }
+            }
         }
     }
 
