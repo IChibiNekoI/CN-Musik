@@ -11,9 +11,6 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,6 +30,9 @@ import androidx.media3.common.Timeline
 import androidx.media3.session.MediaController
 import kotlinx.coroutines.launch
 import kotlin.math.max
+
+/** Anteil der Bildschirmhöhe, den die Warteschlange einnimmt */
+const val QUEUE_HEIGHT_FRACTION = 0.78f
 
 /** Reihenfolge der Warteschlange: bereits gespielte Titel, der aktuelle und die folgenden (auch bei Zufallswiedergabe) */
 private fun queueIndices(c: MediaController): List<Int> {
@@ -80,16 +80,29 @@ fun QueuePanel(
         onDispose { c.removeListener(listener) }
     }
     val byId = remember(library) { library.associateBy { it.id } }
+    val shuffle = remember(version) { c.shuffleModeEnabled }
     val order = remember(version) { queueIndices(c) }
     val current = remember(version) { c.currentMediaItemIndex }
-    val listState = rememberLazyListState(
-        initialFirstVisibleItemIndex = max(0, order.indexOf(current) - 1)
-    )
+    // Jeder Eintrag bekommt seine Position in der Warteschlange als Schlüssel (id), so kann ein Titel auch doppelt vorkommen.
+    val real = remember(version, byId) {
+        order.associateWith { qi ->
+            val item = c.getMediaItemAt(qi)
+            val id = item.mediaId.toLongOrNull()
+            byId[id] ?: Song(
+                id = id ?: -1L,
+                title = item.mediaMetadata.title?.toString().orEmpty(),
+                artist = item.mediaMetadata.artist?.toString().orEmpty(),
+                uri = item.localConfiguration?.uri ?: Uri.EMPTY,
+                folder = ""
+            )
+        }
+    }
+    val display = remember(real) { order.map { qi -> real.getValue(qi).copy(id = qi.toLong()) } }
     val noRipple = remember { MutableInteractionSource() }
     val density = LocalDensity.current
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val panelH = maxHeight * 0.78f
+        val panelH = maxHeight * QUEUE_HEIGHT_FRACTION
         val panelHpx = with(density) { panelH.toPx() }
         // Abdunkelung hinter der Fläche, Tipp darauf schließt
         Box(
@@ -150,47 +163,53 @@ fun QueuePanel(
                         )
                     }
                 }
-                LazyColumn(
-                    state = listState,
+                // Titel 1 s gedrückt halten und ziehen ändert die Reihenfolge (wie in der Playlist).
+                // Bei Zufallswiedergabe ist die Reihenfolge nicht frei änderbar.
+                ReorderableSongList(
+                    songs = display,
+                    onReorder = { newOrder ->
+                        // Neue Reihenfolge als einzelne Verschiebungen an den Player melden
+                        val cur = order.toMutableList()
+                        newOrder.forEachIndexed { p, s ->
+                            val qi = s.id.toInt()
+                            if (cur[p] != qi) {
+                                val from = cur.indexOf(qi)
+                                c.moveMediaItem(from, p)
+                                cur.add(p, cur.removeAt(from))
+                            }
+                        }
+                    },
                     modifier = Modifier.weight(1f).fillMaxWidth(),
-                    contentPadding = WindowInsets.navigationBars.asPaddingValues()
-                ) {
-                    itemsIndexed(order, key = { _, qi -> qi }) { _, qi ->
-                        if (qi >= c.mediaItemCount) return@itemsIndexed
-                        val item = c.getMediaItemAt(qi)
-                        val id = item.mediaId.toLongOrNull()
-                        val song = byId[id] ?: Song(
-                            id = id ?: -1L,
-                            title = item.mediaMetadata.title?.toString().orEmpty(),
-                            artist = item.mediaMetadata.artist?.toString().orEmpty(),
-                            uri = item.localConfiguration?.uri ?: Uri.EMPTY,
-                            folder = ""
-                        )
-                        val isCurrent = qi == current
-                        ListItem(
-                            headlineContent = { Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            supportingContent = { Text(song.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            leadingContent = { Cover(song, 48.dp) },
-                            trailingContent = {
-                                if (!isCurrent) {
-                                    IconButton(onClick = { c.removeMediaItem(qi) }) {
-                                        CloseIcon(description = str(R.string.queue_remove))
-                                    }
+                    contentPadding = WindowInsets.navigationBars.asPaddingValues(),
+                    enabled = !shuffle,
+                    initialIndex = max(0, order.indexOf(current) - 1)
+                ) { _, s, itemModifier ->
+                    val qi = s.id.toInt()
+                    val song = real[qi] ?: return@ReorderableSongList
+                    val isCurrent = qi == current
+                    ListItem(
+                        headlineContent = { Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        supportingContent = { Text(song.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        leadingContent = { Cover(song, 48.dp) },
+                        trailingContent = {
+                            if (!isCurrent) {
+                                IconButton(onClick = { c.removeMediaItem(qi) }) {
+                                    CloseIcon(description = str(R.string.queue_remove))
                                 }
-                            },
-                            colors = ListItemDefaults.colors(
-                                containerColor = if (isCurrent) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
-                            ),
-                            modifier = Modifier
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                                .clip(RoundedCornerShape(20.dp))
-                                .clickable {
-                                    SkipDirection.dir = if (qi >= current) 1 else -1
-                                    c.seekToDefaultPosition(qi)
-                                    c.play()
-                                }
-                        )
-                    }
+                            }
+                        },
+                        colors = ListItemDefaults.colors(
+                            containerColor = if (isCurrent) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+                        ),
+                        modifier = itemModifier
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .clickable {
+                                SkipDirection.dir = if (qi >= current) 1 else -1
+                                c.seekToDefaultPosition(qi)
+                                c.play()
+                            }
+                    )
                 }
             }
         }
