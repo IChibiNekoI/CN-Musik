@@ -37,6 +37,9 @@ object Motion {
     /** Farbwechsel beim Titelwechsel: lang und weich */
     const val COLOR = 1300
 
+    /** Farbwechsel bei einfarbigem Hintergrund: flotter */
+    const val COLOR_QUICK = 600
+
     val Ease = FastOutSlowInEasing
 
     /** Sehr sanfter Start und langes, weiches Ausklingen (für Farb- und Hintergrundwechsel) */
