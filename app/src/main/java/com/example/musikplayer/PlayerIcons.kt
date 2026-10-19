@@ -74,7 +74,7 @@ fun SkipButton(
     tint: Color = LocalContentColor.current
 ) {
     Box(
-        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = if (forward) "Weiter" else "Zurück" },
+        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = if (forward) str(R.string.cd_next) else str(R.string.back) },
         contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.size(iconSize)) {
@@ -109,7 +109,7 @@ fun PlayPauseButton(
             .bounceClick(pressedScale = 0.94f, onClick = onClick)
             .clip(CircleShape)
             .background(circleColor.copy(alpha = 0.45f))
-            .semantics { contentDescription = if (isPlaying) "Pause" else "Abspielen" },
+            .semantics { contentDescription = if (isPlaying) str(R.string.cd_pause) else str(R.string.cd_play) },
         contentAlignment = Alignment.Center
     ) {
         // Beim Wechsel zwischen Play und Pause tauscht das Symbol mit einem kleinen Zoom
@@ -170,7 +170,7 @@ fun ShuffleButton(
     )
     val pop by popOnChange(active)
     Box(
-        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = "Zufall" },
+        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = str(R.string.cd_shuffle) },
         contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.size(iconSize).graphicsLayer { scaleX = pop; scaleY = pop }) {
@@ -208,7 +208,7 @@ fun RepeatButton(
     )
     val pop by popOnChange(active to repeatOne)
     Box(
-        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = "Wiederholen" },
+        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = str(R.string.cd_repeat) },
         contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.size(iconSize).graphicsLayer { scaleX = pop; scaleY = pop }) {
@@ -246,7 +246,7 @@ fun CloseSheetButton(
     tint: Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)   // gleiche Farbe wie der Kreis des Play-Buttons
 ) {
     Box(
-        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = "Schließen" },
+        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = str(R.string.close) },
         contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.size(iconSize)) {
@@ -278,7 +278,7 @@ fun MoreButton(
             .bounceClick(pressedScale = 0.9f, onClick = onClick)
             .clip(CircleShape)
             .background(circleColor.copy(alpha = 0.45f))   // gleiche Füllung wie der Play-Button
-            .semantics { contentDescription = "Mehr" },
+            .semantics { contentDescription = str(R.string.more) },
         contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.size(buttonSize * 0.5f)) {
@@ -301,7 +301,7 @@ fun UpdateButton(
     tint: Color = MaterialTheme.colorScheme.primary
 ) {
     Box(
-        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = "Update verfügbar" },
+        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = str(R.string.update_available) },
         contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.size(iconSize)) {
