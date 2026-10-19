@@ -60,8 +60,25 @@ private fun seedFromBitmap(src: Bitmap): CoverSeed? {
 /** Alle Farben, die das Cover-Theme überschreibt (feste Reihenfolge, damit man sie überblenden kann). */
 private class Tones(val v: List<Color>)
 
+/**
+ * Zeitversatz je Farbe (Anteil der Gesamtdauer): Akzente (Tasten, Regler) wechseln zuerst,
+ * danach folgen die Texte, zuletzt die Flächen. So rollt die neue Farbe wie eine Welle ins Bild.
+ */
+private fun toneDelay(i: Int): Float = when (i) {
+    in 9..16 -> 0f        // primary / secondary und deren Container
+    1, 2 -> 0.12f         // Texte
+    17, 18 -> 0.12f       // Linien
+    else -> 0.3f          // Hintergründe und Flächen
+}
+
+private const val TONE_WINDOW = 0.7f
+
+/** Überblendung in Oklab (Compose-Standard), jede Farbe mit eigenem Zeitversatz und weichem Verlauf. */
 private fun lerpTones(a: Tones, b: Tones, f: Float) =
-    Tones(List(a.v.size) { androidx.compose.ui.graphics.lerp(a.v[it], b.v[it], f) })
+    Tones(List(a.v.size) {
+        val local = ((f - toneDelay(it)) / TONE_WINDOW).coerceIn(0f, 1f)
+        androidx.compose.ui.graphics.lerp(a.v[it], b.v[it], Motion.Soft.transform(local))
+    })
 
 private fun tonesOf(c: ColorScheme) = Tones(
     listOf(
@@ -147,10 +164,11 @@ fun CoverTheme(song: Song?, dark: Boolean, content: @Composable () -> Unit) {
     var to by remember { mutableStateOf(target) }
     val t = remember { Animatable(1f) }
     LaunchedEffect(target) {
+        // Mitten im Wechsel (schnelles Weiterschalten): ab der aktuell sichtbaren Mischung weiter überblenden
         from = lerpTones(from, to, t.value)
         to = target
         t.snapTo(0f)
-        t.animateTo(1f, androidx.compose.animation.core.tween(500))
+        t.animateTo(1f, androidx.compose.animation.core.tween(Motion.COLOR, easing = androidx.compose.animation.core.LinearEasing))
     }
     val shown = lerpTones(from, to, t.value)
 
