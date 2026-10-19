@@ -107,6 +107,26 @@ fun saveMenuUnified(ctx: Context, on: Boolean) {
     prefs(ctx).edit().putBoolean("menu_unified", on).apply()
 }
 
+/** Aussehen der Kopfzeile: Text, Logo oder (nach dem Easter Egg) der müde Fuchs */
+enum class HeaderStyle { TEXT, LOGO, FOX }
+
+fun readHeaderStyle(ctx: Context): HeaderStyle {
+    val p = prefs(ctx)
+    p.getString("header_style", null)?.let { n -> HeaderStyle.values().firstOrNull { it.name == n } }?.let { return it }
+    // frühere Einstellung (Logo an/aus) übernehmen
+    return if (p.getBoolean("header_logo", false)) HeaderStyle.LOGO else HeaderStyle.TEXT
+}
+
+fun saveHeaderStyle(ctx: Context, v: HeaderStyle) {
+    prefs(ctx).edit().putString("header_style", v.name).apply()
+}
+
+fun readFoxUnlocked(ctx: Context): Boolean = prefs(ctx).getBoolean("fox_unlocked", false)
+
+fun saveFoxUnlocked(ctx: Context) {
+    prefs(ctx).edit().putBoolean("fox_unlocked", true).apply()
+}
+
 fun readHeaderLogo(ctx: Context): Boolean = prefs(ctx).getBoolean("header_logo", false)
 
 fun saveHeaderLogo(ctx: Context, v: Boolean) {
