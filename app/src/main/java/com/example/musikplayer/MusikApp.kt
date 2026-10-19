@@ -342,6 +342,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
         if (showNow && current != null && controller != null) {
             NowPlayingSheet(
                 current, isPlaying, shuffle, repeat, controller,
+                library = allSongs,
                 showAudioInfo = showInfo,
                 origin = origin,
                 controlledOpen = if (gestureOpen) openProgress else null,
