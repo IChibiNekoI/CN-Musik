@@ -73,11 +73,16 @@ private fun toneDelay(i: Int): Float = when (i) {
 
 private const val TONE_WINDOW = 0.7f
 
-/** Überblendung in Oklab (Compose-Standard), jede Farbe mit eigenem Zeitversatz und weichem Verlauf. */
-private fun lerpTones(a: Tones, b: Tones, f: Float) =
+/**
+ * Überblendung in Oklab (Compose-Standard).
+ * [wave] = true: jede Farbe mit eigenem Zeitversatz und sehr weichem Start (für den Unschärfe-Hintergrund, der die Flächen verdeckt).
+ * [wave] = false: alle Farben starten sofort gemeinsam, damit der Wechsel bei einfarbigem Hintergrund gleich sichtbar beginnt.
+ */
+private fun lerpTones(a: Tones, b: Tones, f: Float, wave: Boolean) =
     Tones(List(a.v.size) {
-        val local = ((f - toneDelay(it)) / TONE_WINDOW).coerceIn(0f, 1f)
-        androidx.compose.ui.graphics.lerp(a.v[it], b.v[it], Motion.Soft.transform(local))
+        val local = if (wave) ((f - toneDelay(it)) / TONE_WINDOW).coerceIn(0f, 1f) else f
+        val eased = if (wave) Motion.Soft.transform(local) else Motion.Ease.transform(local)
+        androidx.compose.ui.graphics.lerp(a.v[it], b.v[it], eased)
     })
 
 private fun tonesOf(c: ColorScheme) = Tones(
@@ -161,18 +166,19 @@ fun CoverTheme(song: Song?, dark: Boolean, content: @Composable () -> Unit) {
         if (sd != null) tonesFromSeed(sd, dark) else tonesOf(base)
     }
     // Mit Unschärfe darf der Wechsel lang und verspielt sein, bei einfarbigem Hintergrund (und Verlauf) geht er flotter
-    val duration = if (CornerSettings.playerBg == PlayerBackground.BLUR) Motion.COLOR else Motion.COLOR_QUICK
+    val wave = CornerSettings.playerBg == PlayerBackground.BLUR
+    val duration = if (wave) Motion.COLOR else Motion.COLOR_QUICK
     var from by remember { mutableStateOf(target) }
     var to by remember { mutableStateOf(target) }
     val t = remember { Animatable(1f) }
     LaunchedEffect(target) {
         // Mitten im Wechsel (schnelles Weiterschalten): ab der aktuell sichtbaren Mischung weiter überblenden
-        from = lerpTones(from, to, t.value)
+        from = lerpTones(from, to, t.value, wave)
         to = target
         t.snapTo(0f)
         t.animateTo(1f, androidx.compose.animation.core.tween(duration, easing = androidx.compose.animation.core.LinearEasing))
     }
-    val shown = lerpTones(from, to, t.value)
+    val shown = lerpTones(from, to, t.value, wave)
 
     MaterialTheme(
         colorScheme = shown.applyTo(base),
