@@ -139,4 +139,7 @@
     </plurals>
     <string name="add_songs">Add songs</string>
     <string name="add_n">Add (%1$d)</string>
+    <string name="header_fox">Sleepy fox</string>
+    <string name="header_fox_sub">Unlocked secret</string>
+    <string name="fox_unlocked">🦊 New header unlocked! You can find it in the settings under “Header”.</string>
 </resources>
