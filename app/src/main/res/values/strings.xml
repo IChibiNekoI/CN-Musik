@@ -92,7 +92,6 @@
     <string name="tab_favorites">Favorites</string>
     <string name="no_songs">No songs found. Check the music folders in the settings.</string>
     <string name="no_playlists">No playlists yet. Tap + at the top to create or import one.</string>
-    <string name="playlist_empty">No tracks yet. Add songs via the menu (⋮).</string>
     <string name="update_available">Update available</string>
     <string name="update_text">Version %1$s has been released on GitHub.</string>
     <string name="toast_link_failed">Could not open the link</string>
@@ -138,4 +137,6 @@
         <item quantity="one">Library updated (%d file checked)</item>
         <item quantity="other">Library updated (%d files checked)</item>
     </plurals>
+    <string name="add_songs">Add songs</string>
+    <string name="add_n">Add (%1$d)</string>
 </resources>
