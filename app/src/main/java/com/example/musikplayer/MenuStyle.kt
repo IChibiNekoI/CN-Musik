@@ -38,23 +38,7 @@ fun LibraryBackdrop() {
     val bmp = if (MenuBackdrop.active) MenuBackdrop.bitmap else null
     // Die normale Hintergrundfarbe bleibt darunter, damit beim Einblenden nichts aufblitzt
     Box(Modifier.fillMaxSize().background(scheme.background))
-    Crossfade(
-        targetState = bmp,
-        modifier = Modifier.fillMaxSize(),
-        animationSpec = tween(Motion.SLOW),
-        label = "libraryBackdrop"
-    ) { b ->
-        if (b != null) {
-            Box(Modifier.fillMaxSize()) {
-                Image(
-                    b.asImageBitmap(), contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    filterQuality = FilterQuality.High
-                )
-                // gleicher Schleier wie im Player: Listen und Texte bleiben gut lesbar
-                Box(Modifier.fillMaxSize().background(scheme.surface.copy(alpha = 0.5f)))
-            }
-        }
-    }
+    SoftCoverImage(bmp, Modifier.fillMaxSize())
+    // gleicher Schleier wie im Player: Listen und Texte bleiben gut lesbar
+    Box(Modifier.fillMaxSize().background(scheme.surface.copy(alpha = 0.5f)))
 }
