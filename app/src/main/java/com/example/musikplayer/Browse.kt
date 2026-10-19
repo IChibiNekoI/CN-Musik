@@ -156,7 +156,7 @@ private fun GridTile(
 }
 
 @Composable
-fun DetailHeader(title: String, onBack: () -> Unit) {
+fun DetailHeader(title: String, onBack: () -> Unit, action: (@Composable () -> Unit)? = null) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -168,8 +168,11 @@ fun DetailHeader(title: String, onBack: () -> Unit) {
             title,
             style = MaterialTheme.typography.titleLarge,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
         )
+        // optionale Taste rechts auf Höhe des Titels
+        action?.invoke()
     }
 }
 
@@ -583,7 +586,7 @@ fun LibraryScreen(
                         (albums.firstOrNull { it.first == name }?.second ?: emptyList())
                             .sortedWith(compareBy<Song>({ it.track }, { it.title.lowercase() }))
                     }
-                    DetailHeader(name) { openAlbum = null }
+                    DetailHeader(name, onBack = { openAlbum = null })
                     HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
                         itemsIndexed(ordered, key = { _, s -> s.id }) { i, s ->
                             SongRow(
@@ -673,7 +676,18 @@ fun LibraryScreen(
                     }
                 } else {
                     val list = pl.songIds.mapNotNull { byId[it] }
-                    DetailHeader(pl.name) { openPlaylist = null }
+                    DetailHeader(
+                        pl.name,
+                        onBack = { openPlaylist = null },
+                        // Plus rechts: Lieder hinzufügen (bei leerer Playlist übernimmt das die Taste unter dem Bild)
+                        action = if (list.isNotEmpty()) {
+                            {
+                                IconButton(onClick = { pickFor = pl.id }) {
+                                    PlusIcon(description = str(R.string.add_songs))
+                                }
+                            }
+                        } else null
+                    )
                     if (list.isEmpty()) {
                         // Leere Playlist: Bild und darunter eine Taste zum Hinzufügen von Liedern
                         Column(
