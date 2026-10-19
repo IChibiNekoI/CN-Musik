@@ -773,9 +773,28 @@ fun LibraryScreen(
                 onDismissRequest = { pickFor = null },
                 properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
             ) {
+                // Abstand zum Rand (links/rechts so groß wie unten) und Ecken, die zum Gerät passen:
+                // Display-Rundung minus Abstand ergibt gleichmäßig verlaufende (konzentrische) Ecken
+                val sideGap = 10.dp
+                val ctxForCorner = LocalContext.current
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val dialogCorner = remember(ctxForCorner) {
+                    val px = if (android.os.Build.VERSION.SDK_INT >= 31) {
+                        val insets = ctxForCorner.findActivity()?.window?.decorView?.rootWindowInsets
+                        listOf(
+                            android.view.RoundedCorner.POSITION_TOP_LEFT,
+                            android.view.RoundedCorner.POSITION_TOP_RIGHT,
+                            android.view.RoundedCorner.POSITION_BOTTOM_LEFT,
+                            android.view.RoundedCorner.POSITION_BOTTOM_RIGHT
+                        ).mapNotNull { insets?.getRoundedCorner(it)?.radius }.maxOrNull()
+                    } else null
+                    // Gerät ohne Angabe: normale Dialog-Rundung
+                    val dp = px?.let { with(density) { it.toDp() } - sideGap } ?: 28.dp
+                    dp.coerceIn(16.dp, 56.dp)
+                }
                 Surface(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 56.dp),
-                    shape = MaterialTheme.shapes.extraLarge,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = sideGap, vertical = 56.dp),
+                    shape = RoundedCornerShape(dialogCorner),
                     color = AlertDialogDefaults.containerColor,
                     tonalElevation = AlertDialogDefaults.TonalElevation
                 ) {
