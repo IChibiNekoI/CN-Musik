@@ -33,6 +33,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
@@ -198,19 +199,17 @@ fun SongRow(
     onToggleFavorite: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    // Die Hervorhebung des laufenden Titels: Der bisherige Titel blendet schnell aus, der neue folgt
-    // minimal später und weich. So leuchten nie zwei Zeilen gleichzeitig.
+    // Die Hervorhebung des laufenden Titels erscheint sofort (kein Aufleuchten) und federt dabei mit kleinem
+    // Überschwinger an ihren Platz. Beim bisherigen Titel verschwindet sie fast sofort, damit nie zwei Zeilen leuchten.
     val rowColor by animateColorAsState(
         if (isCurrent) MaterialTheme.colorScheme.secondaryContainer
         else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0f),
-        animationSpec = if (isCurrent) tween(Motion.MEDIUM, delayMillis = Motion.FAST / 2, easing = Motion.Ease)
-        else tween(Motion.FAST, easing = Motion.Ease),
+        animationSpec = if (isCurrent) snap() else tween(80, easing = Motion.Ease),
         label = "rowColor"
     )
-    // Die Hervorhebung federt beim Aufleuchten mit kleinem Überschwinger an ihren Platz (wie die übrigen Tasten der App)
     val highlightScale = animateFloatAsState(
-        targetValue = if (isCurrent) 1f else 0.92f,
-        animationSpec = spring(dampingRatio = 0.5f, stiffness = 500f),
+        targetValue = if (isCurrent) 1f else 0.9f,
+        animationSpec = spring(dampingRatio = 0.45f, stiffness = 600f),
         label = "rowHighlightScale"
     )
     var expanded by remember { mutableStateOf(false) }
