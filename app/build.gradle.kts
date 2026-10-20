@@ -12,8 +12,8 @@ android {
         targetSdk = 35
         // Feste Zahlen (kein Wert aus der Umgebung)
         // versionCode bei jeder neuen Version erhöhen, Schema: Major*10000 + Minor*100 + Patch (1.5.1 -> 10501)
-        versionCode = 10705
-        versionName = "1.7.5"
+        versionCode = 10706
+        versionName = "1.7.6"
     }
     signingConfigs {
         create("musik") {
@@ -69,6 +69,8 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.4.1")
     implementation("androidx.media3:media3-session:1.4.1")
     implementation("io.github.kyant0:taglib:1.0.6")
+    // installiert das Baseline Profile (src/main/baseline-prof.txt) beim ersten Start, auch ohne Play Store
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
 }
 
 // taglib verlangt compileSdk 37 nur laut Metadaten, die App braucht das nicht
