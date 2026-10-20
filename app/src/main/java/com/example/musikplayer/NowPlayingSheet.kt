@@ -480,7 +480,7 @@ private fun NowPlayingSheetContent(
                                 // zieht sich oben und unten zusammen, genau im Takt mit dem Pfeil links
                                 modifier = Modifier.padding(end = 4.dp).headerPop { open.value }.headerSquash(headerFlatten)
                             )
-                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            BounceMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(
                                     text = { Text(str(R.string.track_info)) },
                                     leadingIcon = { InfoIcon() },
