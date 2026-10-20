@@ -143,6 +143,8 @@ fun MusikApp(openPlayerSignal: Int = 0) {
     var repeat by remember { mutableIntStateOf(Player.REPEAT_MODE_OFF) }
     var showNow by remember { mutableStateOf(false) }
     var origin by remember { mutableStateOf<MiniOrigin?>(null) }
+    // zuletzt bekannte Position des Miniplayers: Ziel beim Schließen, auch wenn der Player über die Benachrichtigung geöffnet wurde
+    var lastOrigin by remember { mutableStateOf<MiniOrigin?>(null) }
     // Ein Antrieb für Öffnen und Schließen des Players (0 = Miniplayer, 1 = Vollbild):
     // Finger, Loslassen mit Geschwindigkeit, Zurück-Taste und Zurück-Geste, alles unterbrechbar
     val sheetMotion = remember { SheetMotion() }
@@ -167,7 +169,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
         if (openPlayerSignal > 0) {
             if (!showNow) {
                 // z. B. Start über die Benachrichtigung: kein Miniplayer als Ursprung, der Player steht sofort
-                origin = null
+                origin = lastOrigin
                 gestureOpen = false
                 sheetMotion.snapTo(1f)
             }
@@ -335,6 +337,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                                 // erst bei echter Aufwärtsbewegung den Player einblenden
                                 if (!gestureOpen && total < -12f) {
                                     origin = pendingOrigin
+                                    pendingOrigin?.let { lastOrigin = it }
                                     gestureOpen = true
                                     showNow = true
                                 }
@@ -355,7 +358,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                                     }
                                 }
                             }
-                        ) { o -> gestureOpen = false; origin = o; scope.launch { sheetMotion.snapTo(0f); showNow = true } }
+                        ) { o -> gestureOpen = false; origin = o; o?.let { lastOrigin = it }; scope.launch { sheetMotion.snapTo(0f); showNow = true } }
                     }
             }
         }
