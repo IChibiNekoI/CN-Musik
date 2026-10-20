@@ -369,6 +369,7 @@ private fun AnimatedContentTransitionScope<String?>.pushPop(): ContentTransform 
 
 @Composable
 fun LibraryScreen(
+    loaded: Boolean = true,
     pad: PaddingValues,
     songs: List<Song>,
     sort: SortMode,
@@ -694,7 +695,8 @@ fun LibraryScreen(
         Column(Modifier.fillMaxSize()) {
         when (t) {
             0 -> {
-                if (sorted.isEmpty()) {
+                // Beim Start ist die Liste kurz leer, weil die Bibliothek noch lädt: dann keine Fehlermeldung zeigen
+                if (loaded && sorted.isEmpty()) {
                     Text(
                         str(R.string.no_songs),
                         modifier = Modifier.padding(16.dp)
