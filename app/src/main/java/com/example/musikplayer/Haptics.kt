@@ -108,7 +108,7 @@ fun HapticLazyColumn(
     val state = rememberLazyListState()
     EdgeHaptics(state)
     NoSystemOverscroll {
-        LazyColumn(modifier.bounceOverscroll(), state = state, contentPadding = contentPadding, content = content)
+        LazyColumn(modifier.bounceOverscroll().topEdgeFade(state), state = state, contentPadding = contentPadding, content = content)
     }
 }
 
@@ -127,7 +127,7 @@ fun HapticLazyGrid(
     NoSystemOverscroll {
         LazyVerticalGrid(
             columns = columns,
-            modifier = modifier.bounceOverscroll(),
+            modifier = modifier.bounceOverscroll().topEdgeFade(state),
             state = state,
             contentPadding = contentPadding,
             horizontalArrangement = horizontalArrangement,
