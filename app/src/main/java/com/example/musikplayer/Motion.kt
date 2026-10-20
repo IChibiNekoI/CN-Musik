@@ -65,6 +65,7 @@ fun Modifier.bounceClick(
     role: Role? = Role.Button,
     // Beim Drücken zusätzlich ein Stück zur Seite schieben (z. B. Weiter-Taste nach rechts), federt mit Überschwinger zurück
     nudgeX: Dp = 0.dp,
+    nudgeY: Dp = 0.dp,
     // false = kein Ticken (für Listenzeilen und Kacheln)
     haptic: Boolean = true,
     onClick: () -> Unit
@@ -87,6 +88,7 @@ fun Modifier.bounceClick(
             scaleX = scale
             scaleY = scale
             if (nudgeX != 0.dp) translationX = shift * nudgeX.toPx()
+            if (nudgeY != 0.dp) translationY = shift * nudgeY.toPx()
         }
         .clickable(
             interactionSource = source,
