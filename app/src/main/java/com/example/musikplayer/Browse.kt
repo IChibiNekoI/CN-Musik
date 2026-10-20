@@ -1,6 +1,10 @@
 package com.example.musikplayer
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.scaleIn
@@ -288,6 +292,27 @@ fun SongRow(
     }
 }
 
+/** Kopfzeile <-> Suchfeld: wächst aus der Ecke der Such-Taste (rechts) heraus bzw. kehrt von links zurück */
+private fun AnimatedContentTransitionScope<Boolean>.searchHeader(): ContentTransform {
+    val origin = TransformOrigin(if (targetState) 1f else 0f, 0.5f)
+    val enter = fadeIn(tween(Motion.MEDIUM, delayMillis = 40)) +
+        scaleIn(spring(dampingRatio = 0.7f, stiffness = 420f), initialScale = 0.85f, transformOrigin = origin)
+    val exit = fadeOut(tween(Motion.FAST)) +
+        scaleOut(tween(Motion.FAST, easing = Motion.Ease), targetScale = 0.92f, transformOrigin = origin)
+    return (enter togetherWith exit) using SizeTransform(clip = false)
+}
+
+/** Ergebnisse <-> Tabs: Der neue Inhalt steigt mit Feder leicht auf, der alte weicht aus und blendet aus */
+private fun AnimatedContentTransitionScope<Boolean>.searchBody(): ContentTransform {
+    val opening = targetState
+    val move = spring<IntOffset>(dampingRatio = 1f, stiffness = 380f, visibilityThreshold = IntOffset.VisibilityThreshold)
+    val enter = slideInVertically(move) { h -> if (opening) h / 14 else -h / 18 } +
+        fadeIn(tween(Motion.MEDIUM, delayMillis = 60))
+    val exit = slideOutVertically(move) { h -> if (opening) -h / 18 else h / 14 } +
+        fadeOut(tween(Motion.FAST))
+    return (enter togetherWith exit) using SizeTransform(clip = false)
+}
+
 /**
  * Alben und Playlists öffnen und schließen wie ein Seitenwechsel: Die Detailansicht schiebt sich mit Feder von rechts
  * herein und wird dabei größer, die Liste weicht nach links aus. Beim Zurückgehen läuft es umgekehrt.
@@ -401,7 +426,7 @@ fun LibraryScreen(
         query = ""
     }
     LaunchedEffect(searching) {
-        if (searching) searchFocus.requestFocus()
+        if (searching) runCatching { searchFocus.requestFocus() }
     }
     val results = remember(sorted, query) {
         val q = query.trim()
@@ -414,23 +439,37 @@ fun LibraryScreen(
     }
 
     Column(Modifier.fillMaxSize().padding(pad)) {
+        // Die Kopfzeile wandelt sich in das Suchfeld: Es wächst mit leichtem Überschwinger aus der Such-Taste heraus
+        AnimatedContent(
+            targetState = searching,
+            modifier = Modifier.fillMaxWidth(),
+            transitionSpec = { searchHeader() },
+            label = "searchHeader"
+        ) { isSearching ->
         Row(
             Modifier.fillMaxWidth()
-                .padding(start = if (searching) 8.dp else 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
+                .padding(start = if (isSearching) 8.dp else 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (searching) {
+            if (isSearching) {
                 BounceIconButton(onClick = { searching = false; query = "" }) {
                     BackIcon(description = str(R.string.search_close))
                 }
                 TextField(
                     value = query,
                     onValueChange = { query = it },
-                    modifier = Modifier.weight(1f).focusRequester(searchFocus),
+                    modifier = Modifier.weight(1f).padding(end = 8.dp).focusRequester(searchFocus),
                     placeholder = { Text(str(R.string.search_hint)) },
                     singleLine = true,
+                    shape = RoundedCornerShape(28.dp),
+                    leadingIcon = { SearchIcon(description = str(R.string.search)) },
                     trailingIcon = {
-                        if (query.isNotEmpty()) {
+                        // Das Kreuz poppt auf, sobald etwas getippt ist, und schrumpft beim Leeren wieder weg
+                        AnimatedVisibility(
+                            visible = query.isNotEmpty(),
+                            enter = scaleIn(spring(dampingRatio = 0.5f, stiffness = 500f), initialScale = 0.4f) + fadeIn(tween(Motion.FAST)),
+                            exit = scaleOut(tween(Motion.FAST), targetScale = 0.4f) + fadeOut(tween(Motion.FAST))
+                        ) {
                             BounceIconButton(onClick = { query = "" }) {
                                 CloseIcon(description = str(R.string.clear))
                             }
@@ -439,10 +478,11 @@ fun LibraryScreen(
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                     colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent
+                        unfocusedIndicatorColor = Color.Transparent,
+                        disabledIndicatorColor = Color.Transparent
                     )
                 )
             } else {
@@ -514,19 +554,35 @@ fun LibraryScreen(
                 }
             }
         }
-        if (searching) {
-            if (query.isBlank()) {
-                Text(
-                    str(R.string.search_prompt),
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else if (results.isEmpty()) {
-                Text(
-                    str(R.string.no_results),
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+        }   // Ende AnimatedContent (Kopfzeile)
+        AnimatedContent(
+            targetState = searching,
+            modifier = Modifier.weight(1f),
+            transitionSpec = { searchBody() },
+            label = "searchBody"
+        ) { isSearching ->
+        Column(Modifier.fillMaxSize()) {
+        if (isSearching) {
+            // Hinweistext wechselt weich zwischen "Suche nach ...", "Keine Treffer" und nichts
+            val hint = if (query.isBlank()) str(R.string.search_prompt)
+                else if (results.isEmpty()) str(R.string.no_results) else null
+            AnimatedContent(
+                targetState = hint,
+                transitionSpec = {
+                    (fadeIn(tween(Motion.MEDIUM, delayMillis = 60)) + slideInVertically(tween(Motion.MEDIUM, easing = Motion.Ease)) { it / 3 }) togetherWith
+                        fadeOut(tween(Motion.FAST)) using SizeTransform(clip = false)
+                },
+                label = "searchHint"
+            ) { h ->
+                if (h != null) {
+                    Text(
+                        h,
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Spacer(Modifier.height(0.dp))
+                }
             }
             HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
                 itemsIndexed(results, key = { _, s -> s.id }) { i, s ->
@@ -829,6 +885,8 @@ fun LibraryScreen(
         }
         }   // Ende Column (Tab-Inhalt)
         }   // Ende AnimatedContent
+        }
+        }
         }
     }
 
