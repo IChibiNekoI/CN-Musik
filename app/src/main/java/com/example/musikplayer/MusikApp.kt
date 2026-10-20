@@ -36,6 +36,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import android.widget.Toast
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -43,7 +44,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-fun MusikApp(openPlayerSignal: Int = 0) {
+fun MusikApp(
+    openPlayerSignal: Int = 0,
+    viewUri: android.net.Uri? = null,
+    onViewUriHandled: () -> Unit = {}
+) {
     val ctx = LocalContext.current
     val audioPerm = if (Build.VERSION.SDK_INT >= 33)
         Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
@@ -212,11 +217,33 @@ fun MusikApp(openPlayerSignal: Int = 0) {
             saveQueueState(ctx, c, full = false)
         }
     }
+    // Von außen geöffnete Datei ("Öffnen mit"): wird nach dem Laden der Bibliothek abgespielt
+    var externalStart by remember { mutableStateOf(viewUri != null) }
+    var externalSong by remember { mutableStateOf<Song?>(null) }
+    LaunchedEffect(viewUri, controller) {
+        val uri = viewUri ?: return@LaunchedEffect
+        val c = controller ?: return@LaunchedEffect
+        externalStart = true
+        // kurz auf die Bibliothek warten, damit die Datei ihrem Titel dort zugeordnet werden kann
+        kotlinx.coroutines.withTimeoutOrNull(3000) {
+            androidx.compose.runtime.snapshotFlow { allSongs.isNotEmpty() }.first { it }
+        }
+        val song = resolveExternalSong(ctx, uri, allSongs)
+        if (allSongs.none { it.id == song.id }) externalSong = song
+        SkipDirection.dir = 1
+        c.setMediaItems(toMediaItems(listOf(song)), 0, 0L)
+        c.prepare()
+        c.play()
+        currentId = song.id.toString()
+        onViewUriHandled()
+    }
     // Zuletzt gespielte Warteschlange wiederherstellen: pausiert, nur Play drücken
     var restored by remember { mutableStateOf(false) }
     LaunchedEffect(controller, allSongs) {
         val c = controller ?: return@LaunchedEffect
         if (restored || allSongs.isEmpty()) return@LaunchedEffect
+        // Wurde eine Datei von außen geöffnet, ersetzt sie die zuletzt gespielte Warteschlange
+        if (externalStart) return@LaunchedEffect
         restored = true
         // läuft noch etwas im Hintergrund-Dienst, nichts überschreiben
         if (c.mediaItemCount > 0) return@LaunchedEffect
@@ -234,6 +261,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
         currentId = list[idx].id.toString()
     }
     val current = allSongs.find { it.id.toString() == currentId }
+        ?: externalSong?.takeIf { it.id.toString() == currentId }
     // Verschwommenes Cover für Menüs, Dialoge und Einstellungen (nur bei Unschärfe mit eingeschaltetem Menü-Design)
     LaunchedEffect(
         current?.id, CornerSettings.playerBg, CornerSettings.menuUnified,
