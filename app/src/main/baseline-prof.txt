@@ -1,0 +1,5 @@
+# Baseline Profile für den eigenen App-Code.
+# Compose, Media3 und AndroidX bringen ihre Profile selbst mit; das fehlte nur für diese App.
+# Betrifft Start, Öffnen des Players und die Animationen: erste Frames laufen vorkompiliert statt interpretiert.
+# Später genauer erzeugen: Macrobenchmark-Modul mit "Baseline Profile Generator" (siehe Android-Doku).
+HSPLcom/example/musikplayer/**->**(**)**
