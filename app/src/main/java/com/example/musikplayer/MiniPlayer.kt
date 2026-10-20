@@ -12,6 +12,9 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -167,7 +170,8 @@ fun MiniPlayer(
 
 @Composable
 fun PillProgress(
-    progress: Float,
+    // als Lambda, damit der Wert nur beim Zeichnen gelesen wird: pro Frame wird nur neu gezeichnet, nicht neu komponiert
+    progress: () -> Float,
     onChange: (Float) -> Unit,
     onFinished: () -> Unit
 ) {
@@ -207,17 +211,16 @@ fun PillProgress(
                 .height(12.dp)
                 .clip(CircleShape)
                 .background(trackColor)
-        )
-        // Füllung startet als kleiner Kreis (Höhe = Breite) und füllt den Balken bei 100 % genau aus
-        val density = LocalDensity.current
-        val minPx = with(density) { 12.dp.toPx() }
-        val fillPx = (minPx + progress.coerceIn(0f, 1f) * (width - minPx)).coerceAtLeast(minPx)
-        Box(
-            Modifier
-                .width(with(density) { fillPx.toDp() })
-                .height(12.dp)
-                .clip(CircleShape)
-                .background(fillColor)
+                .drawBehind {
+                    // Füllung startet als kleiner Kreis (Höhe = Breite) und füllt den Balken bei 100 % genau aus
+                    val h = size.height
+                    val fillW = (h + progress().coerceIn(0f, 1f) * (size.width - h)).coerceAtLeast(h)
+                    drawRoundRect(
+                        color = fillColor,
+                        size = Size(fillW, h),
+                        cornerRadius = CornerRadius(h / 2f, h / 2f)
+                    )
+                }
         )
     }
 }
