@@ -664,7 +664,7 @@ private fun NowPlayingSheetContent(
                 Modifier
                     .size(finalDp)
                     .graphicsLayer {
-                        val e = open.value.coerceIn(0f, 1f)
+                        val e = coverPath(open.value.coerceIn(0f, 1f))
                         val sc = androidx.compose.ui.util.lerp(fb.width / fin.width.coerceAtLeast(1f), 1f, e)
                             .coerceAtLeast(0.05f)
                         transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
@@ -686,6 +686,18 @@ private fun NowPlayingSheetContent(
         }
     }
 }
+
+/** Stärke des Überschwingers beim Cover-Flug (0 = keiner). 0.4 ≈ 3 % über das Ziel hinaus, dann zurück. */
+private const val COVER_BOUNCE = 0.4f
+
+/**
+ * Weg des fliegenden Covers in Abhängigkeit vom Öffnen-Fortschritt [t] (0 = Miniplayer, 1 = Platz im Player).
+ * Bei 0 und 1 identisch zum Fortschritt, dazwischen kommt eine kleine Beule dazu: Das Cover schießt kurz
+ * ein wenig über sein Ziel und setzt sich dann. Weil es eine reine Funktion des Fortschritts ist, wirkt es
+ * beim Öffnen per Tippen, per Hochziehen und umgekehrt beim Schließen (dort leichtes Ausholen).
+ * Nie negativ, deshalb bleiben Größe und Ecken gültig.
+ */
+private fun coverPath(t: Float): Float = t + COVER_BOUNCE * kotlin.math.sin(kotlin.math.PI.toFloat() * t)
 
 /** Blendet ein Element gestaffelt ein (progress zwischen start und end) und schiebt es leicht nach oben */
 private fun Modifier.reveal(progress: () -> Float, start: Float, end: Float, rise: Dp = 24.dp): Modifier =
