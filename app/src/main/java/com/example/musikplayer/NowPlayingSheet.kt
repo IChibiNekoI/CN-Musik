@@ -255,7 +255,11 @@ private fun NowPlayingSheetContent(
     }
     fun closeQueue() {
         queueScope.launch {
-            queueProgress.animateTo(0f, tween(240, easing = FastOutSlowInEasing))
+            // dieselbe Feder wie beim Öffnen und beim Player: weich, ohne feste Dauer
+            queueProgress.animateTo(0f, sheetSpring()) {
+                // kurz vor dem Ende ausblenden, die Feder klingt sonst noch lange unsichtbar nach
+                if (value < 0.02f) queueShown = false
+            }
             queueShown = false
         }
     }
