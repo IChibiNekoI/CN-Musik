@@ -103,8 +103,11 @@ private class SheetRevealShape(
             androidx.compose.ui.util.lerp(b.bottom, size.height, e)
         )
         val mini = origin.radius.value * d
-        val top = androidx.compose.ui.geometry.CornerRadius(androidx.compose.ui.util.lerp(mini, topEnd, e))
-        val bottom = androidx.compose.ui.geometry.CornerRadius(androidx.compose.ui.util.lerp(mini, 0f, e))
+        // Sobald man am Player zieht, werden die Ecken innerhalb der ersten ~6 % des Wegs rund (statt erst
+        // kurz vor dem Miniplayer), damit oben und unten keine harten Kanten sichtbar werden
+        val rounded = 38f * d * ((1f - e) / 0.06f).coerceIn(0f, 1f)
+        val top = androidx.compose.ui.geometry.CornerRadius(androidx.compose.ui.util.lerp(mini, maxOf(topEnd, rounded), e))
+        val bottom = androidx.compose.ui.geometry.CornerRadius(androidx.compose.ui.util.lerp(mini, rounded, e))
         return androidx.compose.ui.graphics.Outline.Rounded(
             androidx.compose.ui.geometry.RoundRect(rect, top, top, bottom, bottom)
         )
@@ -448,7 +451,15 @@ private fun NowPlayingSheetContent(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box(Modifier.fillMaxWidth().reveal({ open.value }, 0.30f, 0.75f, 0.dp)) {
-                        CloseSheetButton(onClick = { requestClose() }, modifier = Modifier.align(Alignment.CenterStart))
+                        CloseSheetButton(
+                            onClick = { requestClose() },
+                            modifier = Modifier.align(Alignment.CenterStart).headerPop { open.value },
+                            // Pfeil flacht beim Runterziehen zu einer Linie ab und knickt beim Öffnen wieder ein
+                            flatten = {
+                                if (slideMode) offsetY.coerceAtLeast(0f) / (rootHeightPx * 0.1f)
+                                else (1f - open.value) / 0.25f
+                            }
+                        )
                         Text(
                             song.album.ifBlank { str(R.string.unknown_album) },
                             // Albumname: genau in der Mitte des Bildschirms, solange er nicht zu lang ist.
@@ -474,7 +485,7 @@ private fun NowPlayingSheetContent(
                             overflow = TextOverflow.Ellipsis
                         )
                         Box(Modifier.align(Alignment.CenterEnd)) {
-                            MoreButton(onClick = { menuOpen = true }, modifier = Modifier.padding(end = 4.dp))
+                            MoreButton(onClick = { menuOpen = true }, modifier = Modifier.padding(end = 4.dp).headerPop { open.value })
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(
                                     text = { Text(str(R.string.track_info)) },
@@ -698,6 +709,14 @@ private const val COVER_BOUNCE = 0.4f
  * Nie negativ, deshalb bleiben Größe und Ecken gültig.
  */
 private fun coverPath(t: Float): Float = t + COVER_BOUNCE * kotlin.math.sin(kotlin.math.PI.toFloat() * t)
+
+/** Kopfzeilen-Tasten wachsen beim Öffnen mit dem Fortschritt auf (und schrumpfen beim Schließen wieder), statt nur einzublenden */
+private fun Modifier.headerPop(progress: () -> Float): Modifier = graphicsLayer {
+    val t = ((progress() - 0.35f) / 0.4f).coerceIn(0f, 1f)
+    val s = 0.55f + 0.45f * t
+    scaleX = s
+    scaleY = s
+}
 
 /** Blendet ein Element gestaffelt ein (progress zwischen start und end) und schiebt es leicht nach oben */
 private fun Modifier.reveal(progress: () -> Float, start: Float, end: Float, rise: Dp = 24.dp): Modifier =
