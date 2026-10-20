@@ -66,6 +66,8 @@ fun Modifier.bounceClick(
     // Beim Drücken zusätzlich ein Stück zur Seite schieben (z. B. Weiter-Taste nach rechts), federt mit Überschwinger zurück
     nudgeX: Dp = 0.dp,
     nudgeY: Dp = 0.dp,
+    // Beim Drücken um so viele Grad drehen (z. B. Zahnrad), federt mit Überschwinger zurück
+    rotate: Float = 0f,
     // false = kein Ticken (für Listenzeilen und Kacheln)
     haptic: Boolean = true,
     onClick: () -> Unit
@@ -89,6 +91,7 @@ fun Modifier.bounceClick(
             scaleY = scale
             if (nudgeX != 0.dp) translationX = shift * nudgeX.toPx()
             if (nudgeY != 0.dp) translationY = shift * nudgeY.toPx()
+            if (rotate != 0f) rotationZ = shift * rotate
         }
         .clickable(
             interactionSource = source,
