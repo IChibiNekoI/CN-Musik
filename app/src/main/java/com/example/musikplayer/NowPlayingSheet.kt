@@ -281,10 +281,8 @@ private fun NowPlayingSheetContent(
                 queueScope.launch { queueProgress.snapTo(p) }
             }
         }
-        // Vorzeichenbehaftet: positiv = nach unten gezogen, negativ = über den Rand hinaus nach oben (Gummiband)
-        offsetY += rest
-        // Zug aus dem Warteschlangen-Bereich: nie über den oberen Rand hinaus dehnen (da öffnet sich die Warteschlange)
-        if (dragFromQueueZone || queueFollowing) offsetY = offsetY.coerceAtLeast(0f)
+        // Der offene Player lässt sich nur nach unten ziehen, nach oben bleibt er stehen
+        offsetY = (offsetY + rest).coerceAtLeast(0f)
         if (!slideMode && !queueFollowing) {
             // Der Finger steuert den Fortschritt: der Player schrumpft unter dem Finger zum Miniplayer
             val dist = rootHeightPx * SHEET_DRAG_FRACTION
@@ -384,12 +382,6 @@ private fun NowPlayingSheetContent(
                             val shownFraction = -upDrag / (rootHeightPx * QUEUE_HEIGHT_FRACTION)
                             upDrag = 0f
                             if (shownFraction > 0.3f || velocity < -900f) openQueue() else closeQueue()
-                        } else if (offsetY < 0f) {
-                            // über den Rand hinaus gezogen: Gummiband federt mit der Fingergeschwindigkeit zurück
-                            slideJob?.cancel()
-                            slideJob = queueScope.launch {
-                                animate(offsetY, 0f, velocity, spring(dampingRatio = 0.7f, stiffness = 300f)) { v, _ -> offsetY = v }
-                            }
                         } else if (slideMode) {
                             // Ziel anhand von Weg und Geschwindigkeit, relativ zur Bildschirmhöhe
                             val projected = offsetY + velocity * SHEET_PROJECTION_S
@@ -427,12 +419,7 @@ private fun NowPlayingSheetContent(
                     val corner = if (slideMode) ((offsetY / density) / 24f).coerceIn(0f, 1f) * 38f else 0f
                     shape = SheetRevealShape(origin, open.value, corner)
                     clip = true
-                    // Gummiband: Zieht man oben über den Rand hinaus, dehnt sich der Player zäh nach oben
-                    val over = rubberBand(-offsetY, size.height * 0.10f)
-                    if (over > 0f) {
-                        transformOrigin = TransformOrigin(0.5f, 1f)
-                        scaleY = 1f + over / size.height
-                    }
+
                 }
                 .drawBehind {
                     val color = if (origin == null) sheetColor else
