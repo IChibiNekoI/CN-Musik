@@ -193,7 +193,7 @@ fun QueuePanel(
                         leadingContent = { Cover(song, 48.dp) },
                         trailingContent = {
                             if (!isCurrent) {
-                                IconButton(onClick = { c.removeMediaItem(qi) }) {
+                                BounceIconButton(onClick = { c.removeMediaItem(qi) }) {
                                     CloseIcon(description = str(R.string.queue_remove))
                                 }
                             }
