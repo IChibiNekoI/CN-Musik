@@ -100,6 +100,8 @@ fun QueuePanel(
     val display = remember(real) { order.map { qi -> real.getValue(qi).copy(id = qi.toLong()) } }
     val noRipple = remember { MutableInteractionSource() }
     val density = LocalDensity.current
+    // Erster Eintrag, der beim Öffnen zu sehen ist (die Liste springt zum aktuellen Titel)
+    val firstShown = max(0, order.indexOf(current) - 1)
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val panelH = maxHeight * QUEUE_HEIGHT_FRACTION
@@ -183,7 +185,7 @@ fun QueuePanel(
                     contentPadding = WindowInsets.navigationBars.asPaddingValues(),
                     enabled = !shuffle,
                     initialIndex = max(0, order.indexOf(current) - 1)
-                ) { _, s, itemModifier ->
+                ) { i, s, itemModifier ->
                     val qi = s.id.toInt()
                     val song = real[qi] ?: return@ReorderableSongList
                     val isCurrent = qi == current
@@ -202,6 +204,14 @@ fun QueuePanel(
                             containerColor = if (isCurrent) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
                         ),
                         modifier = itemModifier
+                            // Beim Öffnen gleiten die Einträge nacheinander hoch und ein (an den Fortschritt gekoppelt:
+                            // zieht man die Fläche mit dem Finger auf oder zu, laufen sie mit)
+                            .graphicsLayer {
+                                val rel = (i - firstShown).coerceIn(0, 7)
+                                val t = ((progress.value - 0.2f - 0.045f * rel) / 0.5f).coerceIn(0f, 1f)
+                                alpha = t
+                                translationY = (1f - t) * 28.dp.toPx()
+                            }
                             .padding(horizontal = 8.dp, vertical = 2.dp)
                             .clip(RoundedCornerShape(20.dp))
                             .clickable {
