@@ -142,8 +142,12 @@ fun MusikApp(openPlayerSignal: Int = 0) {
     var repeat by remember { mutableIntStateOf(Player.REPEAT_MODE_OFF) }
     var showNow by remember { mutableStateOf(false) }
     var origin by remember { mutableStateOf<MiniOrigin?>(null) }
-    // Player per Hochziehen des Miniplayers öffnen: der Finger steuert den Fortschritt (0 = Miniplayer, 1 = Vollbild)
-    val openProgress = remember { Animatable(0f) }
+    // Ein Antrieb für Öffnen und Schließen des Players (0 = Miniplayer, 1 = Vollbild):
+    // Finger, Loslassen mit Geschwindigkeit, Zurück-Taste und Zurück-Geste, alles unterbrechbar
+    val sheetMotion = remember { SheetMotion() }
+    LaunchedEffect(sheetMotion) { sheetMotion.run() }
+    // Ist der Player weg (egal wie), steht der Fortschritt wieder auf Miniplayer
+    LaunchedEffect(showNow) { if (!showNow) sheetMotion.snapTo(0f) }
     var gestureOpen by remember { mutableStateOf(false) }
     var pendingOrigin by remember { mutableStateOf<MiniOrigin?>(null) }
     val openDistance = with(androidx.compose.ui.platform.LocalDensity.current) {
@@ -157,7 +161,15 @@ fun MusikApp(openPlayerSignal: Int = 0) {
         update = withContext(Dispatchers.IO) { checkForUpdate(ctx) }
     }
     LaunchedEffect(openPlayerSignal) {
-        if (openPlayerSignal > 0) showNow = true
+        if (openPlayerSignal > 0) {
+            if (!showNow) {
+                // z. B. Start über die Benachrichtigung: kein Miniplayer als Ursprung, der Player steht sofort
+                origin = null
+                gestureOpen = false
+                sheetMotion.snapTo(1f)
+            }
+            showNow = true
+        }
     }
 
     DisposableEffect(controller) {
@@ -313,27 +325,25 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                                     origin = pendingOrigin
                                     gestureOpen = true
                                     showNow = true
-                                    scope.launch { openProgress.snapTo(0f) }
                                 }
-                                if (gestureOpen) scope.launch { openProgress.snapTo(p) }
+                                if (gestureOpen) sheetMotion.follow(p)
                             },
                             onDragEnd = { total, velocity ->
                                 if (gestureOpen) {
                                     val p = (-total / openDistance).coerceIn(0f, 1f)
-                                    val opens = p > 0.35f || velocity < -900f
-                                    scope.launch {
-                                        if (opens) {
-                                            openProgress.animateTo(1f, tween(Motion.MEDIUM, easing = Motion.Ease))
-                                        } else {
-                                            // nicht weit genug gezogen: wieder zurück zum Miniplayer
-                                            openProgress.animateTo(0f, tween(Motion.MEDIUM, easing = Motion.Ease))
-                                            showNow = false
-                                            gestureOpen = false
-                                        }
+                                    // Fingergeschwindigkeit (px/s, nach oben negativ) in Fortschritt pro Sekunde umrechnen
+                                    val v = -velocity / openDistance
+                                    // Wohin führt die Bewegung in Kürze? Danach entscheidet sich auf oder zu.
+                                    val opens = p + v * SHEET_PROJECTION_S > 0.35f
+                                    if (opens) {
+                                        sheetMotion.settle(1f, v, p)
+                                    } else {
+                                        // nicht weit genug gezogen: mit der Fingergeschwindigkeit zurück zum Miniplayer
+                                        sheetMotion.settle(0f, v, p) { showNow = false; gestureOpen = false }
                                     }
                                 }
                             }
-                        ) { o -> gestureOpen = false; origin = o; showNow = true }
+                        ) { o -> gestureOpen = false; origin = o; scope.launch { sheetMotion.snapTo(0f); showNow = true } }
                     }
             }
         }
@@ -345,7 +355,8 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                 library = allSongs,
                 showAudioInfo = showInfo,
                 origin = origin,
-                controlledOpen = if (gestureOpen) openProgress else null,
+                motion = sheetMotion,
+                fingerDriven = gestureOpen,
                 isFavorite = current.id in favorites,
                 onToggleFavorite = { toggleFavorite(current) },
                 onGoToAlbum = {
