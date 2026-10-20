@@ -444,7 +444,7 @@ fun MusikApp(openPlayerSignal: Int = 0) {
 @Composable
 private fun SheetHeader(title: String, onBack: () -> Unit) {
     Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack) {
+        BounceIconButton(onClick = onBack) {
             BackIcon(description = str(R.string.back))
         }
         Text(title, style = MaterialTheme.typography.titleLarge)
@@ -458,7 +458,7 @@ private fun SortOption(title: String, subtitle: String?, selected: Boolean, onCl
         supportingContent = subtitle?.let { { Text(it) } },
         leadingContent = { RadioButton(selected = selected, onClick = null) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = Modifier.clickable { onClick() }
+        modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { onClick() }
     )
 }
 
@@ -565,7 +565,7 @@ fun AppSettingsSheet(
                         ChevronRightIcon()
                     },
                     colors = clear,
-                    modifier = Modifier.clickable { page = "sort" }
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "sort" }
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.index)) },
@@ -574,7 +574,7 @@ fun AppSettingsSheet(
                         ChevronRightIcon()
                     },
                     colors = clear,
-                    modifier = Modifier.clickable { page = "index" }
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "index" }
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.album_view)) },
@@ -584,7 +584,7 @@ fun AppSettingsSheet(
                         ChevronRightIcon()
                     },
                     colors = clear,
-                    modifier = Modifier.clickable { page = "albumView" }
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "albumView" }
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.playlist_view)) },
@@ -594,7 +594,7 @@ fun AppSettingsSheet(
                         ChevronRightIcon()
                     },
                     colors = clear,
-                    modifier = Modifier.clickable { page = "playlistView" }
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "playlistView" }
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.design)) },
@@ -603,7 +603,7 @@ fun AppSettingsSheet(
                         ChevronRightIcon()
                     },
                     colors = clear,
-                    modifier = Modifier.clickable { page = "design" }
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "design" }
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.header)) },
@@ -619,7 +619,7 @@ fun AppSettingsSheet(
                         ChevronRightIcon()
                     },
                     colors = clear,
-                    modifier = Modifier.clickable { page = "headerView" }
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "headerView" }
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.language)) },
@@ -637,7 +637,7 @@ fun AppSettingsSheet(
                         ChevronRightIcon()
                     },
                     colors = clear,
-                    modifier = Modifier.clickable { page = "language" }
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "language" }
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.audio_info)) },
@@ -646,7 +646,7 @@ fun AppSettingsSheet(
                         Switch(checked = showAudioInfo, onCheckedChange = null)
                     },
                     colors = clear,
-                    modifier = Modifier.clickable { onShowAudioInfo(!showAudioInfo) }
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { onShowAudioInfo(!showAudioInfo) }
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.haptics)) },
@@ -655,7 +655,7 @@ fun AppSettingsSheet(
                         Switch(checked = haptics, onCheckedChange = null)
                     },
                     colors = clear,
-                    modifier = Modifier.clickable { onHaptics(!haptics) }
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { onHaptics(!haptics) }
                 )
                 Spacer(Modifier.height(32.dp))
             }
@@ -674,7 +674,7 @@ fun AppSettingsSheet(
                         ChevronRightIcon()
                     },
                     colors = clear,
-                    modifier = Modifier.clickable { page = "folders" }
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "folders" }
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.rescan)) },
@@ -686,7 +686,7 @@ fun AppSettingsSheet(
                         if (rescanning) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                     },
                     colors = clear,
-                    modifier = Modifier.clickable { onRescan() }
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { onRescan() }
                 )
                 Spacer(Modifier.height(32.dp))
             }
@@ -776,7 +776,7 @@ fun AppSettingsSheet(
                         Switch(checked = menuUnified, onCheckedChange = null, enabled = menuSwitchEnabled)
                     },
                     colors = clear,
-                    modifier = Modifier.clickable(enabled = menuSwitchEnabled) { onMenuUnified(!menuUnified) }
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, enabled = menuSwitchEnabled, haptic = false) { onMenuUnified(!menuUnified) }
                 )
                 Spacer(Modifier.height(32.dp))
             }
@@ -818,7 +818,7 @@ fun AppSettingsSheet(
                                 Checkbox(checked = folder in current, onCheckedChange = null)
                             },
                             colors = clear,
-                            modifier = Modifier.clickable {
+                            modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) {
                                 onFolders(if (folder in current) current - folder else current + folder)
                             }
                         )
