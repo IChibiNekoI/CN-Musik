@@ -147,7 +147,7 @@ private fun GridTile(
                     )
                 }
                 if (onDelete != null) {
-                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                    BounceIconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
                         TrashIcon(iconSize = 18.dp, description = str(R.string.delete))
                     }
                 }
@@ -162,7 +162,7 @@ fun DetailHeader(title: String, onBack: () -> Unit, action: (@Composable () -> U
         Modifier.fillMaxWidth().padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onBack) {
+        BounceIconButton(onClick = onBack) {
             BackIcon(description = str(R.string.back))
         }
         Text(
@@ -231,10 +231,10 @@ fun SongRow(
         leadingContent = { Cover(song, 48.dp) },
         trailingContent = {
             Box {
-                IconButton(onClick = { expanded = true }) {
+                BounceIconButton(onClick = { expanded = true }) {
                     MoreVertIcon(description = str(R.string.more))
                 }
-                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                BounceMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     DropdownMenuItem(
                         text = { Text(str(R.string.track_info)) },
                         leadingIcon = { InfoIcon() },
@@ -398,7 +398,7 @@ fun LibraryScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (searching) {
-                IconButton(onClick = { searching = false; query = "" }) {
+                BounceIconButton(onClick = { searching = false; query = "" }) {
                     BackIcon(description = str(R.string.search_close))
                 }
                 TextField(
@@ -409,7 +409,7 @@ fun LibraryScreen(
                     singleLine = true,
                     trailingIcon = {
                         if (query.isNotEmpty()) {
-                            IconButton(onClick = { query = "" }) {
+                            BounceIconButton(onClick = { query = "" }) {
                                 CloseIcon(description = str(R.string.clear))
                             }
                         }
@@ -457,10 +457,10 @@ fun LibraryScreen(
                 }
                 if (tab == 2) {
                     Box {
-                        IconButton(onClick = { plusMenu = true }) {
+                        BounceIconButton(onClick = { plusMenu = true }) {
                             PlusIcon(description = str(R.string.playlist_add_cd))
                         }
-                        DropdownMenu(expanded = plusMenu, onDismissRequest = { plusMenu = false }) {
+                        BounceMenu(expanded = plusMenu, onDismissRequest = { plusMenu = false }) {
                             DropdownMenuItem(
                                 text = { Text(str(R.string.playlist_new)) },
                                 leadingIcon = { PlusIcon() },
@@ -484,10 +484,10 @@ fun LibraryScreen(
                 if (update != null && tab != 2) {
                     UpdateButton(onClick = { showUpdate = true })
                 }
-                IconButton(onClick = { searching = true }) {
+                BounceIconButton(onClick = { searching = true }) {
                     SearchIcon(description = str(R.string.search))
                 }
-                IconButton(onClick = onSettings) {
+                BounceIconButton(onClick = onSettings, rotate = 40f) {
                     SettingsGearIcon(description = str(R.string.settings))
                 }
             }
@@ -710,7 +710,7 @@ fun LibraryScreen(
                                     PlaylistCover(covers, 56.dp)
                                 },
                                 trailingContent = {
-                                    IconButton(onClick = { deleteTarget = p }) {
+                                    BounceIconButton(onClick = { deleteTarget = p }) {
                                         TrashIcon(description = str(R.string.delete))
                                     }
                                 },
@@ -727,7 +727,7 @@ fun LibraryScreen(
                         // Plus rechts: Lieder hinzufügen (bei leerer Playlist übernimmt das die Taste unter dem Bild)
                         action = if (list.isNotEmpty()) {
                             {
-                                IconButton(onClick = { pickFor = pl.id }) {
+                                BounceIconButton(onClick = { pickFor = pl.id }) {
                                     PlusIcon(description = str(R.string.add_songs))
                                 }
                             }
@@ -918,7 +918,7 @@ fun LibraryScreen(
                             leadingIcon = { SearchIcon() },
                             trailingIcon = {
                                 if (filter.isNotEmpty()) {
-                                    IconButton(onClick = { filter = "" }) {
+                                    BounceIconButton(onClick = { filter = "" }) {
                                         CloseIcon(description = str(R.string.clear))
                                     }
                                 }
