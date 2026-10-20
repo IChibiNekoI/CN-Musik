@@ -105,6 +105,8 @@ fun MusikApp(
         onDispose { lifecycleOwner?.lifecycle?.removeObserver(observer) }
     }
     var startupDone by remember { mutableStateOf(false) }
+    // Erst wenn die Bibliothek einmal geladen ist, darf "Keine Songs gefunden" erscheinen (nicht schon beim Start)
+    var libraryLoaded by remember { mutableStateOf(false) }
     LaunchedEffect(granted, refreshTick, TagEvents.tick) {
         if (!granted) return@LaunchedEffect
         // Die rohen Tags aus der Android-Datenbank werden nie angezeigt, sonst springen sie später um:
@@ -112,7 +114,9 @@ fun MusikApp(
         // dann geänderte Dateien nachlesen.
         suspend fun showWithFileTags(b: List<Song>) {
             allSongs = refreshTagsFromFiles(ctx, b, force = false, cacheOnly = true)
+            if (allSongs.isNotEmpty()) libraryLoaded = true
             allSongs = refreshTagsFromFiles(ctx, b, force = false)
+            libraryLoaded = true
         }
         var base = withContext(Dispatchers.IO) { loadLibrary(ctx) }
         showWithFileTags(base)
@@ -150,6 +154,9 @@ fun MusikApp(
     var origin by remember { mutableStateOf<MiniOrigin?>(null) }
     // zuletzt bekannte Position des Miniplayers: Ziel beim Schließen, auch wenn der Player über die Benachrichtigung geöffnet wurde
     var lastOrigin by remember { mutableStateOf<MiniOrigin?>(null) }
+    // Laufend gemessene Position des Miniplayers (schon vor dem ersten Antippen bekannt): Ziel beim Schließen,
+    // auch wenn der Player schnell wieder geschlossen wird, bevor die Position beim Öffnen sicher gemessen war
+    var liveOrigin by remember { mutableStateOf<MiniOrigin?>(null) }
     // Ein Antrieb für Öffnen und Schließen des Players (0 = Miniplayer, 1 = Vollbild):
     // Finger, Loslassen mit Geschwindigkeit, Zurück-Taste und Zurück-Geste, alles unterbrechbar
     val sheetMotion = remember { SheetMotion() }
@@ -174,7 +181,7 @@ fun MusikApp(
         if (openPlayerSignal > 0) {
             if (!showNow) {
                 // z. B. Start über die Benachrichtigung: kein Miniplayer als Ursprung, der Player steht sofort
-                origin = lastOrigin
+                origin = lastOrigin ?: liveOrigin
                 gestureOpen = false
                 sheetMotion.snapTo(1f)
             }
@@ -298,6 +305,7 @@ fun MusikApp(
                 }
             } else {
                 LibraryScreen(
+                    loaded = libraryLoaded,
                     pad = listPad,
                     bottomSpace = bottomSpace,
                     songs = songs,
@@ -360,6 +368,7 @@ fun MusikApp(
                         MiniPlayer(
                             current, isPlaying, controller,
                             onDragStart = { o -> pendingOrigin = o },
+                            onOriginChanged = { if (it != liveOrigin) liveOrigin = it },
                             onDrag = { total ->
                                 val p = (-total / openDistance).coerceIn(0f, 1f)
                                 // erst bei echter Aufwärtsbewegung den Player einblenden
@@ -397,7 +406,7 @@ fun MusikApp(
                 current, isPlaying, shuffle, repeat, controller,
                 library = allSongs,
                 showAudioInfo = showInfo,
-                origin = origin,
+                origin = liveOrigin ?: origin,
                 motion = sheetMotion,
                 fingerDriven = gestureOpen,
                 isFavorite = current.id in favorites,
@@ -409,7 +418,7 @@ fun MusikApp(
                 onAddToPlaylist = { playlistRequest = current }
             ) {
                 // Landet der Player im Miniplayer (statt nur wegzurutschen), federt der Miniplayer weich nach
-                val landed = origin != null
+                val landed = (liveOrigin ?: origin) != null
                 showNow = false
                 gestureOpen = false
                 if (landed) scope.launch {
