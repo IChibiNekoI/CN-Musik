@@ -34,6 +34,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.Animatable
+import kotlinx.coroutines.delay
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
@@ -125,18 +127,42 @@ fun PlaylistCover(songs: List<Song>, size: Dp, corner: Dp = 12.dp) {
 }
 
 /** Kachel für die Rasteransicht: Cover in voller Kachelbreite, darunter Titel und Untertitel. */
+/**
+ * Bewegung für Playlists in Liste und Raster: Eine neue Playlist poppt mit Überschwinger auf,
+ * eine gelöschte schrumpft leicht und blendet aus. [appear] wird nur beim ersten Anzeigen gelesen.
+ */
+@Composable
+private fun Modifier.playlistFx(appear: Boolean, removing: Boolean): Modifier {
+    val pop = remember { Animatable(if (appear) 0.6f else 1f) }
+    LaunchedEffect(Unit) {
+        if (appear) pop.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = 400f))
+    }
+    val exit by animateFloatAsState(
+        targetValue = if (removing) 0f else 1f,
+        animationSpec = tween(Motion.MEDIUM, easing = Motion.Ease),
+        label = "playlistExit"
+    )
+    return this.graphicsLayer {
+        val sc = pop.value * (0.8f + 0.2f * exit)
+        scaleX = sc
+        scaleY = sc
+        alpha = (((pop.value - 0.6f) / 0.4f) * 2f).coerceIn(0f, 1f) * exit
+    }
+}
+
 @Composable
 private fun GridTile(
     title: String,
     subtitle: String,
     onClick: () -> Unit,
     onDelete: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
     cover: @Composable (Dp) -> Unit
 ) {
     BoxWithConstraints(
         // Kein Clip und kein Ripple: Der Clip schnitt unten die Ecken von Titel und Untertitel ab,
         // und der Ripple färbte die Kachel beim Drücken weiß. Stattdessen drückt sich die Kachel leicht ein.
-        Modifier.fillMaxWidth()
+        modifier.fillMaxWidth()
             .bounceClick(pressedScale = 0.95f, haptic = false) { onClick() }
     ) {
         val w = maxWidth
@@ -373,6 +399,12 @@ fun LibraryScreen(
     var creating by remember { mutableStateOf(false) }
     var pendingSong by remember { mutableStateOf<Song?>(null) }
     var deleteTarget by remember { mutableStateOf<Playlist?>(null) }
+    // Neue Playlists poppen auf, gelöschte schrumpfen weg, bevor sie wirklich entfernt werden
+    var knownPlaylistIds by remember { mutableStateOf(playlists.map { it.id }.toSet()) }
+    var removingIds by remember { mutableStateOf(emptySet<String>()) }
+    LaunchedEffect(playlists) { knownPlaylistIds = playlists.map { it.id }.toSet() }
+    var newName by remember { mutableStateOf("") }
+    val latestPlaylists by rememberUpdatedState(playlists)
     var searching by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var plusMenu by remember { mutableStateOf(false) }
@@ -541,6 +573,7 @@ fun LibraryScreen(
                                 onClick = {
                                     plusMenu = false
                                     pendingSong = null
+                                    newName = ""
                                     creating = true
                                 }
                             )
@@ -796,6 +829,15 @@ fun LibraryScreen(
                                 subtitle = plural(R.plurals.n_tracks, p.songIds.size),
                                 onClick = { openPlaylist = p.id },
                                 onDelete = { deleteTarget = p },
+                                modifier = Modifier
+                                    .animateItem(
+                                        fadeInSpec = null, fadeOutSpec = null,
+                                        placementSpec = spring(
+                                            dampingRatio = 0.75f, stiffness = 400f,
+                                            visibilityThreshold = IntOffset.VisibilityThreshold
+                                        )
+                                    )
+                                    .playlistFx(appear = p.id !in knownPlaylistIds, removing = p.id in removingIds),
                                 cover = { w -> PlaylistCover(covers, w) }
                             )
                         }
@@ -820,7 +862,16 @@ fun LibraryScreen(
                                     }
                                 },
                                 colors = clearColors(),
-                                modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { openPlaylist = p.id }
+                                modifier = Modifier
+                                    .animateItem(
+                                        fadeInSpec = null, fadeOutSpec = null,
+                                        placementSpec = spring(
+                                            dampingRatio = 0.75f, stiffness = 400f,
+                                            visibilityThreshold = IntOffset.VisibilityThreshold
+                                        )
+                                    )
+                                    .playlistFx(appear = p.id !in knownPlaylistIds, removing = p.id in removingIds)
+                                    .bounceClick(pressedScale = 0.97f, haptic = false) { openPlaylist = p.id }
                             )
                         }
                     }
@@ -1064,8 +1115,11 @@ fun LibraryScreen(
         }
     }
 
-    addSong?.let { s ->
-        AlertDialog(
+    val addShown = rememberLastNonNull(addSong)
+    if (addShown != null) {
+        val s = addShown
+        BounceAlertDialog(
+            visible = addSong != null,
             onDismissRequest = { addSong = null },
             title = { Text(str(R.string.add_to_playlist)) },
             text = {
@@ -1075,7 +1129,7 @@ fun LibraryScreen(
                         leadingContent = { PlusIcon() },
                         colors = clearColors(),
                         modifier = Modifier.clickable {
-                            pendingSong = s; addSong = null; creating = true
+                            pendingSong = s; addSong = null; newName = ""; creating = true
                         }
                     )
                     playlists.forEach { p ->
@@ -1101,49 +1155,56 @@ fun LibraryScreen(
         )
     }
 
-    if (creating) {
-        var name by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { pendingSong = null; creating = false },
-            title = { Text(str(R.string.playlist_new)) },
-            text = {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    singleLine = true,
-                    label = { Text(str(R.string.name)) }
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = name.isNotBlank(),
-                    onClick = {
-                        val p = Playlist(
-                            System.currentTimeMillis().toString(),
-                            name.trim(),
-                            listOfNotNull(pendingSong?.id)
-                        )
-                        onPlaylistsChange(playlists + p)
-                        pendingSong = null
-                        creating = false
-                    }
-                ) { Text(str(R.string.create)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingSong = null; creating = false }) { Text(str(R.string.cancel)) }
-            }
-        )
-    }
+    BounceAlertDialog(
+        visible = creating,
+        onDismissRequest = { pendingSong = null; creating = false },
+        title = { Text(str(R.string.playlist_new)) },
+        text = {
+            OutlinedTextField(
+                value = newName,
+                onValueChange = { newName = it },
+                singleLine = true,
+                label = { Text(str(R.string.name)) }
+            )
+        },
+        confirmButton = {
+            TextButton(
+                enabled = newName.isNotBlank(),
+                onClick = {
+                    val p = Playlist(
+                        System.currentTimeMillis().toString(),
+                        newName.trim(),
+                        listOfNotNull(pendingSong?.id)
+                    )
+                    onPlaylistsChange(playlists + p)
+                    pendingSong = null
+                    creating = false
+                }
+            ) { Text(str(R.string.create)) }
+        },
+        dismissButton = {
+            TextButton(onClick = { pendingSong = null; creating = false }) { Text(str(R.string.cancel)) }
+        }
+    )
 
-    deleteTarget?.let { t ->
-        AlertDialog(
+    val deleteShown = rememberLastNonNull(deleteTarget)
+    if (deleteShown != null) {
+        val t = deleteShown
+        BounceAlertDialog(
+            visible = deleteTarget != null,
             onDismissRequest = { deleteTarget = null },
             title = { Text(str(R.string.playlist_delete_title)) },
             text = { Text(str(R.string.playlist_delete_text, t.name)) },
             confirmButton = {
                 TextButton(onClick = {
-                    onPlaylistsChange(playlists.filter { it.id != t.id })
                     deleteTarget = null
+                    // Erst schrumpft die Kachel weg, dann wird sie entfernt und die übrigen rücken mit Feder nach
+                    removingIds = removingIds + t.id
+                    scope.launch {
+                        delay(Motion.MEDIUM.toLong())
+                        onPlaylistsChange(latestPlaylists.filter { it.id != t.id })
+                        removingIds = removingIds - t.id
+                    }
                 }) { Text(str(R.string.delete)) }
             },
             dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text(str(R.string.cancel)) } }
