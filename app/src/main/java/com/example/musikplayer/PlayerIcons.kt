@@ -246,19 +246,28 @@ fun CloseSheetButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     iconSize: Dp = 30.dp,   // größer = höherer/breiterer Pfeil
-    tint: Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)   // gleiche Farbe wie der Kreis des Play-Buttons
+    tint: Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),   // gleiche Farbe wie der Kreis des Play-Buttons
+    // 0 = Pfeil, 1 = flache Linie (wird nur beim Zeichnen gelesen)
+    flatten: () -> Float = { 0f }
 ) {
     Box(
-        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = str(R.string.close) },
+        // drückt sich ein und schubst ein Stück nach unten (Richtung Schließen), federt mit Überschwinger zurück
+        modifier = modifier.size(48.dp)
+            .bounceClick(pressedScale = 0.8f, nudgeY = 5.dp, onClick = onClick)
+            .semantics { contentDescription = str(R.string.close) },
         contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.size(iconSize)) {
+            val f = flatten().coerceIn(0f, 1f)
             val s = this.size.minDimension
             val style = outline(s * 0.075f, s * 0.06f)
+            // Seiten und Spitze laufen zur gemeinsamen Mittelhöhe zusammen, der Pfeil wird zur Linie
+            val sideY = androidx.compose.ui.util.lerp(0.30f, 0.46f, f)
+            val midY = androidx.compose.ui.util.lerp(0.72f, 0.46f, f)
             val p = Path().apply {
-                moveTo(s * 0.12f, s * 0.30f)
-                lineTo(s * 0.50f, s * 0.72f)
-                lineTo(s * 0.88f, s * 0.30f)
+                moveTo(s * 0.12f, s * sideY)
+                lineTo(s * 0.50f, s * midY)
+                lineTo(s * 0.88f, s * sideY)
             }
             drawPath(p, tint, style = style)
         }
@@ -278,7 +287,7 @@ fun MoreButton(
     Box(
         modifier = modifier
             .size(buttonSize)
-            .bounceClick(pressedScale = 0.9f, onClick = onClick)
+            .bounceClick(pressedScale = 0.82f, onClick = onClick)
             .clip(CircleShape)
             .background(circleColor.copy(alpha = 0.45f))   // gleiche Füllung wie der Play-Button
             .semantics { contentDescription = str(R.string.more) },
