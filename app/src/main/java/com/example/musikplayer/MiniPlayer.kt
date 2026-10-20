@@ -14,6 +14,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
@@ -91,6 +92,13 @@ fun MiniPlayer(
             }
     }
     val openPlayer: () -> Unit = { onOpen(buildOrigin()) }
+    // Berührt: der Miniplayer drückt sich leicht ein und federt beim Loslassen zurück
+    var miniPressed by remember { mutableStateOf(false) }
+    val miniScale = animateFloatAsState(
+        targetValue = if (miniPressed) 0.97f else 1f,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = 700f),
+        label = "miniPress"
+    )
     var dragTotal by remember { mutableFloatStateOf(0f) }
     val dragState = rememberDraggableState { delta ->
         dragTotal += delta
@@ -102,6 +110,11 @@ fun MiniPlayer(
             .navigationBarsPadding()
             .padding(start = margin, end = margin, bottom = margin)
             .onGloballyPositioned { coordsRef[0] = it }
+            // nach der Positionsmessung: das Eindrücken verfälscht die gemerkte Startposition des Players nicht
+            .graphicsLayer {
+                scaleX = miniScale.value
+                scaleY = miniScale.value
+            }
             // Nach oben ziehen öffnet den Player, der Finger steuert dabei die Animation (wie Runterwischen ihn schließt)
             .draggable(
                 state = dragState,
@@ -129,7 +142,7 @@ fun MiniPlayer(
             AnimatedContent(
                 targetState = song,
                 contentKey = { it.id },
-                modifier = Modifier.weight(1f).clipToBounds().clickable(
+                modifier = Modifier.weight(1f).clipToBounds().observePress { miniPressed = it }.clickable(
                     interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                     indication = null   // kein Aufleuchten beim Drücken/Halten
                 ) { openPlayer() },
