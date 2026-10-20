@@ -438,14 +438,17 @@ private fun NowPlayingSheetContent(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box(Modifier.fillMaxWidth().reveal({ open.value }, 0.30f, 0.75f, 0.dp)) {
+                        // 0 = Player offen, 1 = Kopfzeilen-Symbole ganz flach (wird nur beim Zeichnen gelesen)
+                        val headerFlatten: () -> Float = {
+                            val f = if (slideMode) offsetY.coerceAtLeast(0f) / (rootHeightPx * 0.1f)
+                            else (1f - open.value) / 0.25f
+                            f.coerceIn(0f, 1f)
+                        }
                         CloseSheetButton(
                             onClick = { requestClose() },
                             modifier = Modifier.align(Alignment.CenterStart).headerPop { open.value },
                             // Pfeil flacht beim Runterziehen zu einer Linie ab und knickt beim Öffnen wieder ein
-                            flatten = {
-                                if (slideMode) offsetY.coerceAtLeast(0f) / (rootHeightPx * 0.1f)
-                                else (1f - open.value) / 0.25f
-                            }
+                            flatten = headerFlatten
                         )
                         Text(
                             song.album.ifBlank { str(R.string.unknown_album) },
@@ -472,7 +475,11 @@ private fun NowPlayingSheetContent(
                             overflow = TextOverflow.Ellipsis
                         )
                         Box(Modifier.align(Alignment.CenterEnd)) {
-                            MoreButton(onClick = { menuOpen = true }, modifier = Modifier.padding(end = 4.dp).headerPop { open.value })
+                            MoreButton(
+                                onClick = { menuOpen = true },
+                                // zieht sich oben und unten zusammen, genau im Takt mit dem Pfeil links
+                                modifier = Modifier.padding(end = 4.dp).headerPop { open.value }.headerSquash(headerFlatten)
+                            )
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 DropdownMenuItem(
                                     text = { Text(str(R.string.track_info)) },
@@ -696,6 +703,11 @@ private const val COVER_BOUNCE = 0.4f
  * damit Öffnen und Schließen gleich aussehen. Nie negativ, deshalb bleiben Größe und Ecken gültig.
  */
 private fun coverPath(t: Float): Float = t + COVER_BOUNCE * kotlin.math.sin(kotlin.math.PI.toFloat() * t)
+
+/** Zieht ein Element von oben und unten zusammen: bei [flatten] = 1 ist es nur noch eine dünne Linie in seiner Mitte */
+private fun Modifier.headerSquash(flatten: () -> Float): Modifier = graphicsLayer {
+    scaleY = 1f - 0.88f * flatten()
+}
 
 /** Kopfzeilen-Tasten wachsen beim Öffnen mit dem Fortschritt auf (und schrumpfen beim Schließen wieder), statt nur einzublenden */
 private fun Modifier.headerPop(progress: () -> Float): Modifier = graphicsLayer {
