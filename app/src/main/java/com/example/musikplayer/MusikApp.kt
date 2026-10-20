@@ -514,10 +514,7 @@ fun AppSettingsSheet(
     val current = selected ?: all
     val clear = ListItemDefaults.colors(containerColor = Color.Transparent)
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ) {
+    BounceSheet(onDismissRequest = onDismiss) {
         // Beim Wechsel zwischen den Seiten gleiten Inhalte weich hinein und heraus, die Höhe des Menüs passt sich an
         AnimatedContent(
             targetState = page,
