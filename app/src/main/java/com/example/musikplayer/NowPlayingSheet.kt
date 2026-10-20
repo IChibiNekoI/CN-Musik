@@ -176,7 +176,7 @@ private fun NowPlayingSheetContent(
     // Finger, Loslassen, Zurück-Taste und Zurück-Geste steuern alle denselben Fortschritt (SheetMotion).
     val open = motion.progress
     LaunchedEffect(Unit) {
-        if (origin != null && !fingerDriven) {
+        if (!fingerDriven && open.value < 1f) {
             // Das erste Layout des Players ist teuer. Zwei Frames abwarten, damit es nicht
             // in die Animation fällt und sie am Anfang nicht ruckelt.
             withFrameNanos { }
@@ -241,10 +241,19 @@ private fun NowPlayingSheetContent(
     var rootHeightPx by remember { mutableFloatStateOf(1f) }
     val queueScope = rememberCoroutineScope()
     var closing by remember { mutableStateOf(false) }        // Schließen läuft bereits
-    var slideJob by remember { mutableStateOf<Job?>(null) }  // Wegrutschen/Zurückfedern ohne Miniplayer-Ursprung
-    // Mit Miniplayer-Ursprung wird der Player beim Runterziehen wieder zum Miniplayer (Umkehrung des Öffnens),
-    // ohne Ursprung (z. B. Start über die Benachrichtigung) rutscht er nach unten weg
-    val slideMode = origin == null
+    var rootWidthPx by remember { mutableFloatStateOf(1f) }
+    // Der Player schrumpft beim Schließen immer in den Miniplayer (Umkehrung des Öffnens). Ist dessen Position nicht
+    // bekannt (z. B. Start über die Benachrichtigung), dient ein Streifen am unteren Rand als Ziel.
+    val miniColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    val fallbackDensity = LocalDensity.current
+    val navBottomPx = WindowInsets.navigationBars.getBottom(fallbackDensity)
+    val fallbackOrigin = remember(rootWidthPx, rootHeightPx, navBottomPx, miniColor) {
+        val m = with(fallbackDensity) { 12.dp.toPx() }
+        val h = with(fallbackDensity) { 72.dp.toPx() }
+        val bottom = rootHeightPx - navBottomPx - m
+        MiniOrigin(androidx.compose.ui.geometry.Rect(m, bottom - h, rootWidthPx - m, bottom), 28.dp, miniColor, null)
+    }
+    val eo: MiniOrigin = origin ?: fallbackOrigin
     val queueZonePad = with(LocalDensity.current) { 24.dp.toPx() }
     // Das Theme wechselt bei geöffneter Warteschlange sofort (keine Welle)
     SideEffect { PlayerUiState.queueOpen = queueShown }
@@ -287,7 +296,7 @@ private fun NowPlayingSheetContent(
         }
         // Der offene Player lässt sich nur nach unten ziehen, nach oben bleibt er stehen
         offsetY = (offsetY + rest).coerceAtLeast(0f)
-        if (!slideMode && !queueFollowing) {
+        if (!queueFollowing) {
             // Der Finger steuert den Fortschritt: der Player schrumpft unter dem Finger zum Miniplayer
             val dist = rootHeightPx * SHEET_DRAG_FRACTION
             motion.follow(1f - offsetY.coerceAtLeast(0f) / dist)
@@ -297,36 +306,18 @@ private fun NowPlayingSheetContent(
     fun requestClose() {
         if (closing) return
         closing = true
-        if (slideMode) {
-            slideJob?.cancel()
-            slideJob = queueScope.launch {
-                animate(offsetY.coerceAtLeast(0f), rootHeightPx, 0f, sheetSpring()) { v, _ -> offsetY = v }
-                onDismiss()
-            }
-        } else {
-            // genau die Umkehrung des Öffnens: Karte schrumpft zurück in den Miniplayer
-            motion.settle(0f) { onDismiss() }
-        }
+        // genau die Umkehrung des Öffnens: Karte schrumpft zurück in den Miniplayer
+        motion.settle(0f) { onDismiss() }
     }
 
     // Zurück-Geste (Android 13+): der Player schrumpft schon während der Geste mit, Loslassen schließt,
     // Abbrechen federt zurück. Auf älteren Android-Versionen verhält es sich wie eine normale Zurück-Taste.
     PredictiveBackHandler { backEvents ->
         try {
-            backEvents.collect { e ->
-                if (slideMode) offsetY = e.progress * rootHeightPx * 0.12f
-                else motion.follow(1f - e.progress * 0.3f)
-            }
+            backEvents.collect { e -> motion.follow(1f - e.progress * 0.3f) }
             requestClose()
         } catch (ex: CancellationException) {
-            if (slideMode) {
-                slideJob?.cancel()
-                slideJob = queueScope.launch {
-                    animate(offsetY, 0f, 0f, sheetSpring()) { v, _ -> offsetY = v }
-                }
-            } else {
-                motion.settle(1f)
-            }
+            motion.settle(1f)
         }
     }
     // Zurück-Taste schließt zuerst die Warteschlange
@@ -335,42 +326,38 @@ private fun NowPlayingSheetContent(
     val density = LocalDensity.current.density
     // Endposition des großen Covers (für die Flug-Animation) und ob geflogen wird
     var finalCover by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
-    val hasFly = origin?.coverBounds != null
+    val hasFly = eo.coverBounds != null
     val dens = LocalDensity.current
     val sheetColor = MaterialTheme.colorScheme.surface
     // open.value wird nur in Lambdas der Zeichenphase gelesen; der Inhalt wird pro Frame nicht neu komponiert
     val flying by remember { derivedStateOf { open.value < 1f } }
-    Box(Modifier.fillMaxSize().onSizeChanged { rootHeightPx = it.height.toFloat().coerceAtLeast(1f) }) {
-        // Abdunkelung der Liste hinter dem aufgehenden Player
-        if (origin != null) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        val slide = if (slideMode) (offsetY / size.height).coerceIn(0f, 1f) else 0f
-                        alpha = open.value * 0.55f * (1f - slide)
-                    }
-                    .background(Color.Black)
-            )
+    Box(
+        Modifier.fillMaxSize().onSizeChanged {
+            rootHeightPx = it.height.toFloat().coerceAtLeast(1f)
+            rootWidthPx = it.width.toFloat().coerceAtLeast(1f)
         }
+    ) {
+        // Abdunkelung der Liste hinter dem aufgehenden Player
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer { alpha = open.value * 0.55f }
+                .background(Color.Black)
+        )
         Surface(
             Modifier
                 .fillMaxSize()
-                .offset { androidx.compose.ui.unit.IntOffset(0, if (slideMode) offsetY.coerceAtLeast(0f).toInt() else 0) }
                 .draggable(
                     state = dragState,
                     orientation = androidx.compose.foundation.gestures.Orientation.Vertical,
                     onDragStarted = { start ->
                         // laufende Animation abfangen: der Finger übernimmt genau an der aktuellen Stelle
                         closing = false
-                        slideJob?.cancel()
                         dragFromQueueZone = start.y >= queueZoneTop - queueZonePad
                         upDrag = 0f
-                        if (!slideMode) {
-                            val cur = open.value.coerceIn(0f, 1f)
-                            motion.follow(cur)
-                            offsetY = (1f - cur) * rootHeightPx * SHEET_DRAG_FRACTION
-                        }
+                        val cur = open.value.coerceIn(0f, 1f)
+                        motion.follow(cur)
+                        offsetY = (1f - cur) * rootHeightPx * SHEET_DRAG_FRACTION
                     },
                     onDragStopped = { velocity ->
                         if (queueFollowing) {
@@ -379,20 +366,6 @@ private fun NowPlayingSheetContent(
                             val shownFraction = -upDrag / (rootHeightPx * QUEUE_HEIGHT_FRACTION)
                             upDrag = 0f
                             if (shownFraction > 0.3f || velocity < -900f) openQueue() else closeQueue()
-                        } else if (slideMode) {
-                            // Ziel anhand von Weg und Geschwindigkeit, relativ zur Bildschirmhöhe
-                            val projected = offsetY + velocity * SHEET_PROJECTION_S
-                            val close = projected > rootHeightPx * 0.3f
-                            slideJob?.cancel()
-                            slideJob = queueScope.launch {
-                                if (close) {
-                                    closing = true
-                                    animate(offsetY, rootHeightPx, velocity, sheetSpring()) { v, _ -> offsetY = v }
-                                    onDismiss()
-                                } else {
-                                    animate(offsetY, 0f, velocity, sheetSpring()) { v, _ -> offsetY = v }
-                                }
-                            }
                         } else {
                             // Fortschritt und Geschwindigkeit (pro Sekunde) aus dem Fingerweg ableiten,
                             // dann per Feder weiterlaufen: schnelles Wischen fühlt sich anders an als langsames
@@ -411,17 +384,13 @@ private fun NowPlayingSheetContent(
                 )
                 .pointerInput(Unit) {}
                 .graphicsLayer {
-                    // Ohne Miniplayer-Ursprung werden die Ecken beim Runterziehen nach und nach rund (bis 38.dp);
-                    // mit Ursprung übernimmt die Form-Umwandlung zum Miniplayer das
-                    val corner = if (slideMode) ((offsetY / density) / 24f).coerceIn(0f, 1f) * 38f else 0f
-                    shape = SheetRevealShape(origin, open.value, corner)
+                    shape = SheetRevealShape(eo, open.value, 0f)
                     clip = true
 
                 }
                 .drawBehind {
-                    val color = if (origin == null) sheetColor else
-                        androidx.compose.ui.graphics.lerp(origin.color, sheetColor, open.value)
-                            .copy(alpha = (open.value / 0.3f).coerceIn(0f, 1f))
+                    val color = androidx.compose.ui.graphics.lerp(eo.color, sheetColor, open.value)
+                        .copy(alpha = (open.value / 0.3f).coerceIn(0f, 1f))
                     drawRect(color)
                 },
             shape = androidx.compose.ui.graphics.RectangleShape,
@@ -444,9 +413,7 @@ private fun NowPlayingSheetContent(
                     Box(Modifier.fillMaxWidth().reveal({ open.value }, 0.30f, 0.75f, 0.dp)) {
                         // 0 = Player offen, 1 = Kopfzeilen-Symbole ganz flach (wird nur beim Zeichnen gelesen)
                         val headerFlatten: () -> Float = {
-                            val f = if (slideMode) offsetY.coerceAtLeast(0f) / (rootHeightPx * 0.1f)
-                            else (1f - open.value) / 0.25f
-                            f.coerceIn(0f, 1f)
+                            ((1f - open.value) / 0.25f).coerceIn(0f, 1f)
                         }
                         CloseSheetButton(
                             onClick = { requestClose() },
@@ -662,7 +629,7 @@ private fun NowPlayingSheetContent(
             }
         }
         // Das Cover fliegt vom Miniplayer an seinen Platz im Player
-        val fb = origin?.coverBounds
+        val fb = eo.coverBounds
         val fin = finalCover
         if (fb != null && fin != null && flying) {
             val finalDp = with(dens) { fin.width.toDp() }
