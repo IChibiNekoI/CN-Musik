@@ -198,11 +198,20 @@ fun SongRow(
     onToggleFavorite: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    // Die Hervorhebung des laufenden Titels blendet weich ein und aus
+    // Die Hervorhebung des laufenden Titels: Der bisherige Titel blendet schnell aus, der neue folgt
+    // minimal später und weich. So leuchten nie zwei Zeilen gleichzeitig.
     val rowColor by animateColorAsState(
         if (isCurrent) MaterialTheme.colorScheme.secondaryContainer
         else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0f),
-        animationSpec = tween(Motion.MEDIUM), label = "rowColor"
+        animationSpec = if (isCurrent) tween(Motion.MEDIUM, delayMillis = Motion.FAST / 2, easing = Motion.Ease)
+        else tween(Motion.FAST, easing = Motion.Ease),
+        label = "rowColor"
+    )
+    // Die Hervorhebung federt beim Aufleuchten mit kleinem Überschwinger an ihren Platz (wie die übrigen Tasten der App)
+    val highlightScale = animateFloatAsState(
+        targetValue = if (isCurrent) 1f else 0.92f,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = 500f),
+        label = "rowHighlightScale"
     )
     var expanded by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
@@ -230,6 +239,10 @@ fun SongRow(
             Modifier
                 .matchParentSize()
                 .padding(horizontal = 8.dp, vertical = 2.dp)
+                .graphicsLayer {
+                    scaleX = highlightScale.value
+                    scaleY = highlightScale.value
+                }
                 .clip(RoundedCornerShape(20.dp))
                 .background(rowColor)
                 .indication(pressSource, LocalIndication.current)
