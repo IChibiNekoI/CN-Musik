@@ -72,6 +72,18 @@ private fun seedFromBitmap(src: Bitmap): CoverSeed? {
     }
 }
 
+/** Zuletzt gezeigte Cover-Farbe: beim nächsten Start sofort da, noch bevor Bibliothek und Titel geladen sind. */
+private fun loadSavedSeed(ctx: android.content.Context): CoverSeed? {
+    val p = ctx.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
+    if (!p.contains("cover_seed_h")) return null
+    return CoverSeed(p.getFloat("cover_seed_h", 0f), p.getFloat("cover_seed_s", 0f), p.getBoolean("cover_seed_n", true))
+}
+
+private fun saveSeed(ctx: android.content.Context, s: CoverSeed) {
+    ctx.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE).edit()
+        .putFloat("cover_seed_h", s.h).putFloat("cover_seed_s", s.s).putBoolean("cover_seed_n", s.neutral).apply()
+}
+
 /** Alle Farben, die das Cover-Theme überschreibt (feste Reihenfolge, damit man sie überblenden kann). */
 private class Tones(val v: List<Color>)
 
@@ -163,10 +175,12 @@ private fun tonesFromSeed(seed: CoverSeed, dark: Boolean): Tones {
 fun CoverTheme(song: Song?, dark: Boolean, content: @Composable () -> Unit) {
     val ctx = LocalContext.current
     val coverVer = song?.let { TagEvents.coverVersions[it.id] } ?: 0
-    val seed by produceState<CoverSeed?>(null, song?.id, coverVer) {
-        val sg = song
-        val seedKey = "${sg?.id}_$coverVer"
-        value = if (sg == null) null else SeedCache.get(seedKey) ?: withContext(Dispatchers.IO) {
+    // Startwert ist die zuletzt gezeigte Farbe: Die App startet gleich im richtigen Ton statt erst im Standard-Theme
+    val savedSeed = remember { loadSavedSeed(ctx) }
+    val seed by produceState<CoverSeed?>(savedSeed, song?.id, coverVer) {
+        val sg = song ?: return@produceState   // noch kein Titel geladen: die gemerkte Farbe bleibt
+        val seedKey = "${sg.id}_$coverVer"
+        value = SeedCache.get(seedKey) ?: withContext(Dispatchers.IO) {
             try {
                 // aus dem Platten-Cache (schnell), nur im Notfall direkt aus der Datei
                 (loadCoverBitmap(ctx, sg, coverVer, 96)
@@ -176,6 +190,12 @@ fun CoverTheme(song: Song?, dark: Boolean, content: @Composable () -> Unit) {
                 null
             }
         }?.also { SeedCache.put(seedKey, it) }
+    }
+
+    // Die Farbe des laufenden Titels fürs nächste Mal merken
+    LaunchedEffect(seed, song?.id) {
+        val sg = seed
+        if (song != null && sg != null) saveSeed(ctx, sg)
     }
 
     val base = MaterialTheme.colorScheme
