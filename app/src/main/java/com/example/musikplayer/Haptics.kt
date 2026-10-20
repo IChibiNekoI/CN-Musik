@@ -107,7 +107,9 @@ fun HapticLazyColumn(
 ) {
     val state = rememberLazyListState()
     EdgeHaptics(state)
-    LazyColumn(modifier, state = state, contentPadding = contentPadding, content = content)
+    NoSystemOverscroll {
+        LazyColumn(modifier.bounceOverscroll(), state = state, contentPadding = contentPadding, content = content)
+    }
 }
 
 /** LazyVerticalGrid mit Ticken am oberen und unteren Ende */
@@ -122,13 +124,15 @@ fun HapticLazyGrid(
 ) {
     val state = rememberLazyGridState()
     EdgeHaptics(state)
-    LazyVerticalGrid(
-        columns = columns,
-        modifier = modifier,
-        state = state,
-        contentPadding = contentPadding,
-        horizontalArrangement = horizontalArrangement,
-        verticalArrangement = verticalArrangement,
-        content = content
-    )
+    NoSystemOverscroll {
+        LazyVerticalGrid(
+            columns = columns,
+            modifier = modifier.bounceOverscroll(),
+            state = state,
+            contentPadding = contentPadding,
+            horizontalArrangement = horizontalArrangement,
+            verticalArrangement = verticalArrangement,
+            content = content
+        )
+    }
 }
