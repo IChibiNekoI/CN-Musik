@@ -123,13 +123,10 @@ private fun GridTile(
     cover: @Composable (Dp) -> Unit
 ) {
     BoxWithConstraints(
-        // Kein Clip und keine Klick-Animation: Der Clip schnitt unten die Ecken von Titel und Untertitel ab,
-        // und der Ripple färbte die Kachel beim Drücken weiß.
+        // Kein Clip und kein Ripple: Der Clip schnitt unten die Ecken von Titel und Untertitel ab,
+        // und der Ripple färbte die Kachel beim Drücken weiß. Stattdessen drückt sich die Kachel leicht ein.
         Modifier.fillMaxWidth()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) { onClick() }
+            .bounceClick(pressedScale = 0.95f, haptic = false) { onClick() }
     ) {
         val w = maxWidth
         Column(Modifier.fillMaxWidth()) {
@@ -204,7 +201,19 @@ fun SongRow(
     // Gemeinsame Quelle für Drücken: der Klick liegt auf dem ListItem, die Welle wird dahinter
     // im eingerückten Rechteck gezeichnet (gleiche Breite wie die Hervorhebung des laufenden Titels)
     val pressSource = remember { MutableInteractionSource() }
-    Box(modifier.fillMaxWidth()) {
+    // Gedrückt: die ganze Zeile drückt sich leicht ein und federt zurück
+    val rowPressed by pressSource.collectIsPressedAsState()
+    val rowScale = animateFloatAsState(
+        targetValue = if (rowPressed) 0.97f else 1f,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = 700f),
+        label = "rowPress"
+    )
+    Box(
+        modifier.fillMaxWidth().graphicsLayer {
+            scaleX = rowScale.value
+            scaleY = rowScale.value
+        }
+    ) {
     if (rounded) {
         // Einheitlich: abgerundete, leicht eingerückte Hervorhebung. Der Inhalt bleibt an seinem gewohnten Platz.
         Box(
@@ -268,7 +277,7 @@ fun SongRow(
         modifier = if (rounded) {
             Modifier.clip(RoundedCornerShape(20.dp))
                 .clickable(interactionSource = pressSource, indication = null) { onClick() }
-        } else Modifier.clickable { onClick() }
+        } else Modifier.clickable(interactionSource = pressSource, indication = null) { onClick() }
     )
     }
 }
@@ -613,7 +622,7 @@ fun LibraryScreen(
                                 },
                                 leadingContent = { Cover(list.first(), 56.dp) },
                                 colors = clearColors(),
-                                modifier = Modifier.clickable { openAlbum = albumName }
+                                modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { openAlbum = albumName }
                             )
                         }
                     }
@@ -706,7 +715,7 @@ fun LibraryScreen(
                                     }
                                 },
                                 colors = clearColors(),
-                                modifier = Modifier.clickable { openPlaylist = p.id }
+                                modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { openPlaylist = p.id }
                             )
                         }
                     }
