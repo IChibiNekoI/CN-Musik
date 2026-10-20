@@ -82,14 +82,18 @@ fun MiniPlayer(
         val px = warmView.width - 2 * with(density) { 24.dp.roundToPx() }
         prewarmPlayerCover(warmCtx, song, px)
     }
+    val lastGood = remember { arrayOfNulls<MiniOrigin>(1) }
     val buildOrigin: () -> MiniOrigin? = {
-        coordsRef[0]?.takeIf { it.isAttached }
+        val fresh = coordsRef[0]?.takeIf { it.isAttached }
             ?.let {
                 MiniOrigin(
                     it.boundsInRoot(), radius, miniColor,
                     coverRef[0]?.takeIf { c -> c.isAttached }?.boundsInRoot()
                 )
             }
+        // Ist die Messung gerade nicht verfügbar, gilt die letzte bekannte Position (besser als keine)
+        if (fresh != null) lastGood[0] = fresh
+        fresh ?: lastGood[0]
     }
     val openPlayer: () -> Unit = { onOpen(buildOrigin()) }
     // Berührt: der Miniplayer drückt sich leicht ein und federt beim Loslassen zurück
