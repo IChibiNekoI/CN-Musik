@@ -18,6 +18,9 @@ class MainActivity : ComponentActivity() {
     // zählt hoch, sobald der Player geöffnet werden soll (Tipp auf die Benachrichtigung)
     private var openPlayerSignal by mutableIntStateOf(0)
 
+    // Audiodatei, die von außen geöffnet wurde ("Öffnen mit"); wird von der App abgespielt und dann geleert
+    private var viewUri by mutableStateOf<android.net.Uri?>(null)
+
     // Sprache: Deutsch oder Englisch (automatisch nach Gerät oder in den Einstellungen gewählt)
     override fun attachBaseContext(newBase: android.content.Context) {
         val wrapped = Lang.wrap(newBase)
@@ -29,13 +32,24 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleOpenPlayer(intent)
-        setContent { AppTheme { MusikApp(openPlayerSignal) } }
+        // Nicht erneut starten, wenn die Activity nur neu aufgebaut wird (z. B. Drehen)
+        if (savedInstanceState == null) handleView(intent)
+        setContent { AppTheme { MusikApp(openPlayerSignal, viewUri) { viewUri = null } } }
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         handleOpenPlayer(intent)
+        handleView(intent)
+    }
+
+    private fun handleView(intent: android.content.Intent?) {
+        if (intent?.action == android.content.Intent.ACTION_VIEW) {
+            intent.data?.let { viewUri = it }
+            // Merken, dass dieser Aufruf erledigt ist (sonst würde er beim Neustart der Activity wiederholt)
+            intent.action = null
+        }
     }
 
     private fun handleOpenPlayer(intent: android.content.Intent?) {
