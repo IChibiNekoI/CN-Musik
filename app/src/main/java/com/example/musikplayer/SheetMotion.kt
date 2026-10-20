@@ -41,7 +41,9 @@ fun sheetSpring(): SpringSpec<Float> = spring(
  */
 @Stable
 class SheetMotion {
-    val progress = Animatable(0f)
+    // Auf 0..1 begrenzt: eine Feder mit viel Anfangsschwung darf nicht darüber hinausschwingen,
+    // sonst bekämen Form, Cover-Flug und Farben ungültige Werte
+    val progress = Animatable(0f).apply { updateBounds(0f, 1f) }
 
     private sealed interface Cmd
     private class Follow(val value: Float) : Cmd
