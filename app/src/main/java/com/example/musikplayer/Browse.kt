@@ -29,6 +29,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.LocalIndication
@@ -293,7 +294,7 @@ fun SongRow(
  */
 private fun AnimatedContentTransitionScope<String?>.pushPop(): ContentTransform {
     val push = targetState != null
-    val move = spring(dampingRatio = 1f, stiffness = 380f, visibilityThreshold = IntOffset.VisibilityThreshold)
+    val move = spring<IntOffset>(dampingRatio = 1f, stiffness = 380f, visibilityThreshold = IntOffset.VisibilityThreshold)
     val enter = slideInHorizontally(move) { w -> if (push) w / 4 else -w / 8 } +
         fadeIn(tween(Motion.MEDIUM, delayMillis = 40)) +
         scaleIn(tween(Motion.MEDIUM, easing = Motion.Ease), initialScale = if (push) 0.96f else 1.03f)
