@@ -27,6 +27,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -146,6 +147,8 @@ fun MusikApp(openPlayerSignal: Int = 0) {
     // Finger, Loslassen mit Geschwindigkeit, Zurück-Taste und Zurück-Geste, alles unterbrechbar
     val sheetMotion = remember { SheetMotion() }
     LaunchedEffect(sheetMotion) { sheetMotion.run() }
+    // Landung des Players im Miniplayer: kurzes, leichtes Eindrücken mit Nachfedern (0 = Ruhe)
+    val miniBounce = remember { Animatable(0f) }
     // Ist der Player weg (egal wie), steht der Fortschritt wieder auf Miniplayer
     LaunchedEffect(showNow) { if (!showNow) sheetMotion.snapTo(0f) }
     var gestureOpen by remember { mutableStateOf(false) }
@@ -307,7 +310,16 @@ fun MusikApp(openPlayerSignal: Int = 0) {
             }
         }
         if (current != null && controller != null) {
-            Box(Modifier.align(Alignment.BottomCenter)) {
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .graphicsLayer {
+                        // Sehr leicht gestaucht und minimal breiter, wie ein weiches Auftreffen
+                        val k = miniBounce.value
+                        scaleY = 1f - k
+                        scaleX = 1f + k * 0.35f
+                    }
+            ) {
                 // Der Miniplayer schiebt sich beim ersten Mal sanft von unten herein
                     val miniEnter = remember { MutableTransitionState(false).apply { targetState = true } }
                     AnimatedVisibility(
@@ -364,7 +376,21 @@ fun MusikApp(openPlayerSignal: Int = 0) {
                     showNow = false
                 },
                 onAddToPlaylist = { playlistRequest = current }
-            ) { showNow = false; gestureOpen = false }
+            ) {
+                // Landet der Player im Miniplayer (statt nur wegzurutschen), federt der Miniplayer weich nach
+                val landed = origin != null
+                showNow = false
+                gestureOpen = false
+                if (landed) scope.launch {
+                    miniBounce.snapTo(0.035f)
+                    miniBounce.animateTo(
+                        0f,
+                        androidx.compose.animation.core.spring(
+                            dampingRatio = 0.4f, stiffness = 550f, visibilityThreshold = 0.0005f
+                        )
+                    )
+                }
+            }
         }
         if (showSettings) {
             AppSettingsSheet(
