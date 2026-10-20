@@ -664,8 +664,9 @@ private fun NowPlayingSheetContent(
                 Modifier
                     .size(finalDp)
                     .graphicsLayer {
-                        val e = open.value
-                        val sc = androidx.compose.ui.util.lerp(fb.width / fin.width, 1f, e)
+                        val e = open.value.coerceIn(0f, 1f)
+                        val sc = androidx.compose.ui.util.lerp(fb.width / fin.width.coerceAtLeast(1f), 1f, e)
+                            .coerceAtLeast(0.05f)
                         transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
                         scaleX = sc
                         scaleY = sc
