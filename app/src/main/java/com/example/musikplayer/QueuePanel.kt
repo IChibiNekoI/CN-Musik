@@ -34,6 +34,9 @@ import kotlin.math.max
 /** Anteil der Bildschirmhöhe, den die Warteschlange einnimmt */
 const val QUEUE_HEIGHT_FRACTION = 0.78f
 
+/** Ein Eintrag der Warteschlange: stabiler Schlüssel (bleibt beim Verschieben gleich), aktuelle Position im Player und der Titel */
+private data class QueueEntry(val key: Long, val queueIndex: Int, val song: Song)
+
 /** Reihenfolge der Warteschlange: bereits gespielte Titel, der aktuelle und die folgenden (auch bei Zufallswiedergabe) */
 private fun queueIndices(c: MediaController): List<Int> {
     val tl = c.currentTimeline
@@ -83,21 +86,28 @@ fun QueuePanel(
     val shuffle = remember(version) { c.shuffleModeEnabled }
     val order = remember(version) { queueIndices(c) }
     val current = remember(version) { c.currentMediaItemIndex }
-    // Jeder Eintrag bekommt seine Position in der Warteschlange als Schlüssel (id), so kann ein Titel auch doppelt vorkommen.
-    val real = remember(version, byId) {
-        order.associateWith { qi ->
+    // Jeder Eintrag bekommt einen stabilen Schlüssel: Titel-ID plus Nummer des Vorkommens (ein Titel kann mehrfach
+    // in der Warteschlange stehen). Die Position darf NICHT als Schlüssel dienen: sie ändert sich bei jedem Verschieben,
+    // dann verliert die Liste die Zuordnung der Zeilen (Sprünge, kein sanftes Verschieben wie in der Playlist).
+    val entries = remember(version, byId) {
+        val seen = HashMap<Long, Int>()
+        order.map { qi ->
             val item = c.getMediaItemAt(qi)
-            val id = item.mediaId.toLongOrNull()
-            byId[id] ?: Song(
-                id = id ?: -1L,
+            val id = item.mediaId.toLongOrNull() ?: -1L
+            val occurrence = seen.getOrDefault(id, 0)
+            seen[id] = occurrence + 1
+            val song = byId[id] ?: Song(
+                id = id,
                 title = item.mediaMetadata.title?.toString().orEmpty(),
                 artist = item.mediaMetadata.artist?.toString().orEmpty(),
                 uri = item.localConfiguration?.uri ?: Uri.EMPTY,
                 folder = ""
             )
+            QueueEntry(key = id * 100_000L + occurrence, queueIndex = qi, song = song)
         }
     }
-    val display = remember(real) { order.map { qi -> real.getValue(qi).copy(id = qi.toLong()) } }
+    val display = remember(entries) { entries.map { it.song.copy(id = it.key) } }
+    val entryByKey = remember(entries) { entries.associateBy { it.key } }
     val noRipple = remember { MutableInteractionSource() }
     val density = LocalDensity.current
     // Erster Eintrag, der beim Öffnen zu sehen ist (die Liste springt zum aktuellen Titel)
@@ -170,14 +180,19 @@ fun QueuePanel(
                 ReorderableSongList(
                     songs = display,
                     onReorder = { newOrder ->
-                        // Neue Reihenfolge als einzelne Verschiebungen an den Player melden
-                        val cur = order.toMutableList()
-                        newOrder.forEachIndexed { p, s ->
-                            val qi = s.id.toInt()
-                            if (cur[p] != qi) {
-                                val from = cur.indexOf(qi)
-                                c.moveMediaItem(from, p)
-                                cur.add(p, cur.removeAt(from))
+                        // Ein Ziehen verschiebt genau einen Titel: diesen finden und als eine einzige Verschiebung melden
+                        val oldKeys = entries.map { it.key }
+                        val newKeys = newOrder.map { it.id }
+                        if (oldKeys.size == newKeys.size) {
+                            val i = oldKeys.indices.firstOrNull { oldKeys[it] != newKeys[it] }
+                            if (i != null) {
+                                val fwd = newKeys.indexOf(oldKeys[i])    // Titel von i nach hinten verschoben
+                                val bwd = oldKeys.indexOf(newKeys[i])    // Titel von bwd nach i nach vorn verschoben
+                                if (fwd >= 0 && oldKeys.toMutableList().apply { add(fwd, removeAt(i)) } == newKeys) {
+                                    c.moveMediaItem(entries[i].queueIndex, entries[fwd].queueIndex)
+                                } else if (bwd >= 0 && oldKeys.toMutableList().apply { add(i, removeAt(bwd)) } == newKeys) {
+                                    c.moveMediaItem(entries[bwd].queueIndex, entries[i].queueIndex)
+                                }
                             }
                         }
                     },
@@ -186,8 +201,9 @@ fun QueuePanel(
                     enabled = !shuffle,
                     initialIndex = max(0, order.indexOf(current) - 1)
                 ) { i, s, itemModifier ->
-                    val qi = s.id.toInt()
-                    val song = real[qi] ?: return@ReorderableSongList
+                    val entry = entryByKey[s.id] ?: return@ReorderableSongList
+                    val qi = entry.queueIndex
+                    val song = entry.song
                     val isCurrent = qi == current
                     ListItem(
                         headlineContent = { Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
