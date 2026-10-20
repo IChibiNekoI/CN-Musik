@@ -178,8 +178,9 @@ fun ReorderableSongList(
         }
     }
 
+    NoSystemOverscroll {
     LazyColumn(
-        modifier = modifier.pointerInput(Unit) {
+        modifier = modifier.bounceOverscroll().pointerInput(Unit) {
             awaitEachGesture {
                 // Bis zum langen Drücken wird nur beobachtet (Initial, nichts verbraucht): Tippen und Scrollen laufen normal
                 val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
@@ -268,5 +269,6 @@ fun ReorderableSongList(
             }
             row(i, s, itemModifier)
         }
+    }
     }
 }
