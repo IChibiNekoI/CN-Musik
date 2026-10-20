@@ -1,6 +1,11 @@
 package com.example.musikplayer
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -282,6 +287,22 @@ fun SongRow(
     }
 }
 
+/**
+ * Alben und Playlists öffnen und schließen wie ein Seitenwechsel: Die Detailansicht schiebt sich mit Feder von rechts
+ * herein und wird dabei größer, die Liste weicht nach links aus. Beim Zurückgehen läuft es umgekehrt.
+ */
+private fun AnimatedContentTransitionScope<String?>.pushPop(): ContentTransform {
+    val push = targetState != null
+    val move = spring(dampingRatio = 1f, stiffness = 380f, visibilityThreshold = IntOffset.VisibilityThreshold)
+    val enter = slideInHorizontally(move) { w -> if (push) w / 4 else -w / 8 } +
+        fadeIn(tween(Motion.MEDIUM, delayMillis = 40)) +
+        scaleIn(tween(Motion.MEDIUM, easing = Motion.Ease), initialScale = if (push) 0.96f else 1.03f)
+    val exit = slideOutHorizontally(move) { w -> if (push) -w / 8 else w / 4 } +
+        fadeOut(tween(Motion.FAST)) +
+        scaleOut(tween(Motion.MEDIUM, easing = Motion.Ease), targetScale = if (push) 1.03f else 0.96f)
+    return (enter togetherWith exit) using SizeTransform(clip = false)
+}
+
 @Composable
 fun LibraryScreen(
     pad: PaddingValues,
@@ -457,7 +478,7 @@ fun LibraryScreen(
                 }
                 if (tab == 2) {
                     Box {
-                        BounceIconButton(onClick = { plusMenu = true }) {
+                        BounceIconButton(onClick = { plusMenu = true }, rotate = 40f) {
                             PlusIcon(description = str(R.string.playlist_add_cd))
                         }
                         BounceMenu(expanded = plusMenu, onDismissRequest = { plusMenu = false }) {
@@ -484,7 +505,7 @@ fun LibraryScreen(
                 if (update != null && tab != 2) {
                     UpdateButton(onClick = { showUpdate = true })
                 }
-                BounceIconButton(onClick = { searching = true }) {
+                BounceIconButton(onClick = { searching = true }, rotate = 40f) {
                     SearchIcon(description = str(R.string.search))
                 }
                 BounceIconButton(onClick = onSettings, rotate = 40f) {
@@ -589,7 +610,13 @@ fun LibraryScreen(
                 }
             }
             1 -> {
-                val name = openAlbum
+                AnimatedContent(
+                    targetState = openAlbum,
+                    modifier = Modifier.weight(1f),
+                    transitionSpec = { pushPop() },
+                    label = "album"
+                ) { name ->
+                Column(Modifier.fillMaxSize()) {
                 if (name == null && albumStyle.grid) {
                     HapticLazyGrid(
                         columns = GridCells.Fixed(albumStyle.cols),
@@ -643,6 +670,8 @@ fun LibraryScreen(
                         }
                     }
                 }
+                }
+                }
             }
             3 -> {
                 // neueste Favoriten zuerst
@@ -666,7 +695,14 @@ fun LibraryScreen(
                 }
             }
             else -> {
-                val pl = playlists.firstOrNull { it.id == openPlaylist }
+                AnimatedContent(
+                    targetState = openPlaylist,
+                    modifier = Modifier.weight(1f),
+                    transitionSpec = { pushPop() },
+                    label = "playlist"
+                ) { plId ->
+                Column(Modifier.fillMaxSize()) {
+                val pl = playlists.firstOrNull { it.id == plId }
                 if (pl == null && playlists.isEmpty()) {
                     Text(
                         str(R.string.no_playlists),
@@ -785,6 +821,8 @@ fun LibraryScreen(
                             }
                         )
                     }
+                }
+                }
                 }
             }
         }
