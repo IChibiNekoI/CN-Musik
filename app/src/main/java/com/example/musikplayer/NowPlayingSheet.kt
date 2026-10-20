@@ -338,6 +338,13 @@ private fun NowPlayingSheetContent(
     val sheetColor = MaterialTheme.colorScheme.surface
     // open.value wird nur in Lambdas der Zeichenphase gelesen; der Inhalt wird pro Frame nicht neu komponiert
     val flying by remember { derivedStateOf { open.value < 1f } }
+    // Der Cover-Überschwinger gehört nur zum Öffnen. Ist der Player einmal ganz offen, fliegt das Cover
+    // beim Ziehen (und Schließen) ohne Beule; beim nächsten Öffnen ist der Player neu und der Wert wieder false.
+    var coverBounceDone by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        androidx.compose.runtime.snapshotFlow { open.value }.first { it >= 0.999f }
+        coverBounceDone = true
+    }
     Box(Modifier.fillMaxSize().onSizeChanged { rootHeightPx = it.height.toFloat().coerceAtLeast(1f) }) {
         // Abdunkelung der Liste hinter dem aufgehenden Player
         if (origin != null) {
@@ -675,7 +682,7 @@ private fun NowPlayingSheetContent(
                 Modifier
                     .size(finalDp)
                     .graphicsLayer {
-                        val e = coverPath(open.value.coerceIn(0f, 1f))
+                        val e = coverPath(open.value.coerceIn(0f, 1f), bounce = !coverBounceDone)
                         val sc = androidx.compose.ui.util.lerp(fb.width / fin.width.coerceAtLeast(1f), 1f, e)
                             .coerceAtLeast(0.05f)
                         transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
@@ -705,10 +712,11 @@ private const val COVER_BOUNCE = 0.4f
  * Weg des fliegenden Covers in Abhängigkeit vom Öffnen-Fortschritt [t] (0 = Miniplayer, 1 = Platz im Player).
  * Bei 0 und 1 identisch zum Fortschritt, dazwischen kommt eine kleine Beule dazu: Das Cover schießt kurz
  * ein wenig über sein Ziel und setzt sich dann. Weil es eine reine Funktion des Fortschritts ist, wirkt es
- * beim Öffnen per Tippen, per Hochziehen und umgekehrt beim Schließen (dort leichtes Ausholen).
+ * beim Öffnen per Tippen und per Hochziehen. Ist der Player schon offen ([bounce] = false), ist der Weg linear.
  * Nie negativ, deshalb bleiben Größe und Ecken gültig.
  */
-private fun coverPath(t: Float): Float = t + COVER_BOUNCE * kotlin.math.sin(kotlin.math.PI.toFloat() * t)
+private fun coverPath(t: Float, bounce: Boolean): Float =
+    if (bounce) t + COVER_BOUNCE * kotlin.math.sin(kotlin.math.PI.toFloat() * t) else t
 
 /** Kopfzeilen-Tasten wachsen beim Öffnen mit dem Fortschritt auf (und schrumpfen beim Schließen wieder), statt nur einzublenden */
 private fun Modifier.headerPop(progress: () -> Float): Modifier = graphicsLayer {
