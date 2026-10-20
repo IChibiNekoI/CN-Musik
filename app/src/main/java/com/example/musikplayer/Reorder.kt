@@ -180,7 +180,7 @@ fun ReorderableSongList(
 
     NoSystemOverscroll {
     LazyColumn(
-        modifier = modifier.bounceOverscroll().pointerInput(Unit) {
+        modifier = modifier.bounceOverscroll().topEdgeFade(listState).pointerInput(Unit) {
             awaitEachGesture {
                 // Bis zum langen Drücken wird nur beobachtet (Initial, nichts verbraucht): Tippen und Scrollen laufen normal
                 val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
