@@ -58,6 +58,8 @@ fun MiniPlayer(
     onDragStart: (MiniOrigin?) -> Unit = {},
     onDrag: (Float) -> Unit = {},
     onDragEnd: (Float, Float) -> Unit = { _, _ -> },
+    // Meldet jede Änderung der Position, damit der Player beim Schließen immer die aktuelle kennt
+    onOriginChanged: (MiniOrigin) -> Unit = {},
     onOpen: (MiniOrigin?) -> Unit
 ) {
       val view = androidx.compose.ui.platform.LocalView.current
@@ -113,7 +115,10 @@ fun MiniPlayer(
         modifier = Modifier
             .navigationBarsPadding()
             .padding(start = margin, end = margin, bottom = margin)
-            .onGloballyPositioned { coordsRef[0] = it }
+            .onGloballyPositioned {
+                coordsRef[0] = it
+                if (it.isAttached) buildOrigin()?.let(onOriginChanged)
+            }
             // nach der Positionsmessung: das Eindrücken verfälscht die gemerkte Startposition des Players nicht
             .graphicsLayer {
                 scaleX = miniScale.value
@@ -163,7 +168,12 @@ fun MiniPlayer(
                 label = "miniSong"
             ) { s ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.onGloballyPositioned { if (s.id == song.id) coverRef[0] = it }) { Cover(s, 56.dp) }
+                    Box(Modifier.onGloballyPositioned {
+                        if (s.id == song.id) {
+                            coverRef[0] = it
+                            if (coordsRef[0]?.isAttached == true) buildOrigin()?.let(onOriginChanged)
+                        }
+                    }) { Cover(s, 56.dp) }
                     Column(Modifier.padding(start = 14.dp)) {
                         Text(
                             s.title,
