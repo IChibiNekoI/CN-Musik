@@ -233,7 +233,7 @@ fun PillProgress(
                 val thin = 12.dp.toPx()
                 val thick = 22.dp.toPx()
                 // Der Überschwinger der Feder darf über das Ziel hinaus, aber nie über die Höhe der Berührfläche
-                val h = (thin + (thick - thin) * g).coerceIn(thin * 0.8f, size.height)
+                val h = (thin + (thick - thin) * g).coerceIn(thin * 0.8f, maxOf(size.height, thin * 0.8f))
                 val top = (size.height - h) / 2f
                 val gc = g.coerceIn(0f, 1f)
                 val track = baseColor.copy(alpha = 0.14f + 0.08f * gc)
