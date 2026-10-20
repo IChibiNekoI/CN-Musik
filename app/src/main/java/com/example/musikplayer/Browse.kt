@@ -21,6 +21,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.indication
@@ -512,10 +516,27 @@ fun LibraryScreen(
         ) {
             val tabLabels = if (favorites.isNotEmpty()) listOf(str(R.string.tab_tracks), str(R.string.tab_albums), str(R.string.tab_playlists), str(R.string.tab_favorites))
             else listOf(str(R.string.tab_tracks), str(R.string.tab_albums), str(R.string.tab_playlists))
+            val chipCtx = LocalContext.current
             tabLabels.forEachIndexed { i, label ->
+                // Gedrückt: Der Chip drückt sich ein und federt beim Loslassen mit kleinem Überschwinger zurück
+                val chipSource = remember { MutableInteractionSource() }
+                val chipPressed by chipSource.collectIsPressedAsState()
+                val chipScale = animateFloatAsState(
+                    targetValue = if (chipPressed) 0.9f else 1f,
+                    animationSpec = spring(dampingRatio = 0.5f, stiffness = 700f),
+                    label = "tabPress"
+                )
                 FilterChip(
+                    modifier = Modifier.graphicsLayer {
+                        scaleX = chipScale.value
+                        scaleY = chipScale.value
+                    },
+                    interactionSource = chipSource,
                     selected = effTab == i,
-                    onClick = { tab = i; openAlbum = null; openPlaylist = null },
+                    onClick = {
+                        Haptics.tick(chipCtx)
+                        tab = i; openAlbum = null; openPlaylist = null
+                    },
                     label = {
                         // Der Favoriten-Tab zeigt nur ein Herz
                         if (i == 3) HeartIcon(iconSize = 20.dp, description = label)
