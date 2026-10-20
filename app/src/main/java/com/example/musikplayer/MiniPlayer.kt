@@ -3,6 +3,7 @@ package com.example.musikplayer
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -14,6 +15,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,6 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.session.MediaController
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -175,17 +181,35 @@ fun PillProgress(
     onChange: (Float) -> Unit,
     onFinished: () -> Unit
 ) {
-    val trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)
-    val fillColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+    val baseColor = MaterialTheme.colorScheme.onSurface
     val change = rememberUpdatedState(onChange)
     val finished = rememberUpdatedState(onFinished)
     var width by remember { mutableFloatStateOf(1f) }
+    // Berührt der Finger den Balken (auch beim Ziehen), wird er dicker und heller
+    var pressed by remember { mutableStateOf(false) }
+    // Leicht unterdämpfte Feder: der Balken wächst mit einem kleinen Überschwinger, beim Loslassen federt er zurück
+    val grow = animateFloatAsState(
+        targetValue = if (pressed) 1f else 0f,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = 450f),
+        label = "progressGrow"
+    )
 
     Box(
         Modifier
             .fillMaxWidth()
             .height(36.dp)
             .onSizeChanged { width = it.width.toFloat().coerceAtLeast(1f) }
+            // Nur beobachten (nichts verbrauchen): Tippen und Ziehen laufen unverändert weiter
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    pressed = true
+                    do {
+                        val ev = awaitPointerEvent(PointerEventPass.Initial)
+                    } while (ev.changes.any { it.pressed })
+                    pressed = false
+                }
+            }
             .pointerInput(Unit) {
                 detectTapGestures { pos ->
                     change.value((pos.x / width).coerceIn(0f, 1f))
@@ -202,25 +226,23 @@ fun PillProgress(
                         change.value((ch.position.x / width).coerceIn(0f, 1f))
                     }
                 )
-            },
-        contentAlignment = Alignment.CenterStart
-    ) {
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(12.dp)
-                .clip(CircleShape)
-                .background(trackColor)
-                .drawBehind {
-                    // Füllung startet als kleiner Kreis (Höhe = Breite) und füllt den Balken bei 100 % genau aus
-                    val h = size.height
-                    val fillW = (h + progress().coerceIn(0f, 1f) * (size.width - h)).coerceAtLeast(h)
-                    drawRoundRect(
-                        color = fillColor,
-                        size = Size(fillW, h),
-                        cornerRadius = CornerRadius(h / 2f, h / 2f)
-                    )
-                }
-        )
-    }
+            }
+            .drawBehind {
+                // Alles wird erst beim Zeichnen gelesen (Fortschritt und Wachstum), ohne Neu-Komposition oder Neu-Layout
+                val g = grow.value
+                val thin = 12.dp.toPx()
+                val thick = 22.dp.toPx()
+                // Der Überschwinger der Feder darf über das Ziel hinaus, aber nie über die Höhe der Berührfläche
+                val h = (thin + (thick - thin) * g).coerceIn(thin * 0.8f, size.height)
+                val top = (size.height - h) / 2f
+                val gc = g.coerceIn(0f, 1f)
+                val track = baseColor.copy(alpha = 0.14f + 0.08f * gc)
+                val fill = baseColor.copy(alpha = 0.6f + 0.25f * gc)
+                val radius = CornerRadius(h / 2f, h / 2f)
+                drawRoundRect(color = track, topLeft = Offset(0f, top), size = Size(size.width, h), cornerRadius = radius)
+                // Füllung startet als kleiner Kreis (Höhe = Breite) und füllt den Balken bei 100 % genau aus
+                val fillW = (h + progress().coerceIn(0f, 1f) * (size.width - h)).coerceAtLeast(h)
+                drawRoundRect(color = fill, topLeft = Offset(0f, top), size = Size(fillW, h), cornerRadius = radius)
+            }
+    )
 }
