@@ -74,7 +74,10 @@ fun SkipButton(
     tint: Color = LocalContentColor.current
 ) {
     Box(
-        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = if (forward) str(R.string.cd_next) else str(R.string.back) },
+        // drückt sich ein und schubst ein Stück in Pfeilrichtung; beim Loslassen federt die Taste mit Überschwinger zurück
+        modifier = modifier.size(48.dp)
+            .bounceClick(nudgeX = if (forward) 5.dp else (-5).dp, onClick = onClick)
+            .semantics { contentDescription = if (forward) str(R.string.cd_next) else str(R.string.back) },
         contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.size(iconSize)) {
