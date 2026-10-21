@@ -18,11 +18,11 @@ enum class PlayerBackground { SOLID, GRADIENT, BLUR }
 /** Aktuelle Wahl. Eine Änderung zeichnet die ganze App sofort neu. */
 object CornerSettings {
     /** Rundung von Chips, Menüs, Eingabefeldern und Dialogen */
-    var style by mutableStateOf(CornerStyle.STANDARD)
+    var style by mutableStateOf(CornerStyle.UNIFORM)
     /** Rundung der Albumcover: immer Standard (keine Einstellung mehr) */
     var coverStyle by mutableStateOf(CornerStyle.STANDARD)
     /** Hintergrund des Players */
-    var playerBg by mutableStateOf(PlayerBackground.SOLID)
+    var playerBg by mutableStateOf(PlayerBackground.BLUR)
     /** Menüs, Dialoge und Einstellungen sehen aus wie der Player (nur bei Unschärfe) */
     var menuUnified by mutableStateOf(false)
     private var loaded = false
