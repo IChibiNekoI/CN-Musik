@@ -53,8 +53,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -247,34 +245,17 @@ fun BounceSheet(
         }
     }
 
-    Popup(
-        popupPositionProvider = remember {
-            object : PopupPositionProvider {
-                override fun calculatePosition(
-                    anchorBounds: IntRect,
-                    windowSize: IntSize,
-                    layoutDirection: LayoutDirection,
-                    popupContentSize: IntSize
-                ) = IntOffset.Zero
-            }
-        },
+    // Dialog statt Popup: Ein Popup-Fenster misst sich nur am sichtbaren Bereich ohne Navigationsleiste,
+    // dadurch blieb unten ein Streifen. Das Dialog-Fenster ohne decorFitsSystemWindows deckt den ganzen Bildschirm ab.
+    androidx.compose.ui.window.Dialog(
         onDismissRequest = { closeSimple() },
-        properties = PopupProperties(focusable = true, clippingEnabled = false)
+        properties = androidx.compose.ui.window.DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
     ) {
-        // Das Popup-Fenster soll den ganzen Bildschirm abdecken, auch hinter der Navigations-/Gestenleiste.
-        // Sonst bleibt dort ein Streifen, in dem der Inhalt dahinter ohne Abdunkelung durchscheint.
-        val popupView = LocalView.current
-        SideEffect {
-            val lp = popupView.layoutParams as? android.view.WindowManager.LayoutParams
-            if (lp != null && (lp.flags and android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS) == 0) {
-                lp.flags = lp.flags or android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
-                try {
-                    (popupView.context.getSystemService(android.content.Context.WINDOW_SERVICE)
-                        as android.view.WindowManager).updateViewLayout(popupView, lp)
-                } catch (_: Exception) {
-                }
-            }
-        }
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val maxSheetH = maxHeight * 0.9f
             // Abdunkelung hinter dem Menü, Tipp darauf schließt
