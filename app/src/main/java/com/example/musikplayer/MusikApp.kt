@@ -588,6 +588,12 @@ fun AppSettingsSheet(
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                 )
+                // Die Hauptseite ist inzwischen höher als das Menü erlaubt: Der Inhalt scrollt, die Überschrift bleibt stehen
+                Column(
+                    Modifier
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState())
+                ) {
                 Text(
                     str(R.string.settings_library),
                     style = MaterialTheme.typography.titleSmall,
@@ -728,6 +734,7 @@ fun AppSettingsSheet(
                     modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "language" }
                 )
                 Spacer(Modifier.height(32.dp))
+                }
             }
             "index" -> {
                 SheetHeader(str(R.string.index)) { page = "main" }
