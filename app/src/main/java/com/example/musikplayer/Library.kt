@@ -65,9 +65,9 @@ private fun decodeStyle(s: String?): ViewStyle = when (s) {
     else -> ViewStyle()
 }
 
-/** true = ChibiNeko-Logo statt des Textes "Musik" in der Kopfzeile. */
+/** Rundung von Chips, Menüs, Feldern und Dialogen. Ohne eigene Wahl (nach der Installation): Einheitliche Rundungen. */
 fun readCornerStyle(ctx: Context): CornerStyle =
-    if (prefs(ctx).getString("corner_style", null) == "uniform") CornerStyle.UNIFORM else CornerStyle.STANDARD
+    if (prefs(ctx).getString("corner_style", "uniform") == "uniform") CornerStyle.UNIFORM else CornerStyle.STANDARD
 
 fun saveCornerStyle(ctx: Context, style: CornerStyle) {
     prefs(ctx).edit().putString("corner_style", if (style == CornerStyle.UNIFORM) "uniform" else "standard").apply()
@@ -84,10 +84,11 @@ fun saveCoverStyle(ctx: Context, style: CornerStyle) {
     prefs(ctx).edit().putString("cover_style", if (style == CornerStyle.UNIFORM) "uniform" else "standard").apply()
 }
 
+/** Hintergrund des Players. Ohne eigene Wahl (nach der Installation): Unschärfe. */
 fun readPlayerBg(ctx: Context): PlayerBackground = when (prefs(ctx).getString("player_bg", null)) {
     "gradient" -> PlayerBackground.GRADIENT
-    "blur" -> PlayerBackground.BLUR
-    else -> PlayerBackground.SOLID
+    "solid" -> PlayerBackground.SOLID
+    else -> PlayerBackground.BLUR
 }
 
 fun savePlayerBg(ctx: Context, bg: PlayerBackground) {
