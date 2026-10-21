@@ -556,6 +556,21 @@ fun AppSettingsSheet(
     val current = selected ?: all
     val clear = ListItemDefaults.colors(containerColor = Color.Transparent)
 
+    // Stark gerundete Geräteecken (ab 40 dp): ganz unten eine leere Zeile, damit nichts in der Ecke abgeschnitten wirkt
+    val cornerView = androidx.compose.ui.platform.LocalView.current
+    val cornerDensity = androidx.compose.ui.platform.LocalDensity.current
+    val deviceCorner = remember(cornerView) {
+        val insets = cornerView.rootWindowInsets
+        val px = listOf(
+            android.view.RoundedCorner.POSITION_TOP_LEFT,
+            android.view.RoundedCorner.POSITION_TOP_RIGHT,
+            android.view.RoundedCorner.POSITION_BOTTOM_LEFT,
+            android.view.RoundedCorner.POSITION_BOTTOM_RIGHT
+        ).mapNotNull { insets?.getRoundedCorner(it)?.radius }.maxOrNull() ?: 0
+        with(cornerDensity) { px.toDp() }
+    }
+    val emptyRowAtBottom = deviceCorner >= 40.dp
+
     BounceSheet(onDismissRequest = onDismiss) {
         // Beim Wechsel zwischen den Seiten gleiten Inhalte weich hinein und heraus, die Höhe des Menüs passt sich an
         AnimatedContent(
@@ -919,6 +934,7 @@ fun AppSettingsSheet(
                 }
             }
         }
+        if (emptyRowAtBottom) Spacer(Modifier.height(56.dp))
         }   // Ende Column
         }   // Ende AnimatedContent
     }
