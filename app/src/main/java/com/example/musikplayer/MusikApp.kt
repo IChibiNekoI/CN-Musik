@@ -569,7 +569,8 @@ fun AppSettingsSheet(
         ).mapNotNull { insets?.getRoundedCorner(it)?.radius }.maxOrNull() ?: 0
         with(cornerDensity) { px.toDp() }
     }
-    val emptyRowAtBottom = deviceCorner >= 40.dp
+    // Zusätzliche leere Zeile am Ende des Inhalts (scrollt mit, schneidet nichts ab)
+    val bottomExtra = if (deviceCorner >= 40.dp) 56.dp else 0.dp
 
     BounceSheet(onDismissRequest = onDismiss) {
         // Beim Wechsel zwischen den Seiten gleiten Inhalte weich hinein und heraus, die Höhe des Menüs passt sich an
@@ -748,7 +749,7 @@ fun AppSettingsSheet(
                     colors = clear,
                     modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "language" }
                 )
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(32.dp + bottomExtra))
                 }
             }
             "index" -> {
@@ -780,7 +781,7 @@ fun AppSettingsSheet(
                     colors = clear,
                     modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { onRescan() }
                 )
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(32.dp + bottomExtra))
             }
             "sort" -> {
                 SheetHeader(str(R.string.sort)) { page = "main" }
@@ -793,7 +794,7 @@ fun AppSettingsSheet(
                 SortOption(str(R.string.sort_name), str(R.string.sort_name_sub), sort == SortMode.NAME) {
                     onSort(SortMode.NAME)
                 }
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(32.dp + bottomExtra))
             }
             "language" -> {
                 SheetHeader(str(R.string.language)) { page = "main" }
@@ -802,7 +803,7 @@ fun AppSettingsSheet(
                 }
                 SortOption("Deutsch", null, language == AppLang.DE) { onLanguage(AppLang.DE) }
                 SortOption("English", null, language == AppLang.EN) { onLanguage(AppLang.EN) }
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(32.dp + bottomExtra))
             }
             "headerView" -> {
                 SheetHeader(str(R.string.header)) { page = "main" }
@@ -817,7 +818,7 @@ fun AppSettingsSheet(
                         onHeaderStyle(HeaderStyle.FOX)
                     }
                 }
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(32.dp + bottomExtra))
             }
             "design" -> {
                 SheetHeader(str(R.string.design)) { page = "main" }
@@ -886,17 +887,17 @@ fun AppSettingsSheet(
                         saveCoverShadow(shadowCtx, on)
                     }
                 )
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(32.dp + bottomExtra))
             }
             "albumView" -> {
                 SheetHeader(str(R.string.album_view)) { page = "main" }
                 ViewStyleOptions(albumStyle, onAlbumStyle)
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(32.dp + bottomExtra))
             }
             "playlistView" -> {
                 SheetHeader(str(R.string.playlist_view)) { page = "main" }
                 ViewStyleOptions(playlistStyle, onPlaylistStyle)
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(32.dp + bottomExtra))
             }
             else -> {
                 SheetHeader(str(R.string.music_folders)) { page = "index" }
@@ -914,7 +915,7 @@ fun AppSettingsSheet(
                     Modifier
                         .weight(1f, fill = false)
                         .verticalScroll(rememberScrollState())
-                        .padding(bottom = 32.dp)
+                        .padding(bottom = 32.dp + bottomExtra)
                 ) {
                     counts.forEach { (folder, n) ->
                         ListItem(
@@ -934,7 +935,6 @@ fun AppSettingsSheet(
                 }
             }
         }
-        if (emptyRowAtBottom) Spacer(Modifier.height(56.dp))
         }   // Ende Column
         }   // Ende AnimatedContent
     }
