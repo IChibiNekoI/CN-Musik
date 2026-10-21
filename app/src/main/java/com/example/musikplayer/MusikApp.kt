@@ -588,6 +588,22 @@ fun AppSettingsSheet(
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                 )
+                Text(
+                    str(R.string.settings_library),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 4.dp)
+                )
+                ListItem(
+                    headlineContent = { Text(str(R.string.index)) },
+                    supportingContent = { Text(str(R.string.index_summary)) },
+                    leadingContent = { HashIcon() },
+                    trailingContent = {
+                        ChevronRightIcon()
+                    },
+                    colors = clear,
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "index" }
+                )
                 ListItem(
                     headlineContent = { Text(str(R.string.sort)) },
                     supportingContent = {
@@ -606,14 +622,12 @@ fun AppSettingsSheet(
                     colors = clear,
                     modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "sort" }
                 )
-                ListItem(
-                    headlineContent = { Text(str(R.string.index)) },
-                    leadingContent = { HashIcon() },
-                    trailingContent = {
-                        ChevronRightIcon()
-                    },
-                    colors = clear,
-                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "index" }
+                HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+                Text(
+                    str(R.string.settings_appearance),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 4.dp)
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.album_view)) },
@@ -637,6 +651,7 @@ fun AppSettingsSheet(
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.design)) },
+                    supportingContent = { Text(str(R.string.design_summary)) },
                     leadingContent = { CornersIcon() },
                     trailingContent = {
                         ChevronRightIcon()
@@ -660,6 +675,40 @@ fun AppSettingsSheet(
                     colors = clear,
                     modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "headerView" }
                 )
+                HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+                Text(
+                    str(R.string.settings_playback),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 4.dp)
+                )
+                ListItem(
+                    headlineContent = { Text(str(R.string.audio_info)) },
+                    supportingContent = { Text(str(R.string.audio_info_summary)) },
+                    leadingContent = { InfoIcon() },
+                    trailingContent = {
+                        Switch(checked = showAudioInfo, onCheckedChange = null)
+                    },
+                    colors = clear,
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { onShowAudioInfo(!showAudioInfo) }
+                )
+                ListItem(
+                    headlineContent = { Text(str(R.string.haptics)) },
+                    supportingContent = { Text(str(R.string.haptics_summary)) },
+                    leadingContent = { VibrationIcon() },
+                    trailingContent = {
+                        Switch(checked = haptics, onCheckedChange = null)
+                    },
+                    colors = clear,
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { onHaptics(!haptics) }
+                )
+                HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+                Text(
+                    str(R.string.settings_general),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 4.dp)
+                )
                 ListItem(
                     headlineContent = { Text(str(R.string.language)) },
                     supportingContent = {
@@ -677,24 +726,6 @@ fun AppSettingsSheet(
                     },
                     colors = clear,
                     modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "language" }
-                )
-                ListItem(
-                    headlineContent = { Text(str(R.string.audio_info)) },
-                    leadingContent = { InfoIcon() },
-                    trailingContent = {
-                        Switch(checked = showAudioInfo, onCheckedChange = null)
-                    },
-                    colors = clear,
-                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { onShowAudioInfo(!showAudioInfo) }
-                )
-                ListItem(
-                    headlineContent = { Text(str(R.string.haptics)) },
-                    leadingContent = { VibrationIcon() },
-                    trailingContent = {
-                        Switch(checked = haptics, onCheckedChange = null)
-                    },
-                    colors = clear,
-                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { onHaptics(!haptics) }
                 )
                 Spacer(Modifier.height(32.dp))
             }
