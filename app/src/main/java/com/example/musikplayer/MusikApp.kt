@@ -29,6 +29,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -799,11 +801,19 @@ fun AppSettingsSheet(
                 val menuSwitchEnabled = playerBg == PlayerBackground.BLUR
                 ListItem(
                     headlineContent = { Text(str(R.string.menu_unified)) },
+                    // Der lange Text bleibt immer (unsichtbar) im Layout und reserviert seine Zeilen: Der kurze Hinweis
+                    // "Nur bei Unschärfe verfügbar" liegt darüber. So springt die Seite beim Wechseln nicht.
                     supportingContent = {
-                        Text(
-                            if (menuSwitchEnabled) str(R.string.menu_unified_on)
-                            else str(R.string.menu_unified_off)
-                        )
+                        Box {
+                            Text(
+                                str(R.string.menu_unified_on),
+                                modifier = if (menuSwitchEnabled) Modifier
+                                else Modifier
+                                    .alpha(0f)
+                                    .clearAndSetSemantics { }
+                            )
+                            if (!menuSwitchEnabled) Text(str(R.string.menu_unified_off))
+                        }
                     },
                     trailingContent = {
                         Switch(checked = menuUnified, onCheckedChange = null, enabled = menuSwitchEnabled)
