@@ -821,6 +821,18 @@ fun AppSettingsSheet(
                     colors = clear,
                     modifier = Modifier.bounceClick(pressedScale = 0.97f, enabled = menuSwitchEnabled, haptic = false) { onMenuUnified(!menuUnified) }
                 )
+                // Kippschalter: Schatten unter dem Cover im Player
+                val shadowCtx = LocalContext.current
+                ListItem(
+                    headlineContent = { Text(str(R.string.cover_shadow)) },
+                    trailingContent = { Switch(checked = CornerSettings.coverShadow, onCheckedChange = null) },
+                    colors = clear,
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) {
+                        val on = !CornerSettings.coverShadow
+                        CornerSettings.coverShadow = on
+                        saveCoverShadow(shadowCtx, on)
+                    }
+                )
                 Spacer(Modifier.height(32.dp))
             }
             "albumView" -> {
