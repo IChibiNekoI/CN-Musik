@@ -108,6 +108,12 @@ fun saveMenuUnified(ctx: Context, on: Boolean) {
     prefs(ctx).edit().putBoolean("menu_unified", on).apply()
 }
 
+fun readCoverShadow(ctx: Context): Boolean = prefs(ctx).getBoolean("cover_shadow", false)
+
+fun saveCoverShadow(ctx: Context, on: Boolean) {
+    prefs(ctx).edit().putBoolean("cover_shadow", on).apply()
+}
+
 /** Aussehen der Kopfzeile: Text, Logo oder (nach dem Easter Egg) der müde Fuchs */
 enum class HeaderStyle { TEXT, LOGO, FOX }
 
