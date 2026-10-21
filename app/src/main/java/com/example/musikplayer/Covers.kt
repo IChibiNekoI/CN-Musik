@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -137,7 +138,7 @@ fun clearCoverCaches(ctx: Context? = null) {
 }
 
 @Composable
-fun Cover(song: Song, size: Dp, corner: Dp = 12.dp, fallbackSize: Dp? = null) {
+fun Cover(song: Song, size: Dp, corner: Dp = 12.dp, fallbackSize: Dp? = null, shadow: Dp = 0.dp) {
     val ctx = LocalContext.current
     val px = with(LocalDensity.current) { size.roundToPx() }
     val fallbackPx = fallbackSize?.let { with(LocalDensity.current) { it.roundToPx() } }
@@ -157,8 +158,19 @@ fun Cover(song: Song, size: Dp, corner: Dp = 12.dp, fallbackSize: Dp? = null) {
         if (b != null) withContext(Dispatchers.Default) { rememberSeed(song.id, ver, b) }
         value = b
     }
+    val coverShape = RoundedCornerShape(coverRadius(LocalCoverStyle.current, size, corner))
     Box(
-        Modifier.size(size).clip(RoundedCornerShape(coverRadius(LocalCoverStyle.current, size, corner))),
+        Modifier
+            .size(size)
+            // Schatten außerhalb des Zuschnitts, sonst würde er mit abgeschnitten
+            .then(
+                if (shadow > 0.dp) Modifier.shadow(
+                    shadow, coverShape, clip = false,
+                    ambientColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
+                    spotColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f)
+                ) else Modifier
+            )
+            .clip(coverShape),
         contentAlignment = Alignment.Center
     ) {
         val b = bmp
