@@ -142,4 +142,12 @@
     <string name="fox_unlocked">🦊 New header unlocked! You can find it in the settings under “Header”.</string>
     <string name="queue">Queue</string>
     <string name="queue_remove">Remove from queue</string>
+    <string name="settings_library">Music library</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_playback">Playback and controls</string>
+    <string name="settings_general">General</string>
+    <string name="index_summary">Choose music folders and rescan the library</string>
+    <string name="design_summary">Corners, player background and cover shadow</string>
+    <string name="audio_info_summary">Additional information about music files</string>
+    <string name="haptics_summary">Vibration for supported interactions</string>
 </resources>
