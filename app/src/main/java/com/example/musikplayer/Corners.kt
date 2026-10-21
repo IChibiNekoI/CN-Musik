@@ -25,6 +25,8 @@ object CornerSettings {
     var playerBg by mutableStateOf(PlayerBackground.BLUR)
     /** Menüs, Dialoge und Einstellungen sehen aus wie der Player (nur bei Unschärfe) */
     var menuUnified by mutableStateOf(false)
+    /** Weicher Schatten unter dem Cover im Player (wirkt etwas dreidimensional), optional */
+    var coverShadow by mutableStateOf(false)
     private var loaded = false
 
     /** Gespeicherte Wahl einmal beim Start laden (vor der ersten Anzeige) */
@@ -34,6 +36,7 @@ object CornerSettings {
             style = readCornerStyle(ctx)
             playerBg = readPlayerBg(ctx)
             menuUnified = readMenuUnified(ctx)
+            coverShadow = readCoverShadow(ctx)
         }
     }
 }
