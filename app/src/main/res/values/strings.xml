@@ -51,13 +51,10 @@
     <string name="sort_name">Name</string>
     <string name="sort_name_sub">A to Z</string>
     <string name="corners">Corners</string>
-    <string name="corners_uniform">Uniform</string>
-    <string name="corners_uniform_sub">Chips, menus, fields and dialogs share the same rounding</string>
+    <string name="corners_uniform">Uniform rounding</string>
     <string name="player_bg">Player background</string>
     <string name="bg_solid">Solid</string>
-    <string name="bg_solid_sub">As before</string>
     <string name="bg_gradient">Gradient</string>
-    <string name="bg_gradient_sub">The cover colour at the top, fading out softly downwards</string>
     <string name="bg_blur">Blur</string>
     <string name="bg_blur_sub">The cover, heavily blurred, as the background</string>
     <string name="menu_unified">Unified menu design</string>
