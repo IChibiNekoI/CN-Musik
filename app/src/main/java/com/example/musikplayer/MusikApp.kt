@@ -775,25 +775,21 @@ fun AppSettingsSheet(
                 SortOption(str(R.string.standard), null, cornerStyle == CornerStyle.STANDARD) {
                     onCornerStyle(CornerStyle.STANDARD)
                 }
-                SortOption(
-                    str(R.string.corners_uniform),
-                    str(R.string.corners_uniform_sub),
-                    cornerStyle == CornerStyle.UNIFORM
-                ) { onCornerStyle(CornerStyle.UNIFORM) }
+                SortOption(str(R.string.corners_uniform), null, cornerStyle == CornerStyle.UNIFORM) {
+                    onCornerStyle(CornerStyle.UNIFORM)
+                }
                 Text(
                     str(R.string.player_bg),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 8.dp)
                 )
-                SortOption(str(R.string.bg_solid), str(R.string.bg_solid_sub), playerBg == PlayerBackground.SOLID) {
+                SortOption(str(R.string.bg_solid), null, playerBg == PlayerBackground.SOLID) {
                     onPlayerBg(PlayerBackground.SOLID)
                 }
-                SortOption(
-                    str(R.string.bg_gradient),
-                    str(R.string.bg_gradient_sub),
-                    playerBg == PlayerBackground.GRADIENT
-                ) { onPlayerBg(PlayerBackground.GRADIENT) }
+                SortOption(str(R.string.bg_gradient), null, playerBg == PlayerBackground.GRADIENT) {
+                    onPlayerBg(PlayerBackground.GRADIENT)
+                }
                 SortOption(
                     str(R.string.bg_blur),
                     str(R.string.bg_blur_sub),
