@@ -528,7 +528,12 @@ private fun NowPlayingSheetContent(
                                     ) + fadeOut(tween(Motion.FAST))) using SizeTransform(clip = false)
                             },
                             label = "cover"
-                        ) { s -> Cover(s, coverSize, corner = 20.dp) }
+                        ) { s ->
+                            Cover(
+                                s, coverSize, corner = 20.dp,
+                                shadow = if (CornerSettings.coverShadow) COVER_SHADOW else 0.dp
+                            )
+                        }
                     }
                     Spacer(Modifier.weight(1.7f))    // Abstand Cover -> Titel
                     // Titel links, Favoriten-Herz rechts auf gleicher Höhe
@@ -652,6 +657,12 @@ private fun NowPlayingSheetContent(
                         val eff = androidx.compose.ui.util.lerp(r0, r1, e) * density
                         shape = RoundedCornerShape(eff / sc)
                         clip = true
+                        // Schatten wächst mit dem Flug an (im Miniplayer gibt es keinen), damit beim Tausch nichts springt
+                        if (CornerSettings.coverShadow) {
+                            shadowElevation = COVER_SHADOW.toPx() * e.coerceIn(0f, 1f)
+                            ambientShadowColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f)
+                            spotShadowColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f)
+                        }
                     }
             ) {
                 Cover(song, finalDp, corner = 0.dp, fallbackSize = 56.dp)
@@ -662,6 +673,9 @@ private fun NowPlayingSheetContent(
         }
     }
 }
+
+/** Größe des optionalen Schattens unter dem Cover im Player */
+private val COVER_SHADOW = 28.dp
 
 /** Stärke des Überschwingers beim Cover-Flug (0 = keiner). 0.4 ≈ 3 % über das Ziel hinaus, dann zurück. */
 private const val COVER_BOUNCE = 0.4f
