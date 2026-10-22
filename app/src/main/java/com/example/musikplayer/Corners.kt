@@ -29,8 +29,6 @@ object CornerSettings {
     var coverShadow by mutableStateOf(false)
     /** Play-Taste und Fortschrittsbalken wirken erhaben (Schatten und leichter Verlauf), optional */
     var controlDepth by mutableStateOf(false)
-    /** Höchste Auflösung (Pixel) für geladene Cover; 0 = automatisch (so groß wie angezeigt) */
-    var coverMaxPx by mutableStateOf(0)
     private var loaded = false
 
     /** Gespeicherte Wahl einmal beim Start laden (vor der ersten Anzeige) */
@@ -42,7 +40,6 @@ object CornerSettings {
             menuUnified = readMenuUnified(ctx)
             coverShadow = readCoverShadow(ctx)
             controlDepth = readControlDepth(ctx)
-            coverMaxPx = readCoverMaxPx(ctx)
         }
     }
 }
