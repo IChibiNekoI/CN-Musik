@@ -550,18 +550,11 @@ fun loadAudioInfo(ctx: Context, song: Song): AudioInfo? {
             )
         }
 
-        // Bittiefe: nur bei verlustfreien Formaten (bei MP3/AAC usw. wäre sie bedeutungslos)
+        // Bittiefe: nur bei verlustfreien Formaten (bei MP3/AAC usw. wäre sie bedeutungslos).
+        // Aus den ersten Bytes der Datei gelesen: schnell und ohne die Wiedergabe beim Titelwechsel zu stören.
         var bits = 0
         if (format in LOSSLESS_FORMATS) {
-            val r = android.media.MediaMetadataRetriever()
-            try {
-                r.setDataSource(ctx, song.uri)
-                bits = r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_BITS_PER_SAMPLE)
-                    ?.toIntOrNull() ?: 0
-            } catch (e: Exception) {
-            } finally {
-                try { r.release() } catch (e: Exception) { }
-            }
+            bits = readBitDepth(ctx, song.uri, format)
             if (bits <= 0 && fmt.containsKey(MediaFormat.KEY_PCM_ENCODING)) {
                 bits = when (fmt.getInteger(MediaFormat.KEY_PCM_ENCODING)) {
                     android.media.AudioFormat.ENCODING_PCM_8BIT -> 8
@@ -585,6 +578,104 @@ fun loadAudioInfo(ctx: Context, song: Song): AudioInfo? {
     } finally {
         ex.release()
     }
+}
+
+/* ---------- Bittiefe aus dem Dateikopf (FLAC, WAV, AIFF) ---------- */
+
+private fun java.io.InputStream.readN(n: Int): ByteArray? {
+    val b = ByteArray(n)
+    var o = 0
+    while (o < n) {
+        val r = read(b, o, n - o)
+        if (r < 0) return null
+        o += r
+    }
+    return b
+}
+
+private fun java.io.InputStream.skipN(n: Long): Boolean {
+    var left = n
+    while (left > 0) {
+        val s = skip(left)
+        if (s > 0) left -= s else {
+            if (read() < 0) return false
+            left--
+        }
+    }
+    return true
+}
+
+private fun ByteArray.tag(off: Int = 0): String = String(this, off, 4, Charsets.ISO_8859_1)
+
+private fun readBitDepth(ctx: Context, uri: Uri, format: String): Int = try {
+    ctx.contentResolver.openInputStream(uri)?.use { raw ->
+        val ins = java.io.BufferedInputStream(raw, 8192)
+        when (format) {
+            "FLAC" -> flacBits(ins)
+            "WAV" -> wavBits(ins)
+            "AIFF", "AIF" -> aiffBits(ins)
+            else -> 0
+        }
+    } ?: 0
+} catch (e: Exception) {
+    0
+}
+
+/** FLAC: Bittiefe steht im STREAMINFO-Block gleich am Anfang (evtl. hinter einem ID3-Tag). */
+private fun flacBits(ins: java.io.InputStream): Int {
+    var head = ins.readN(4) ?: return 0
+    if (head.tag().startsWith("ID3")) {
+        val rest = ins.readN(6) ?: return 0   // Revision, Flags, Größe (4 Bytes, je 7 Bit)
+        val size = ((rest[2].toInt() and 0x7F) shl 21) or ((rest[3].toInt() and 0x7F) shl 14) or
+            ((rest[4].toInt() and 0x7F) shl 7) or (rest[5].toInt() and 0x7F)
+        val footer = if (rest[1].toInt() and 0x10 != 0) 10 else 0
+        if (!ins.skipN((size + footer).toLong())) return 0
+        head = ins.readN(4) ?: return 0
+    }
+    if (head.tag() != "fLaC") return 0
+    val blk = ins.readN(4) ?: return 0
+    if ((blk[0].toInt() and 0x7F) != 0) return 0   // erster Block muss STREAMINFO sein
+    val d = ins.readN(14) ?: return 0
+    return (((d[12].toInt() and 1) shl 4) or ((d[13].toInt() and 0xFF) ushr 4)) + 1
+}
+
+/** WAV: Bittiefe steht im "fmt "-Block (Bytes 14 und 15, little endian). */
+private fun wavBits(ins: java.io.InputStream): Int {
+    val h = ins.readN(12) ?: return 0
+    if (h.tag() != "RIFF" || h.tag(8) != "WAVE") return 0
+    repeat(32) {
+        val c = ins.readN(8) ?: return 0
+        val size = (c[4].toLong() and 0xFF) or ((c[5].toLong() and 0xFF) shl 8) or
+            ((c[6].toLong() and 0xFF) shl 16) or ((c[7].toLong() and 0xFF) shl 24)
+        when (c.tag()) {
+            "fmt " -> {
+                if (size < 16) return 0
+                val f = ins.readN(16) ?: return 0
+                return (f[14].toInt() and 0xFF) or ((f[15].toInt() and 0xFF) shl 8)
+            }
+            "data" -> return 0
+            else -> if (!ins.skipN(size + (size and 1L))) return 0
+        }
+    }
+    return 0
+}
+
+/** AIFF/AIFC: Bittiefe steht im "COMM"-Block (big endian). */
+private fun aiffBits(ins: java.io.InputStream): Int {
+    val h = ins.readN(12) ?: return 0
+    if (h.tag() != "FORM") return 0
+    repeat(32) {
+        val c = ins.readN(8) ?: return 0
+        val size = ((c[4].toLong() and 0xFF) shl 24) or ((c[5].toLong() and 0xFF) shl 16) or
+            ((c[6].toLong() and 0xFF) shl 8) or (c[7].toLong() and 0xFF)
+        if (c.tag() == "COMM") {
+            if (size < 8) return 0
+            val f = ins.readN(8) ?: return 0
+            return ((f[6].toInt() and 0xFF) shl 8) or (f[7].toInt() and 0xFF)
+        }
+        if (!ins.skipN(size + (size and 1L))) return 0
+    }
+    return 0
 }
 
 /** Ergebnis eines M3U-Imports: Name der Playlist, gefundene Song-IDs, Anzahl der Einträge in der Datei. */
