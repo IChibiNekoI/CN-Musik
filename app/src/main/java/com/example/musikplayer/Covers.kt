@@ -21,11 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import java.io.File
@@ -39,60 +35,22 @@ private object CoverCache : LruCache<String, Bitmap>(32 * 1024 * 1024) {
     override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
 }
 
-/** Ab dieser Größe gilt ein Cover als Player-Cover: Es wird nur einmal geladen und dann von allen geteilt. */
-private const val BIG_COVER_PX = 600
-
-/**
- * Ein großes Cover pro Titel, unabhängig von der genauen Pixelzahl: Weicht die vorab geladene Größe um ein paar Pixel
- * von der im Player ab, wird es trotzdem gefunden (vorher gab es dann keinen Treffer und das Cover wurde zu spät geladen).
- */
-private fun bigKey(songId: Long, ver: Int) = "${songId}_${ver}_big"
-
-private fun bigCached(songId: Long, ver: Int, px: Int): Bitmap? =
-    CoverCache.get(bigKey(songId, ver))?.takeIf { minOf(it.width, it.height) >= px * 0.85f }
-
-private val bigLoadScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-private val bigLoads = HashMap<String, Deferred<Bitmap?>>()
-
-/**
- * Lädt ein großes Player-Cover genau einmal. Wollen Vorab-Laden und Anzeige gleichzeitig dasselbe Cover, warten beide
- * auf denselben Ladevorgang (vorher wurde es doppelt aus der Datei gelesen, bei großen Bildern in FLAC-Dateien sehr
- * aufwendig). Der Vorgang läuft auch zu Ende, wenn der Aufrufer abbricht: Das Cover liegt dann im Cache bereit.
- */
-private suspend fun loadBigCover(ctx: Context, song: Song, ver: Int, px: Int): Bitmap? {
-    val key = bigKey(song.id, ver)
-    bigCached(song.id, ver, px)?.let { return it }
-    val appCtx = ctx.applicationContext
-    val job = synchronized(bigLoads) {
-        bigLoads.getOrPut(key) {
-            bigLoadScope.async {
-                try {
-                    bigCached(song.id, ver, px) ?: loadCoverBitmap(appCtx, song, ver, px)?.also {
-                        it.prepareToDraw()   // Textur schon jetzt für die GPU vorbereiten
-                        CoverCache.put(key, it)   // key = bigKey
-                    }
-                } finally {
-                    synchronized(bigLoads) { bigLoads.remove(key) }
-                }
-            }
-        }
-    }
-    return job.await()
-}
-
-/**
- * Begrenzt die Größe, in der ein Cover geladen wird, auf die eingestellte Höchstauflösung (Design-Einstellungen).
- * Kleinere Bilder laden schneller und belasten die Grafikkarte weniger; das Cover wird dann beim Anzeigen hochskaliert.
- */
-private fun capPx(px: Int): Int {
-    val max = CornerSettings.coverMaxPx
-    return if (max > 0) minOf(px, max) else px
-}
-
-/** Lädt das große Player-Cover schon vorab in den Cache, damit der Titelwechsel nicht auf das Laden warten muss */
+/** Lädt das große Player-Cover schon vorab in den Cache, damit das Öffnen nicht auf das Laden warten muss */
 suspend fun prewarmPlayerCover(ctx: android.content.Context, song: Song, px: Int) {
     if (px <= 0) return
-    loadBigCover(ctx, song, TagEvents.coverVersions[song.id] ?: 0, capPx(px))
+    val key = "${song.id}_${TagEvents.coverVersions[song.id] ?: 0}_$px"
+    if (CoverCache.get(key) != null) return
+    val b = withContext(Dispatchers.IO) {
+        try {
+            ctx.contentResolver.loadThumbnail(song.uri, Size(px, px), null)
+        } catch (e: Exception) {
+            null
+        }
+    }
+    if (b != null) {
+        b.prepareToDraw()   // Textur schon jetzt für die GPU vorbereiten
+        CoverCache.put(key, b)
+    }
 }
 
 /* ---------- Cover-Cache auf der Platte ----------
@@ -100,11 +58,8 @@ suspend fun prewarmPlayerCover(ctx: android.content.Context, song: Song, px: Int
  * App-Start neu passiert, werden verkleinerte Cover als JPEG im Cache-Ordner abgelegt. Schlüssel enthält
  * die letzte Änderungszeit der Datei: wird die Datei (Tag oder Cover) geändert, entsteht automatisch ein neuer Eintrag. */
 
-/**
- * Auch die großen Player-Cover kommen auf die Platte: Das Auslesen aus der Datei (besonders bei FLAC mit großem Bild)
- * dauert deutlich länger als das Laden der verkleinerten Kopie, deshalb passiert es nur einmal pro Titel.
- */
-private const val DISK_COVER_MAX_PX = 1600
+/** Nur kleine Cover (Listen, Kacheln, Miniplayer) auf die Platte; die großen Player-Cover nicht. */
+private const val DISK_COVER_MAX_PX = 600
 
 private const val DISK_COVER_MAX_BYTES = 120L * 1024 * 1024
 
@@ -122,24 +77,6 @@ private fun saveCoverFile(file: File, b: Bitmap) {
         if (!tmp.renameTo(file)) tmp.delete()
     } catch (e: Exception) {
         // Cache ist nur eine Beschleunigung, Fehler sind unkritisch
-    }
-}
-
-/**
- * Verkleinert ein zu großes Bild auf die gewünschte Größe. Hochauflösende Cover (z. B. in FLAC-Dateien) kommen teils
- * mit mehreren tausend Pixeln: Beim ersten Zeichnen muss die GPU so ein Bild erst hochladen, das hält die Oberfläche
- * kurz an (Animation friert ein und springt dann). In der passenden Größe ist das Hochladen kaum spürbar.
- */
-private fun fitToSize(src: Bitmap, px: Int): Bitmap {
-    val minSide = minOf(src.width, src.height)
-    if (px <= 0 || minSide <= px * 1.15f) return src
-    val scale = px.toFloat() / minSide
-    val w = (src.width * scale).toInt().coerceAtLeast(1)
-    val h = (src.height * scale).toInt().coerceAtLeast(1)
-    return try {
-        Bitmap.createScaledBitmap(src, w, h, true).also { if (it !== src) src.recycle() }
-    } catch (e: Exception) {
-        src
     }
 }
 
@@ -163,7 +100,7 @@ suspend fun loadCoverBitmap(ctx: Context, song: Song, ver: Int, px: Int): Bitmap
         }
         coverLoadGate.withPermit {
             try {
-                val b = fitToSize(ctx.contentResolver.loadThumbnail(song.uri, Size(px, px), null), px)
+                val b = ctx.contentResolver.loadThumbnail(song.uri, Size(px, px), null)
                 if (useDisk) saveCoverFile(file, b)
                 b
             } catch (e: java.io.IOException) {
@@ -218,24 +155,19 @@ fun Modifier.layeredShadow(base: Dp, shape: androidx.compose.ui.graphics.Shape):
 @Composable
 fun Cover(song: Song, size: Dp, corner: Dp = 12.dp, fallbackSize: Dp? = null, shadow: Dp = 0.dp) {
     val ctx = LocalContext.current
-    val px = capPx(with(LocalDensity.current) { size.roundToPx() })   // durch die Höchstauflösung begrenzt
+    val px = with(LocalDensity.current) { size.roundToPx() }
     val fallbackPx = fallbackSize?.let { with(LocalDensity.current) { it.roundToPx() } }
     // Sofort etwas anzeigen: erst das Bild in passender Größe, sonst die kleine Version aus dem Cache
     val ver = TagEvents.coverVersions[song.id] ?: 0   // ändert sich, wenn im Tag-Editor ein neues Cover gespeichert wurde
     val initial = remember(song.id, px, fallbackPx, ver) {
-        (if (px > BIG_COVER_PX) bigCached(song.id, ver, px) else CoverCache.get("${song.id}_${ver}_$px"))
-            ?: fallbackPx?.let { CoverCache.get("${song.id}_${ver}_$it") }
+        CoverCache.get("${song.id}_${ver}_$px") ?: fallbackPx?.let { CoverCache.get("${song.id}_${ver}_$it") }
     }
     val bmp by produceState<Bitmap?>(initial, song.id, px, ver) {
         val key = "${song.id}_${ver}_$px"
-        var b: Bitmap? = if (px > BIG_COVER_PX) bigCached(song.id, ver, px) else CoverCache.get(key)
+        var b: Bitmap? = CoverCache.get(key)
         if (b == null) {
-            if (px > BIG_COVER_PX) {
-                b = loadBigCover(ctx, song, ver, px)
-            } else {
-                b = loadCoverBitmap(ctx, song, ver, px)
-                if (b != null) CoverCache.put(key, b)
-            }
+            b = loadCoverBitmap(ctx, song, ver, px)
+            if (b != null) CoverCache.put(key, b)
         }
         // Farbe fürs Theme gleich mit ermitteln (winzig, läuft im Hintergrund), damit der Titelwechsel nicht warten muss
         if (b != null) withContext(Dispatchers.Default) { rememberSeed(song.id, ver, b) }
