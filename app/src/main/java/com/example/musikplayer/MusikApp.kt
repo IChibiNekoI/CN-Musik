@@ -909,6 +909,21 @@ fun AppSettingsSheet(
                         saveControlDepth(shadowCtx, on)
                     }
                 )
+                // Höchste Auflösung der geladenen Cover: kleiner = flüssiger bei sehr großen Bildern (z. B. in FLAC-Dateien)
+                Text(
+                    str(R.string.cover_resolution),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 8.dp)
+                )
+                for ((px, label) in listOf(
+                    0 to str(R.string.cover_resolution_auto), 1024 to "1024 px", 768 to "768 px", 512 to "512 px"
+                )) {
+                    SortOption(label, null, CornerSettings.coverMaxPx == px) {
+                        CornerSettings.coverMaxPx = px
+                        saveCoverMaxPx(shadowCtx, px)
+                    }
+                }
                 Spacer(Modifier.height(32.dp + bottomExtra))
             }
             "albumView" -> {
