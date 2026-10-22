@@ -61,8 +61,6 @@
     <string name="menu_unified_on">Die Hauptseite (Titel, Album, Playlists, Favoriten) bekommt den Hintergrund des Players</string>
     <string name="menu_unified_off">Nur bei Unschärfe verfügbar</string>
     <string name="effect_3d">3D-Effekt</string>
-    <string name="cover_resolution">Maximale Cover-Auflösung</string>
-    <string name="cover_resolution_auto">Automatisch</string>
     <string name="folders_hint">Nur Songs aus angehakten Ordnern werden angezeigt.</string>
     <string name="root_folder">Hauptverzeichnis</string>
     <string name="language">Sprache</string>
