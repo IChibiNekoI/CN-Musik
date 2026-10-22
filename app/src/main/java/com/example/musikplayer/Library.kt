@@ -114,12 +114,6 @@ fun saveCoverShadow(ctx: Context, on: Boolean) {
     prefs(ctx).edit().putBoolean("cover_shadow", on).apply()
 }
 
-fun readCoverMaxPx(ctx: Context): Int = prefs(ctx).getInt("cover_max_px", 0)
-
-fun saveCoverMaxPx(ctx: Context, px: Int) {
-    prefs(ctx).edit().putInt("cover_max_px", px).apply()
-}
-
 fun readControlDepth(ctx: Context): Boolean = prefs(ctx).getBoolean("control_depth", false)
 
 fun saveControlDepth(ctx: Context, on: Boolean) {
