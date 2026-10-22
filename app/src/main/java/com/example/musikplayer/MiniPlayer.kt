@@ -14,6 +14,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.runtime.mutableStateOf
@@ -275,7 +276,7 @@ fun PillProgress(
                     val groove = androidx.compose.ui.graphics.Path().apply {
                         addRoundRect(androidx.compose.ui.geometry.RoundRect(0f, top, size.width, top + h, radius))
                     }
-                    androidx.compose.ui.graphics.drawscope.clipPath(groove) {
+                    clipPath(groove) {
                         drawRect(
                             Brush.verticalGradient(
                                 listOf(Color.Black.copy(alpha = 0.28f), Color.Transparent, Color.White.copy(alpha = 0.10f)),
@@ -310,7 +311,7 @@ fun PillProgress(
                     val bead = androidx.compose.ui.graphics.Path().apply {
                         addRoundRect(androidx.compose.ui.geometry.RoundRect(0f, top, fillW, top + h, radius))
                     }
-                    androidx.compose.ui.graphics.drawscope.clipPath(bead) {
+                    clipPath(bead) {
                         drawRect(
                             Brush.verticalGradient(
                                 listOf(Color.White.copy(alpha = 0.22f), Color.Transparent, Color.Black.copy(alpha = 0.16f)),
