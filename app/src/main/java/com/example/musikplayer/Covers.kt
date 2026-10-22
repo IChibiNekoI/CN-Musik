@@ -42,6 +42,15 @@ private object CoverCache : LruCache<String, Bitmap>(32 * 1024 * 1024) {
 /** Ab dieser Größe gilt ein Cover als Player-Cover: Es wird nur einmal geladen und dann von allen geteilt. */
 private const val BIG_COVER_PX = 600
 
+/**
+ * Ein großes Cover pro Titel, unabhängig von der genauen Pixelzahl: Weicht die vorab geladene Größe um ein paar Pixel
+ * von der im Player ab, wird es trotzdem gefunden (vorher gab es dann keinen Treffer und das Cover wurde zu spät geladen).
+ */
+private fun bigKey(songId: Long, ver: Int) = "${songId}_${ver}_big"
+
+private fun bigCached(songId: Long, ver: Int, px: Int): Bitmap? =
+    CoverCache.get(bigKey(songId, ver))?.takeIf { minOf(it.width, it.height) >= px * 0.85f }
+
 private val bigLoadScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 private val bigLoads = HashMap<String, Deferred<Bitmap?>>()
 
@@ -51,16 +60,16 @@ private val bigLoads = HashMap<String, Deferred<Bitmap?>>()
  * aufwendig). Der Vorgang läuft auch zu Ende, wenn der Aufrufer abbricht: Das Cover liegt dann im Cache bereit.
  */
 private suspend fun loadBigCover(ctx: Context, song: Song, ver: Int, px: Int): Bitmap? {
-    val key = "${song.id}_${ver}_$px"
-    CoverCache.get(key)?.let { return it }
+    val key = bigKey(song.id, ver)
+    bigCached(song.id, ver, px)?.let { return it }
     val appCtx = ctx.applicationContext
     val job = synchronized(bigLoads) {
         bigLoads.getOrPut(key) {
             bigLoadScope.async {
                 try {
-                    CoverCache.get(key) ?: loadCoverBitmap(appCtx, song, ver, px)?.also {
+                    bigCached(song.id, ver, px) ?: loadCoverBitmap(appCtx, song, ver, px)?.also {
                         it.prepareToDraw()   // Textur schon jetzt für die GPU vorbereiten
-                        CoverCache.put(key, it)
+                        CoverCache.put(key, it)   // key = bigKey
                     }
                 } finally {
                     synchronized(bigLoads) { bigLoads.remove(key) }
@@ -107,6 +116,24 @@ private fun saveCoverFile(file: File, b: Bitmap) {
     }
 }
 
+/**
+ * Verkleinert ein zu großes Bild auf die gewünschte Größe. Hochauflösende Cover (z. B. in FLAC-Dateien) kommen teils
+ * mit mehreren tausend Pixeln: Beim ersten Zeichnen muss die GPU so ein Bild erst hochladen, das hält die Oberfläche
+ * kurz an (Animation friert ein und springt dann). In der passenden Größe ist das Hochladen kaum spürbar.
+ */
+private fun fitToSize(src: Bitmap, px: Int): Bitmap {
+    val minSide = minOf(src.width, src.height)
+    if (px <= 0 || minSide <= px * 1.15f) return src
+    val scale = px.toFloat() / minSide
+    val w = (src.width * scale).toInt().coerceAtLeast(1)
+    val h = (src.height * scale).toInt().coerceAtLeast(1)
+    return try {
+        Bitmap.createScaledBitmap(src, w, h, true).also { if (it !== src) src.recycle() }
+    } catch (e: Exception) {
+        src
+    }
+}
+
 /** Lädt ein Cover: erst von der Platte, sonst aus der Audiodatei (und legt es dann auf der Platte ab). */
 suspend fun loadCoverBitmap(ctx: Context, song: Song, ver: Int, px: Int): Bitmap? =
     withContext(Dispatchers.IO) {
@@ -127,7 +154,7 @@ suspend fun loadCoverBitmap(ctx: Context, song: Song, ver: Int, px: Int): Bitmap
         }
         coverLoadGate.withPermit {
             try {
-                val b = ctx.contentResolver.loadThumbnail(song.uri, Size(px, px), null)
+                val b = fitToSize(ctx.contentResolver.loadThumbnail(song.uri, Size(px, px), null), px)
                 if (useDisk) saveCoverFile(file, b)
                 b
             } catch (e: java.io.IOException) {
@@ -187,11 +214,12 @@ fun Cover(song: Song, size: Dp, corner: Dp = 12.dp, fallbackSize: Dp? = null, sh
     // Sofort etwas anzeigen: erst das Bild in passender Größe, sonst die kleine Version aus dem Cache
     val ver = TagEvents.coverVersions[song.id] ?: 0   // ändert sich, wenn im Tag-Editor ein neues Cover gespeichert wurde
     val initial = remember(song.id, px, fallbackPx, ver) {
-        CoverCache.get("${song.id}_${ver}_$px") ?: fallbackPx?.let { CoverCache.get("${song.id}_${ver}_$it") }
+        (if (px > BIG_COVER_PX) bigCached(song.id, ver, px) else CoverCache.get("${song.id}_${ver}_$px"))
+            ?: fallbackPx?.let { CoverCache.get("${song.id}_${ver}_$it") }
     }
     val bmp by produceState<Bitmap?>(initial, song.id, px, ver) {
         val key = "${song.id}_${ver}_$px"
-        var b: Bitmap? = CoverCache.get(key)
+        var b: Bitmap? = if (px > BIG_COVER_PX) bigCached(song.id, ver, px) else CoverCache.get(key)
         if (b == null) {
             if (px > BIG_COVER_PX) {
                 b = loadBigCover(ctx, song, ver, px)
