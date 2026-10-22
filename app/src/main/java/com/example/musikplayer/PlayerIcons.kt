@@ -23,6 +23,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -34,6 +38,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -63,6 +68,19 @@ private fun DrawScope.roundedTriangle(
     drawPath(p, color, style = style)
 }
 
+/**
+ * Zeichnet ein Symbol. Erhaben: vorher zwei dunkle, leicht nach unten versetzte Kopien (weicher Schlagschatten),
+ * damit das Symbol vom Hintergrund abgehoben wirkt.
+ */
+private fun DrawScope.glyph(elevated: Boolean, tint: Color, draw: DrawScope.(Color) -> Unit) {
+    if (elevated) {
+        val s = this.size.minDimension
+        translate(0f, s * 0.09f) { draw(Color.Black.copy(alpha = 0.14f)) }
+        translate(0f, s * 0.05f) { draw(Color.Black.copy(alpha = 0.22f)) }
+    }
+    draw(tint)
+}
+
 /* ---------- Weiter / Zurück ---------- */
 
 @Composable
@@ -71,7 +89,8 @@ fun SkipButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     iconSize: Dp = 30.dp,
-    tint: Color = LocalContentColor.current
+    tint: Color = LocalContentColor.current,
+    elevated: Boolean = false
 ) {
     Box(
         // drückt sich ein und schubst ein Stück in Pfeilrichtung; beim Loslassen federt die Taste mit Überschwinger zurück
@@ -84,11 +103,13 @@ fun SkipButton(
             val s = this.size.minDimension
             val stroke = outline(s * 0.085f, s * 0.12f)
             val draw: DrawScope.() -> Unit = {
-                roundedTriangle(s * 0.14f, s * 0.70f, s * 0.20f, s * 0.80f, tint, stroke)
-                drawLine(
-                    tint, Offset(s * 0.90f, s * 0.20f), Offset(s * 0.90f, s * 0.80f),
-                    strokeWidth = s * 0.085f, cap = StrokeCap.Round
-                )
+                glyph(elevated, tint) { c ->
+                    roundedTriangle(s * 0.14f, s * 0.70f, s * 0.20f, s * 0.80f, c, stroke)
+                    drawLine(
+                        c, Offset(s * 0.90f, s * 0.20f), Offset(s * 0.90f, s * 0.80f),
+                        strokeWidth = s * 0.085f, cap = StrokeCap.Round
+                    )
+                }
             }
             if (forward) draw() else scale(-1f, 1f, center) { draw() }
         }
@@ -104,14 +125,50 @@ fun PlayPauseButton(
     modifier: Modifier = Modifier,
     buttonSize: Dp = 76.dp,
     circleColor: Color = MaterialTheme.colorScheme.primary,
-    iconColor: Color = MaterialTheme.colorScheme.onSurface
+    iconColor: Color = MaterialTheme.colorScheme.onSurface,
+    elevated: Boolean = false
 ) {
     Box(
         modifier = modifier
             .size(buttonSize)
             .bounceClick(pressedScale = 0.94f, onClick = onClick)
+            .then(
+                if (elevated) Modifier
+                    // zwei Lagen: enger Kontaktschatten und weiter, weicher Schatten
+                    .shadow(
+                        elevation = buttonSize * 0.05f, shape = CircleShape, clip = false,
+                        ambientColor = Color.Black.copy(alpha = 0.50f),
+                        spotColor = Color.Black.copy(alpha = 0.60f)
+                    )
+                    .shadow(
+                        elevation = buttonSize * 0.22f, shape = CircleShape, clip = false,
+                        ambientColor = Color.Black.copy(alpha = 0.30f),
+                        spotColor = Color.Black.copy(alpha = 0.40f)
+                    )
+                else Modifier
+            )
             .clip(CircleShape)
-            .background(circleColor.copy(alpha = 0.45f))
+            .then(
+                if (elevated) Modifier
+                    // oben etwas heller, unten etwas dunkler: wie eine leicht gewölbte Fläche
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = 0.10f).compositeOver(circleColor.copy(alpha = 0.55f)),
+                                circleColor.copy(alpha = 0.40f)
+                            )
+                        )
+                    )
+                    // feine Lichtkante oben, dezente Schattenkante unten
+                    .border(
+                        1.dp,
+                        Brush.verticalGradient(
+                            listOf(Color.White.copy(alpha = 0.32f), Color.Transparent, Color.Black.copy(alpha = 0.18f))
+                        ),
+                        CircleShape
+                    )
+                else Modifier.background(circleColor.copy(alpha = 0.45f))
+            )
             .semantics { contentDescription = if (isPlaying) str(R.string.cd_pause) else str(R.string.cd_play) },
         contentAlignment = Alignment.Center
     ) {
@@ -165,7 +222,8 @@ fun ShuffleButton(
     active: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    iconSize: Dp = 26.dp
+    iconSize: Dp = 26.dp,
+    elevated: Boolean = false
 ) {
     val tint by animateColorAsState(
         if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -189,10 +247,12 @@ fun ShuffleButton(
                 moveTo(s * 0.10f, s * 0.70f); lineTo(s * 0.30f, s * 0.70f)
                 lineTo(s * 0.64f, s * 0.30f); lineTo(s * 0.86f, s * 0.30f)
             }
-            drawPath(a, tint, style = line)
-            drawPath(b, tint, style = line)
-            chevron(s * 0.88f, s * 0.70f, 1f, s * 0.11f, tint, head)
-            chevron(s * 0.88f, s * 0.30f, 1f, s * 0.11f, tint, head)
+            glyph(elevated, tint) { c ->
+                drawPath(a, c, style = line)
+                drawPath(b, c, style = line)
+                chevron(s * 0.88f, s * 0.70f, 1f, s * 0.11f, c, head)
+                chevron(s * 0.88f, s * 0.30f, 1f, s * 0.11f, c, head)
+            }
         }
     }
 }
@@ -203,7 +263,8 @@ fun RepeatButton(
     repeatOne: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    iconSize: Dp = 26.dp
+    iconSize: Dp = 26.dp,
+    elevated: Boolean = false
 ) {
     val tint by animateColorAsState(
         if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -227,13 +288,15 @@ fun RepeatButton(
             val bottom = Path().apply {
                 moveTo(s * 0.86f, s * 0.42f); lineTo(s * 0.86f, s * 0.70f); lineTo(s * 0.20f, s * 0.70f)
             }
-            drawPath(top, tint, style = line)
-            drawPath(bottom, tint, style = line)
-            chevron(s * 0.82f, s * 0.30f, 1f, s * 0.11f, tint, head)
-            chevron(s * 0.18f, s * 0.70f, -1f, s * 0.11f, tint, head)
-            if (repeatOne) {
-                drawLine(tint, Offset(s * 0.52f, s * 0.40f), Offset(s * 0.52f, s * 0.60f), strokeWidth = w, cap = StrokeCap.Round)
-                drawLine(tint, Offset(s * 0.52f, s * 0.40f), Offset(s * 0.44f, s * 0.46f), strokeWidth = w, cap = StrokeCap.Round)
+            glyph(elevated, tint) { c ->
+                drawPath(top, c, style = line)
+                drawPath(bottom, c, style = line)
+                chevron(s * 0.82f, s * 0.30f, 1f, s * 0.11f, c, head)
+                chevron(s * 0.18f, s * 0.70f, -1f, s * 0.11f, c, head)
+                if (repeatOne) {
+                    drawLine(c, Offset(s * 0.52f, s * 0.40f), Offset(s * 0.52f, s * 0.60f), strokeWidth = w, cap = StrokeCap.Round)
+                    drawLine(c, Offset(s * 0.52f, s * 0.40f), Offset(s * 0.44f, s * 0.46f), strokeWidth = w, cap = StrokeCap.Round)
+                }
             }
         }
     }
