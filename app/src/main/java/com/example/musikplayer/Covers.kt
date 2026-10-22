@@ -137,6 +137,21 @@ fun clearCoverCaches(ctx: Context? = null) {
     if (ctx != null) coverDir(ctx).listFiles()?.forEach { it.delete() }
 }
 
+/**
+ * Mehrlagiger Schatten (Faktor der Basishöhe, Deckkraft): eng und dunkel direkt am Rand (Kontaktschatten),
+ * dazu ein mittlerer und ein weiter, weicher Schatten. Wirkt deutlich plastischer als eine einzelne Lage.
+ */
+val CoverShadowLayers = listOf(0.2f to 0.60f, 0.55f to 0.42f, 1.2f to 0.30f)
+
+fun Modifier.layeredShadow(base: Dp, shape: androidx.compose.ui.graphics.Shape): Modifier {
+    var m = this
+    for ((factor, alpha) in CoverShadowLayers) {
+        val c = androidx.compose.ui.graphics.Color.Black.copy(alpha = alpha)
+        m = m.shadow(base * factor, shape, clip = false, ambientColor = c, spotColor = c)
+    }
+    return m
+}
+
 @Composable
 fun Cover(song: Song, size: Dp, corner: Dp = 12.dp, fallbackSize: Dp? = null, shadow: Dp = 0.dp) {
     val ctx = LocalContext.current
@@ -164,11 +179,7 @@ fun Cover(song: Song, size: Dp, corner: Dp = 12.dp, fallbackSize: Dp? = null, sh
             .size(size)
             // Schatten außerhalb des Zuschnitts, sonst würde er mit abgeschnitten
             .then(
-                if (shadow > 0.dp) Modifier.shadow(
-                    shadow, coverShape, clip = false,
-                    ambientColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
-                    spotColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f)
-                ) else Modifier
+                if (shadow > 0.dp) Modifier.layeredShadow(shadow, coverShape) else Modifier
             )
             .clip(coverShape),
         contentAlignment = Alignment.Center
