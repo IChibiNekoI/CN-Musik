@@ -81,28 +81,6 @@ private fun DrawScope.glyph(elevated: Boolean, tint: Color, draw: DrawScope.(Col
     draw(tint)
 }
 
-/* ---------- Bittiefe-Symbol: drei Wellenlinien ---------- */
-
-@Composable
-fun BitDepthIcon(modifier: Modifier = Modifier, size: Dp = 14.dp, tint: Color = LocalContentColor.current) {
-    Canvas(modifier.size(size)) {
-        val s = this.size.minDimension
-        val style = Stroke(width = s * 0.10f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-        val amp = s * 0.075f
-        for (y in listOf(0.24f, 0.50f, 0.76f)) {
-            val cy = s * y
-            // zwei Wellen: erst nach oben, dann nach unten ausgelenkt
-            val p = Path().apply {
-                moveTo(s * 0.06f, cy)
-                quadraticBezierTo(s * 0.215f, cy - 2 * amp, s * 0.37f, cy)
-                quadraticBezierTo(s * 0.525f, cy + 2 * amp, s * 0.68f, cy)
-                quadraticBezierTo(s * 0.77f, cy - amp, s * 0.94f, cy - amp * 0.2f)
-            }
-            drawPath(p, tint, style = style)
-        }
-    }
-}
-
 /* ---------- Weiter / Zurück ---------- */
 
 @Composable
