@@ -484,8 +484,19 @@ fun saveShowAudioInfo(ctx: Context, value: Boolean) {
     prefs(ctx).edit().putBoolean("audio_info", value).apply()
 }
 
-/** Liefert z. B. "FLAC · 912 kbps · 44.1 kHz" oder null, wenn nichts ermittelt werden konnte. */
-fun loadAudioInfo(ctx: Context, song: Song): String? {
+/**
+ * Audioinfos fürs Player-Bild.
+ * [text]: z. B. "FLAC · 912 kbps · 44.1 kHz".
+ * [bitDepth]: Bittiefe (nur bei verlustfreien Formaten), sonst 0.
+ * [quality]: "Lossless" (16 bit) oder "Hi-Res Lossless" (24 bit und mehr), sonst null.
+ */
+class AudioInfo(val text: String, val bitDepth: Int = 0, val quality: String? = null)
+
+/** Verlustfreie Formate, bei denen Bittiefe und Qualitätsstufe angezeigt werden */
+private val LOSSLESS_FORMATS = setOf("FLAC", "ALAC", "WAV", "AIFF", "AIF", "WV", "APE")
+
+/** Liefert die Audioinfos oder null, wenn nichts ermittelt werden konnte. */
+fun loadAudioInfo(ctx: Context, song: Song): AudioInfo? {
     val ex = MediaExtractor()
     try {
         ex.setDataSource(ctx, song.uri, null)
@@ -538,7 +549,37 @@ fun loadAudioInfo(ctx: Context, song: Song): String? {
                 else String.format(Locale.US, "%.1f kHz", sr / 1000.0)
             )
         }
-        return parts.joinToString(" · ")
+
+        // Bittiefe: nur bei verlustfreien Formaten (bei MP3/AAC usw. wäre sie bedeutungslos)
+        var bits = 0
+        if (format in LOSSLESS_FORMATS) {
+            val r = android.media.MediaMetadataRetriever()
+            try {
+                r.setDataSource(ctx, song.uri)
+                bits = r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_BITS_PER_SAMPLE)
+                    ?.toIntOrNull() ?: 0
+            } catch (e: Exception) {
+            } finally {
+                try { r.release() } catch (e: Exception) { }
+            }
+            if (bits <= 0 && fmt.containsKey(MediaFormat.KEY_PCM_ENCODING)) {
+                bits = when (fmt.getInteger(MediaFormat.KEY_PCM_ENCODING)) {
+                    android.media.AudioFormat.ENCODING_PCM_8BIT -> 8
+                    android.media.AudioFormat.ENCODING_PCM_16BIT -> 16
+                    android.media.AudioFormat.ENCODING_PCM_24BIT_PACKED -> 24
+                    android.media.AudioFormat.ENCODING_PCM_32BIT,
+                    android.media.AudioFormat.ENCODING_PCM_FLOAT -> 32
+                    else -> 0
+                }
+            }
+        }
+        val quality = when {
+            format !in LOSSLESS_FORMATS -> null
+            bits >= 24 -> "Hi-Res Lossless"
+            bits > 0 -> "Lossless"
+            else -> null
+        }
+        return AudioInfo(parts.joinToString(" · "), bits, quality)
     } catch (e: Exception) {
         return null
     } finally {
