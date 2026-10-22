@@ -569,6 +569,7 @@ private fun NowPlayingSheetContent(
 
                     Column(Modifier.fillMaxWidth().reveal({ open.value }, 0.45f, 0.92f)) {
                         PillProgress(
+                            elevated = CornerSettings.controlDepth,
                             progress = { if (dragging) dragFraction else frac.floatValue },
                             onChange = { dragging = true; dragFraction = it },
                             onFinished = {
@@ -594,15 +595,17 @@ private fun NowPlayingSheetContent(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        ShuffleButton(active = shuffle, onClick = { c.shuffleModeEnabled = !shuffle })
-                        SkipButton(forward = false, onClick = { skipPrev(c) })
+                        ShuffleButton(active = shuffle, elevated = CornerSettings.controlDepth, onClick = { c.shuffleModeEnabled = !shuffle })
+                        SkipButton(forward = false, elevated = CornerSettings.controlDepth, onClick = { skipPrev(c) })
                         PlayPauseButton(
                             isPlaying = isPlaying,
                             onClick = { if (isPlaying) c.pause() else c.play() },
-                            buttonSize = 76.dp
+                            buttonSize = 76.dp,
+                            elevated = CornerSettings.controlDepth
                         )
-                        SkipButton(forward = true, onClick = { skipNext(c) })
+                        SkipButton(forward = true, elevated = CornerSettings.controlDepth, onClick = { skipNext(c) })
                         RepeatButton(
+                            elevated = CornerSettings.controlDepth,
                             active = repeat != Player.REPEAT_MODE_OFF,
                             repeatOne = repeat == Player.REPEAT_MODE_ONE,
                             onClick = {
@@ -641,28 +644,45 @@ private fun NowPlayingSheetContent(
             val coverStyle = LocalCoverStyle.current
             val r0 = coverRadius(coverStyle, 56.dp, 12.dp).value   // Rundung im Miniplayer
             val r1 = coverRadius(coverStyle, finalDp, 20.dp).value // Rundung im Player
+            val flightScale = { e: Float ->
+                androidx.compose.ui.util.lerp(fb.width / fin.width.coerceAtLeast(1f), 1f, e).coerceAtLeast(0.05f)
+            }
+            // Ecken: von der Rundung im Mini zu der im Player, vor der Skalierung umgerechnet
+            val flightShape = { e: Float, d: Float ->
+                RoundedCornerShape(androidx.compose.ui.util.lerp(r0, r1, e) * d / flightScale(e))
+            }
             Box(
                 Modifier
                     .size(finalDp)
                     .graphicsLayer {
                         val e = coverPath(open.value.coerceIn(0f, 1f))
-                        val sc = androidx.compose.ui.util.lerp(fb.width / fin.width.coerceAtLeast(1f), 1f, e)
-                            .coerceAtLeast(0.05f)
+                        val sc = flightScale(e)
                         transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
                         scaleX = sc
                         scaleY = sc
                         translationX = androidx.compose.ui.util.lerp(fb.left, fin.left, e)
                         translationY = androidx.compose.ui.util.lerp(fb.top, fin.top, e)
-                        // Ecken: von der Rundung im Mini zu der im Player, vor der Skalierung umgerechnet
-                        val eff = androidx.compose.ui.util.lerp(r0, r1, e) * density
-                        shape = RoundedCornerShape(eff / sc)
-                        clip = true
-                        // Schatten wächst mit dem Flug an (im Miniplayer gibt es keinen), damit beim Tausch nichts springt
+                    }
+                    // Schatten (gleiche Lagen wie im Cover) wachsen mit dem Flug an, damit beim Tausch nichts springt
+                    .then(
                         if (CornerSettings.coverShadow) {
-                            shadowElevation = COVER_SHADOW.toPx() * e.coerceIn(0f, 1f)
-                            ambientShadowColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f)
-                            spotShadowColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f)
-                        }
+                            var m: Modifier = Modifier
+                            for ((factor, alpha) in CoverShadowLayers) {
+                                m = m.graphicsLayer {
+                                    val e = coverPath(open.value.coerceIn(0f, 1f))
+                                    shape = flightShape(e, density)
+                                    clip = false
+                                    shadowElevation = COVER_SHADOW.toPx() * factor * e.coerceIn(0f, 1f)
+                                    ambientShadowColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = alpha)
+                                    spotShadowColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = alpha)
+                                }
+                            }
+                            m
+                        } else Modifier
+                    )
+                    .graphicsLayer {
+                        shape = flightShape(coverPath(open.value.coerceIn(0f, 1f)), density)
+                        clip = true
                     }
             ) {
                 Cover(song, finalDp, corner = 0.dp, fallbackSize = 56.dp)
