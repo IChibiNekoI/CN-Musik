@@ -80,10 +80,19 @@ private suspend fun loadBigCover(ctx: Context, song: Song, ver: Int, px: Int): B
     return job.await()
 }
 
+/**
+ * Begrenzt die Größe, in der ein Cover geladen wird, auf die eingestellte Höchstauflösung (Design-Einstellungen).
+ * Kleinere Bilder laden schneller und belasten die Grafikkarte weniger; das Cover wird dann beim Anzeigen hochskaliert.
+ */
+private fun capPx(px: Int): Int {
+    val max = CornerSettings.coverMaxPx
+    return if (max > 0) minOf(px, max) else px
+}
+
 /** Lädt das große Player-Cover schon vorab in den Cache, damit der Titelwechsel nicht auf das Laden warten muss */
 suspend fun prewarmPlayerCover(ctx: android.content.Context, song: Song, px: Int) {
     if (px <= 0) return
-    loadBigCover(ctx, song, TagEvents.coverVersions[song.id] ?: 0, px)
+    loadBigCover(ctx, song, TagEvents.coverVersions[song.id] ?: 0, capPx(px))
 }
 
 /* ---------- Cover-Cache auf der Platte ----------
@@ -209,7 +218,7 @@ fun Modifier.layeredShadow(base: Dp, shape: androidx.compose.ui.graphics.Shape):
 @Composable
 fun Cover(song: Song, size: Dp, corner: Dp = 12.dp, fallbackSize: Dp? = null, shadow: Dp = 0.dp) {
     val ctx = LocalContext.current
-    val px = with(LocalDensity.current) { size.roundToPx() }
+    val px = capPx(with(LocalDensity.current) { size.roundToPx() })   // durch die Höchstauflösung begrenzt
     val fallbackPx = fallbackSize?.let { with(LocalDensity.current) { it.roundToPx() } }
     // Sofort etwas anzeigen: erst das Bild in passender Größe, sonst die kleine Version aus dem Cache
     val ver = TagEvents.coverVersions[song.id] ?: 0   // ändert sich, wenn im Tag-Editor ein neues Cover gespeichert wurde
