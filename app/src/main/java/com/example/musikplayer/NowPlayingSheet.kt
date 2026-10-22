@@ -667,14 +667,14 @@ private fun NowPlayingSheetContent(
                     .then(
                         if (CornerSettings.coverShadow) {
                             var m: Modifier = Modifier
-                            for ((factor, alpha) in CoverShadowLayers) {
+                            for ((factor, layerAlpha) in CoverShadowLayers) {
                                 m = m.graphicsLayer {
                                     val e = coverPath(open.value.coerceIn(0f, 1f))
                                     shape = flightShape(e, density)
                                     clip = false
                                     shadowElevation = COVER_SHADOW.toPx() * factor * e.coerceIn(0f, 1f)
-                                    ambientShadowColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = alpha)
-                                    spotShadowColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = alpha)
+                                    ambientShadowColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = layerAlpha)
+                                    spotShadowColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = layerAlpha)
                                 }
                             }
                             m
