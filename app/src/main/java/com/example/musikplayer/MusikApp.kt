@@ -271,6 +271,25 @@ fun MusikApp(
     }
     val current = allSongs.find { it.id.toString() == currentId }
         ?: externalSong?.takeIf { it.id.toString() == currentId }
+    // Cover des nächsten und vorherigen Titels schon vorab laden, damit der Titelwechsel im Player nicht hakt
+    // (bei FLAC mit großem Bild dauert das Auslesen sonst spürbar). Erst nach kurzer Pause, damit das aktuelle Cover
+    // und die Animation Vorrang haben.
+    val warmView = androidx.compose.ui.platform.LocalView.current
+    val warmDensity = androidx.compose.ui.platform.LocalDensity.current
+    LaunchedEffect(currentId, controller, allSongs.size) {
+        if (!PREWARM_PLAYER_COVER) return@LaunchedEffect
+        val c = controller ?: return@LaunchedEffect
+        if (currentId == null || allSongs.isEmpty()) return@LaunchedEffect
+        kotlinx.coroutines.delay(400)
+        val px = warmView.width - 2 * with(warmDensity) { 24.dp.roundToPx() }
+        if (px <= 0) return@LaunchedEffect
+        for (idx in listOf(c.nextMediaItemIndex, c.previousMediaItemIndex)) {
+            if (idx < 0 || idx >= c.mediaItemCount) continue
+            val id = c.getMediaItemAt(idx).mediaId
+            val song = allSongs.firstOrNull { it.id.toString() == id } ?: continue
+            prewarmPlayerCover(ctx, song, px)
+        }
+    }
     // Verschwommenes Cover für Menüs, Dialoge und Einstellungen (nur bei Unschärfe mit eingeschaltetem Menü-Design)
     LaunchedEffect(
         current?.id, CornerSettings.playerBg, CornerSettings.menuUnified,
