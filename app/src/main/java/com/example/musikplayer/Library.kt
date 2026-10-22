@@ -114,6 +114,12 @@ fun saveCoverShadow(ctx: Context, on: Boolean) {
     prefs(ctx).edit().putBoolean("cover_shadow", on).apply()
 }
 
+fun readControlDepth(ctx: Context): Boolean = prefs(ctx).getBoolean("control_depth", false)
+
+fun saveControlDepth(ctx: Context, on: Boolean) {
+    prefs(ctx).edit().putBoolean("control_depth", on).apply()
+}
+
 /** Aussehen der Kopfzeile: Text, Logo oder (nach dem Easter Egg) der müde Fuchs */
 enum class HeaderStyle { TEXT, LOGO, FOX }
 
