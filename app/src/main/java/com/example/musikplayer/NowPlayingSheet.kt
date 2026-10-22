@@ -192,7 +192,7 @@ private fun NowPlayingSheetContent(
         kotlinx.coroutines.delay(500)
         SkipDirection.dir = 1
     }
-    val audioInfo by produceState<String?>(null, song.id, showAudioInfo) {
+    val audioInfo by produceState<AudioInfo?>(null, song.id, showAudioInfo) {
         value = if (!showAudioInfo) null
         else {
             // erst nach der Öffnen-Animation laden, sonst löst das Ergebnis mittendrin eine Neuzeichnung aus
@@ -623,14 +623,35 @@ private fun NowPlayingSheetContent(
                             .reveal({ open.value }, 0.60f, 1.0f, 16.dp),   // Abstand unten
                         contentAlignment = Alignment.BottomCenter
                     ) {
-                        audioInfo?.let {
-                            Text(
-                                it,
-                                modifier = Modifier.padding(bottom = 8.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),   // Akzentfarbe, gleiche Deckkraft wie vorher
-                                maxLines = 1
-                            )
+                        audioInfo?.let { info ->
+                            val infoColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)   // Akzentfarbe, gleiche Deckkraft wie vorher
+                            Column(
+                                Modifier.padding(bottom = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    info.text,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = infoColor,
+                                    maxLines = 1
+                                )
+                                // zweite Zeile: Bittiefe mit Symbol, bei verlustfreien Formaten dazu die Qualitätsstufe
+                                if (info.bitDepth > 0) {
+                                    Row(
+                                        Modifier.padding(top = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        BitDepthIcon(size = 13.dp, tint = infoColor)
+                                        Text(
+                                            "${info.bitDepth}-bit" + (info.quality?.let { " · $it" } ?: ""),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = infoColor,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
