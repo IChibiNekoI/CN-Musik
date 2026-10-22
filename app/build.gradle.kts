@@ -13,7 +13,7 @@ android {
         // Feste Zahlen (kein Wert aus der Umgebung)
         // versionCode bei jeder neuen Version erhöhen, Schema: Major*10000 + Minor*100 + Patch (1.5.1 -> 10501)
         versionCode = 10908
-        versionName = "1.9.6"
+        versionName = "1.9.7"
     }
     signingConfigs {
         create("musik") {
