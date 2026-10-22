@@ -61,8 +61,6 @@
     <string name="menu_unified_on">The main page (tracks, albums, playlists, favorites) gets the player background</string>
     <string name="menu_unified_off">Only available with blur</string>
     <string name="effect_3d">3D effect</string>
-    <string name="cover_resolution">Maximum cover resolution</string>
-    <string name="cover_resolution_auto">Automatic</string>
     <string name="folders_hint">Only songs from checked folders are shown.</string>
     <string name="root_folder">Root folder</string>
     <string name="language">Language</string>
