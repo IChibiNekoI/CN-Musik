@@ -40,11 +40,11 @@ object Motion {
     /** große Bewegungen */
     const val SLOW = 420
 
-    /** Farbwechsel beim Titelwechsel: weich, aber nicht träge */
-    const val COLOR = 700
+    /** Farbwechsel beim Titelwechsel (Hintergrund, Tasten, Texte): schnell und flüssig */
+    const val COLOR = 320
 
     /** Farbwechsel bei einfarbigem Hintergrund: flotter */
-    const val COLOR_QUICK = 350
+    const val COLOR_QUICK = 260
 
     val Ease = FastOutSlowInEasing
 
