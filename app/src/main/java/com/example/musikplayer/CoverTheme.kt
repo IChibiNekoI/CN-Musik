@@ -30,6 +30,26 @@ fun rememberSeed(songId: Long, ver: Int, bmp: Bitmap) {
     seedFromBitmap(bmp)?.let { SeedCache.put(key, it) }
 }
 
+/**
+ * Lädt Farbe und unscharfen Hintergrund eines Titels schon vorab (Vorgänger/Nachfolger),
+ * damit beim Titelwechsel nichts nachgeladen werden muss und alles im selben Moment wechselt.
+ */
+suspend fun prefetchCoverColors(ctx: android.content.Context, song: Song) {
+    val ver = TagEvents.coverVersions[song.id] ?: 0
+    val key = "${song.id}_$ver"
+    if (SeedCache.get(key) == null) {
+        withContext(Dispatchers.IO) {
+            try {
+                (loadCoverBitmap(ctx, song, ver, 96) ?: ctx.contentResolver.loadThumbnail(song.uri, Size(96, 96), null))
+                    ?.let { seedFromBitmap(it) }
+            } catch (e: Exception) {
+                null
+            }
+        }?.let { SeedCache.put(key, it) }
+    }
+    loadBlurredBackdrop(ctx, song)
+}
+
 /** Zustand des Players, den das Theme kennen muss */
 object PlayerUiState {
     var queueOpen by androidx.compose.runtime.mutableStateOf(false)
@@ -89,12 +109,11 @@ private class Tones(val v: List<Color>)
 
 /**
  * Überblendung in Oklab (Compose-Standard).
- * Alle Farben starten gleichzeitig und laufen mit derselben Kurve. [soft] = true nutzt dieselbe weiche Kurve wie das
- * Überblenden des unscharfen Cover-Bilds (PlayerBackdrop), damit Bild, Flächen, Texte und Tasten gleichmäßig wechseln
- * und nicht nacheinander.
+ * Alle Farben starten gleichzeitig und laufen mit derselben Kurve wie das Cover-Bild im Hintergrund (PlayerBackdrop),
+ * damit Bild, Flächen, Texte und Tasten gemeinsam und ohne Anlaufzeit wechseln.
  */
-private fun lerpTones(a: Tones, b: Tones, f: Float, soft: Boolean): Tones {
-    val eased = if (soft) Motion.Soft.transform(f) else Motion.Ease.transform(f)
+private fun lerpTones(a: Tones, b: Tones, f: Float, @Suppress("UNUSED_PARAMETER") soft: Boolean): Tones {
+    val eased = Motion.Ease.transform(f)
     return Tones(List(a.v.size) { androidx.compose.ui.graphics.lerp(a.v[it], b.v[it], eased) })
 }
 
