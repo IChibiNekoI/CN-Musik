@@ -875,19 +875,17 @@ fun AppSettingsSheet(
                     colors = clear,
                     modifier = Modifier.bounceClick(pressedScale = 0.97f, enabled = menuSwitchEnabled, haptic = false) { onMenuUnified(!menuUnified) }
                 )
-                // Ein Kippschalter für alle 3D-Effekte im Player: Cover-Schatten und erhabene Bedienelemente
+                // Schatten unter dem Cover im Player
                 val shadowCtx = LocalContext.current
-                val depthOn = CornerSettings.coverShadow || CornerSettings.controlDepth
+                val shadowOn = CornerSettings.coverShadow
                 ListItem(
-                    headlineContent = { Text(str(R.string.effect_3d)) },
-                    trailingContent = { Switch(checked = depthOn, onCheckedChange = null) },
+                    headlineContent = { Text(str(R.string.shadow)) },
+                    trailingContent = { Switch(checked = shadowOn, onCheckedChange = null) },
                     colors = clear,
                     modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) {
-                        val on = !depthOn
+                        val on = !shadowOn
                         CornerSettings.coverShadow = on
-                        CornerSettings.controlDepth = on
                         saveCoverShadow(shadowCtx, on)
-                        saveControlDepth(shadowCtx, on)
                     }
                 )
                 Spacer(Modifier.height(32.dp + bottomExtra))
