@@ -569,7 +569,6 @@ private fun NowPlayingSheetContent(
 
                     Column(Modifier.fillMaxWidth().reveal({ open.value }, 0.45f, 0.92f)) {
                         PillProgress(
-                            elevated = CornerSettings.controlDepth,
                             progress = { if (dragging) dragFraction else frac.floatValue },
                             onChange = { dragging = true; dragFraction = it },
                             onFinished = {
@@ -595,17 +594,15 @@ private fun NowPlayingSheetContent(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        ShuffleButton(active = shuffle, elevated = CornerSettings.controlDepth, onClick = { c.shuffleModeEnabled = !shuffle })
-                        SkipButton(forward = false, elevated = CornerSettings.controlDepth, onClick = { skipPrev(c) })
+                        ShuffleButton(active = shuffle, onClick = { c.shuffleModeEnabled = !shuffle })
+                        SkipButton(forward = false, onClick = { skipPrev(c) })
                         PlayPauseButton(
                             isPlaying = isPlaying,
                             onClick = { if (isPlaying) c.pause() else c.play() },
-                            buttonSize = 76.dp,
-                            elevated = CornerSettings.controlDepth
+                            buttonSize = 76.dp
                         )
-                        SkipButton(forward = true, elevated = CornerSettings.controlDepth, onClick = { skipNext(c) })
+                        SkipButton(forward = true, onClick = { skipNext(c) })
                         RepeatButton(
-                            elevated = CornerSettings.controlDepth,
                             active = repeat != Player.REPEAT_MODE_OFF,
                             repeatOne = repeat == Player.REPEAT_MODE_ONE,
                             onClick = {
