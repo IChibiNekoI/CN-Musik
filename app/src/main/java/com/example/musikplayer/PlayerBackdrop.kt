@@ -84,7 +84,7 @@ fun SoftCoverImage(bitmap: Bitmap?, modifier: Modifier = Modifier) {
         below = top
         top = bitmap
         a.snapTo(0f)
-        a.animateTo(1f, tween(Motion.COLOR, easing = Motion.Soft))
+        a.animateTo(1f, tween(Motion.COLOR, easing = Motion.Ease))
         below = null
     }
     Box(modifier) {
@@ -104,7 +104,7 @@ fun SoftCoverImage(bitmap: Bitmap?, modifier: Modifier = Modifier) {
                 t.asImageBitmap(), contentDescription = null,
                 modifier = Modifier.fillMaxSize().graphicsLayer {
                     alpha = a.value
-                    val sc = 1.12f - 0.12f * a.value
+                    val sc = 1.04f - 0.04f * a.value
                     scaleX = sc; scaleY = sc
                 },
                 contentScale = ContentScale.Crop,
