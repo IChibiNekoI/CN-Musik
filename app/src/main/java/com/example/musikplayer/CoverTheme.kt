@@ -93,12 +93,12 @@ private class Tones(val v: List<Color>)
  */
 private fun toneDelay(i: Int): Float = when (i) {
     in 9..16 -> 0f        // primary / secondary und deren Container
-    1, 2 -> 0.12f         // Texte
-    17, 18 -> 0.12f       // Linien
-    else -> 0.3f          // Hintergründe und Flächen
+    1, 2 -> 0.06f         // Texte
+    17, 18 -> 0.06f       // Linien
+    else -> 0.14f         // Hintergründe und Flächen
 }
 
-private const val TONE_WINDOW = 0.7f
+private const val TONE_WINDOW = 0.8f
 
 /**
  * Überblendung in Oklab (Compose-Standard).
