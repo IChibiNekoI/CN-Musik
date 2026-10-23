@@ -1,384 +1,730 @@
 package com.example.musikplayer
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Canvas
+import android.util.Size
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.media3.common.Player
+import androidx.media3.session.MediaController
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import androidx.compose.ui.text.style.TextAlign
+import androidx.core.view.WindowCompat
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
+import kotlinx.coroutines.withContext
+import kotlin.math.max
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.activity.compose.PredictiveBackHandler
+import kotlinx.coroutines.Job
+import kotlin.coroutines.cancellation.CancellationException
 
-/* ---------- Zeichen-Helfer: Umriss-Stil mit runden Ecken ---------- */
+private fun fmt(ms: Long): String {
+    val s = ms / 1000
+    return "%d:%02d".format(s / 60, s % 60)
+}
 
-private fun DrawScope.outline(widthPx: Float, cornerPx: Float) = Stroke(
-    width = widthPx,
-    cap = StrokeCap.Round,
-    join = StrokeJoin.Round,
-    pathEffect = PathEffect.cornerPathEffect(cornerPx)
+/** Position, Eckenrundung und Farbe des Miniplayers - Startpunkt der Öffnen-Animation */
+data class MiniOrigin(
+    val bounds: androidx.compose.ui.geometry.Rect,
+    val radius: Dp,
+    val color: Color,
+    /** Position des kleinen Covers im Miniplayer - Startpunkt des "fliegenden" Covers */
+    val coverBounds: androidx.compose.ui.geometry.Rect? = null
 )
 
-/** Dreieck, das nach rechts zeigt. Alle Werte in Pixeln. */
-private fun DrawScope.roundedTriangle(
-    left: Float, tip: Float, top: Float, bottom: Float, color: Color, style: Stroke
-) {
-    val p = Path().apply {
-        moveTo(left, top)
-        lineTo(tip, (top + bottom) / 2f)
-        lineTo(left, bottom)
-        close()
+/** Zeigt den Player als Ausschnitt, der vom Miniplayer-Rechteck auf Vollbild aufgeht */
+private class SheetRevealShape(
+    private val origin: MiniOrigin?,
+    private val progress: Float,
+    private val topCornerDp: Float
+) : androidx.compose.ui.graphics.Shape {
+    override fun createOutline(
+        size: androidx.compose.ui.geometry.Size,
+        layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+        density: androidx.compose.ui.unit.Density
+    ): androidx.compose.ui.graphics.Outline {
+        val d = density.density
+        val topEnd = topCornerDp * d
+        if (origin == null || progress >= 1f) {
+            val full = androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height)
+            val top = androidx.compose.ui.geometry.CornerRadius(topEnd)
+            return androidx.compose.ui.graphics.Outline.Rounded(
+                androidx.compose.ui.geometry.RoundRect(
+                    full, top, top,
+                    androidx.compose.ui.geometry.CornerRadius.Zero,
+                    androidx.compose.ui.geometry.CornerRadius.Zero
+                )
+            )
+        }
+        val b = origin.bounds
+        val e = progress.coerceIn(0f, 1f)
+        val rect = androidx.compose.ui.geometry.Rect(
+            androidx.compose.ui.util.lerp(b.left, 0f, e),
+            androidx.compose.ui.util.lerp(b.top, 0f, e),
+            androidx.compose.ui.util.lerp(b.right, size.width, e),
+            androidx.compose.ui.util.lerp(b.bottom, size.height, e)
+        )
+        val mini = origin.radius.value * d
+        // Sobald man am Player zieht, werden die Ecken innerhalb der ersten ~6 % des Wegs rund (statt erst
+        // kurz vor dem Miniplayer), damit oben und unten keine harten Kanten sichtbar werden
+        val rounded = 38f * d * ((1f - e) / 0.06f).coerceIn(0f, 1f)
+        val top = androidx.compose.ui.geometry.CornerRadius(androidx.compose.ui.util.lerp(mini, maxOf(topEnd, rounded), e))
+        val bottom = androidx.compose.ui.geometry.CornerRadius(androidx.compose.ui.util.lerp(mini, rounded, e))
+        return androidx.compose.ui.graphics.Outline.Rounded(
+            androidx.compose.ui.geometry.RoundRect(rect, top, top, bottom, bottom)
+        )
     }
-    drawPath(p, color, style = style)
 }
 
-/* ---------- Weiter / Zurück ---------- */
-
 @Composable
-fun SkipButton(
-    forward: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    iconSize: Dp = 30.dp,
-    tint: Color = LocalContentColor.current
+fun NowPlayingSheet(
+    song: Song,
+    isPlaying: Boolean,
+    shuffle: Boolean,
+    repeat: Int,
+    c: MediaController,
+    library: List<Song> = emptyList(),
+    showAudioInfo: Boolean = false,
+    origin: MiniOrigin? = null,
+    motion: SheetMotion,
+    // true, wenn der Finger den Player beim Hochziehen bereits aufgezogen hat (dann keine eigene Öffnen-Animation)
+    fingerDriven: Boolean = false,
+    onGoToAlbum: () -> Unit = {},
+    onAddToPlaylist: () -> Unit = {},
+    isFavorite: Boolean = false,
+    onToggleFavorite: () -> Unit = {},
+    onDismiss: () -> Unit
 ) {
-    Box(
-        // drückt sich ein und schubst ein Stück in Pfeilrichtung; beim Loslassen federt die Taste mit Überschwinger zurück
-        modifier = modifier.size(48.dp)
-            .bounceClick(nudgeX = if (forward) 5.dp else (-5).dp, onClick = onClick)
-            .semantics { contentDescription = if (forward) str(R.string.cd_next) else str(R.string.back) },
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(Modifier.size(iconSize)) {
-            val s = this.size.minDimension
-            val stroke = outline(s * 0.085f, s * 0.12f)
-            val draw: DrawScope.() -> Unit = {
-                roundedTriangle(s * 0.14f, s * 0.70f, s * 0.20f, s * 0.80f, tint, stroke)
-                drawLine(
-                    tint, Offset(s * 0.90f, s * 0.20f), Offset(s * 0.90f, s * 0.80f),
-                    strokeWidth = s * 0.085f, cap = StrokeCap.Round
-                )
+    // Der Player ist immer dunkel -> Statusleisten-Icons hell halten
+    val view = androidx.compose.ui.platform.LocalView.current
+    DisposableEffect(view) {
+        val window = (view.context as? android.app.Activity)?.window
+        val ctrl = window?.let { WindowCompat.getInsetsController(it, view) }
+        val prevStatus = ctrl?.isAppearanceLightStatusBars
+        val prevNav = ctrl?.isAppearanceLightNavigationBars
+        ctrl?.isAppearanceLightStatusBars = false
+        ctrl?.isAppearanceLightNavigationBars = false
+        onDispose {
+            if (ctrl != null) {
+                if (prevStatus != null) ctrl.isAppearanceLightStatusBars = prevStatus
+                if (prevNav != null) ctrl.isAppearanceLightNavigationBars = prevNav
             }
-            if (forward) draw() else scale(-1f, 1f, center) { draw() }
         }
     }
+    CoverTheme(song, dark = true) {
+        NowPlayingSheetContent(song, isPlaying, shuffle, repeat, c, library, showAudioInfo, origin, motion, fingerDriven, onGoToAlbum, onAddToPlaylist, isFavorite, onToggleFavorite, onDismiss)
+    }
 }
 
-/* ---------- Play / Pause im Kreis ---------- */
-
 @Composable
-fun PlayPauseButton(
+private fun NowPlayingSheetContent(
+    song: Song,
     isPlaying: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    buttonSize: Dp = 76.dp,
-    circleColor: Color = MaterialTheme.colorScheme.primary,
-    iconColor: Color = MaterialTheme.colorScheme.onSurface
+    shuffle: Boolean,
+    repeat: Int,
+    c: MediaController,
+    library: List<Song>,
+    showAudioInfo: Boolean,
+    origin: MiniOrigin?,
+    motion: SheetMotion,
+    fingerDriven: Boolean,
+    onGoToAlbum: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
+    onDismiss: () -> Unit
 ) {
+    // Öffnen/Schließen: der Miniplayer wächst zum Vollbild-Player und zurück (0 = Miniplayer, 1 = Vollbild).
+    // Finger, Loslassen, Zurück-Taste und Zurück-Geste steuern alle denselben Fortschritt (SheetMotion).
+    val open = motion.progress
+    LaunchedEffect(Unit) {
+        if (!fingerDriven && open.value < 1f) {
+            // Das erste Layout des Players ist teuer. Zwei Frames abwarten, damit es nicht
+            // in die Animation fällt und sie am Anfang nicht ruckelt.
+            withFrameNanos { }
+            withFrameNanos { }
+            motion.settle(1f)
+        }
+    }
+    var menuOpen by remember { mutableStateOf(false) }
+    var showInfo by remember { mutableStateOf(false) }
+    var showTags by remember { mutableStateOf(false) }
+    val infoCtx = LocalContext.current
+    LaunchedEffect(song.id) {
+        kotlinx.coroutines.delay(500)
+        SkipDirection.dir = 1
+    }
+    val audioInfo by produceState<String?>(null, song.id, showAudioInfo) {
+        value = if (!showAudioInfo) null
+        else {
+            // erst nach der Öffnen-Animation laden, sonst löst das Ergebnis mittendrin eine Neuzeichnung aus
+            if (open.value < 1f) snapshotFlow { open.value }.first { it >= 1f }
+            withContext(Dispatchers.IO) { loadAudioInfo(infoCtx, song) }
+        }
+    }
+    var position by remember { mutableLongStateOf(c.currentPosition) }
+    var duration by remember { mutableLongStateOf(max(c.duration, 0L)) }
+    var dragging by remember { mutableStateOf(false) }
+    var dragFraction by remember { mutableFloatStateOf(0f) }
+    val coverOffset = remember { Animatable(0f) }
+    val coverScope = rememberCoroutineScope()
+
+    // Anteil des Balkens: wird pro Frame aktualisiert, aber nur beim Zeichnen gelesen (PillProgress),
+    // der Player wird dadurch nicht neu komponiert. Die Zeit-Texte ändern sich nur sekundenweise.
+    val frac = remember {
+        mutableFloatStateOf(
+            if (c.duration > 0) (c.currentPosition.toFloat() / c.duration).coerceIn(0f, 1f) else 0f
+        )
+    }
+    LaunchedEffect(c, isPlaying, song.id) {
+        while (true) {
+            val d = max(c.duration, 0L)
+            val p = c.currentPosition
+            frac.floatValue = if (d > 0) (p.toFloat() / d).coerceIn(0f, 1f) else 0f
+            // während der Öffnen-Animation und beim Ziehen nicht neu komponieren
+            if (open.value >= 1f && !dragging) {
+                if (p / 1000 != position / 1000) position = p
+                if (d != duration) duration = d
+            }
+            // Beim Abspielen jeden Frame (flüssiger Balken), in der Pause genügt gelegentliches Nachsehen
+            if (isPlaying) withFrameNanos { } else delay(250)
+        }
+    }
+    val shownMs = if (dragging) (dragFraction * duration).toLong() else position
+
+          var offsetY by remember { mutableFloatStateOf(0f) }
+    // Warteschlange: von unten hochwischen (Start im Bereich unter den Tasten) öffnet sie
+    val queueProgress = remember { Animatable(0f) }
+    var queueShown by remember { mutableStateOf(false) }
+    var queueZoneTop by remember { mutableFloatStateOf(Float.MAX_VALUE) }
+    var dragFromQueueZone by remember { mutableStateOf(false) }
+    var queueFollowing by remember { mutableStateOf(false) }   // Warteschlange hängt gerade am Finger
+    var upDrag by remember { mutableFloatStateOf(0f) }
+    var rootHeightPx by remember { mutableFloatStateOf(1f) }
+    val queueScope = rememberCoroutineScope()
+    var closing by remember { mutableStateOf(false) }        // Schließen läuft bereits
+    var rootWidthPx by remember { mutableFloatStateOf(1f) }
+    // Der Player schrumpft beim Schließen immer in den Miniplayer (Umkehrung des Öffnens). Ist dessen Position nicht
+    // bekannt (z. B. Start über die Benachrichtigung), dient ein Streifen am unteren Rand als Ziel.
+    val miniColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    val fallbackDensity = LocalDensity.current
+    val navBottomPx = WindowInsets.navigationBars.getBottom(fallbackDensity)
+    val fallbackOrigin = remember(rootWidthPx, rootHeightPx, navBottomPx, miniColor) {
+        val m = with(fallbackDensity) { 12.dp.toPx() }
+        val h = with(fallbackDensity) { 72.dp.toPx() }
+        val bottom = rootHeightPx - navBottomPx - m
+        MiniOrigin(androidx.compose.ui.geometry.Rect(m, bottom - h, rootWidthPx - m, bottom), 28.dp, miniColor, null)
+    }
+    val eo: MiniOrigin = origin ?: fallbackOrigin
+    val queueZonePad = with(LocalDensity.current) { 24.dp.toPx() }
+    // Das Theme wechselt bei geöffneter Warteschlange sofort (keine Welle)
+    SideEffect { PlayerUiState.queueOpen = queueShown }
+    DisposableEffect(Unit) { onDispose { PlayerUiState.queueOpen = false } }
+    fun openQueue() {
+        queueShown = true
+        queueScope.launch { queueProgress.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 320f)) }
+    }
+    fun closeQueue() {
+        queueScope.launch {
+            // dieselbe Feder wie beim Öffnen und beim Player: weich, ohne feste Dauer
+            queueProgress.animateTo(0f, sheetSpring()) {
+                // kurz vor dem Ende ausblenden, die Feder klingt sonst noch lange unsichtbar nach
+                if (value < 0.02f) queueShown = false
+            }
+            queueShown = false
+        }
+    }
+    val dragState = androidx.compose.foundation.gestures.rememberDraggableState { delta ->
+        var rest = delta
+        if (dragFromQueueZone && !queueShown || queueFollowing) {
+            if (delta < 0f && offsetY <= 0f) {
+                // nach oben gewischt: die Warteschlange folgt dem Finger
+                upDrag += delta
+                rest = 0f
+            } else if (delta > 0f && upDrag < 0f) {
+                // wieder zurück nach unten: erst die Warteschlange zurückschieben, dann erst den Player ziehen
+                val used = minOf(delta, -upDrag)
+                upDrag += used
+                rest = delta - used
+            }
+            if (upDrag < 0f) {
+                queueFollowing = true
+                queueShown = true
+            }
+            if (queueFollowing) {
+                val p = (-upDrag / (rootHeightPx * QUEUE_HEIGHT_FRACTION)).coerceIn(0f, 1f)
+                queueScope.launch { queueProgress.snapTo(p) }
+            }
+        }
+        // Der offene Player lässt sich nur nach unten ziehen, nach oben bleibt er stehen
+        offsetY = (offsetY + rest).coerceAtLeast(0f)
+        if (!queueFollowing) {
+            // Der Finger steuert den Fortschritt: der Player schrumpft unter dem Finger zum Miniplayer
+            val dist = rootHeightPx * SHEET_DRAG_FRACTION
+            motion.follow(1f - offsetY.coerceAtLeast(0f) / dist)
+        }
+    }
+
+    fun requestClose() {
+        if (closing) return
+        closing = true
+        // genau die Umkehrung des Öffnens: Karte schrumpft zurück in den Miniplayer
+        motion.settle(0f) { onDismiss() }
+    }
+
+    // Zurück-Geste (Android 13+): der Player schrumpft schon während der Geste mit, Loslassen schließt,
+    // Abbrechen federt zurück. Auf älteren Android-Versionen verhält es sich wie eine normale Zurück-Taste.
+    PredictiveBackHandler { backEvents ->
+        try {
+            backEvents.collect { e -> motion.follow(1f - e.progress * 0.3f) }
+            requestClose()
+        } catch (ex: CancellationException) {
+            motion.settle(1f)
+        }
+    }
+    // Zurück-Taste schließt zuerst die Warteschlange
+    androidx.activity.compose.BackHandler(enabled = queueShown) { closeQueue() }
+    // Ecken werden beim Runterziehen nach und nach rund (bis 38.dp)
+    val density = LocalDensity.current.density
+    // Endposition des großen Covers (für die Flug-Animation) und ob geflogen wird
+    var finalCover by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+    val hasFly = eo.coverBounds != null
+    val dens = LocalDensity.current
+    val sheetColor = MaterialTheme.colorScheme.surface
+    // open.value wird nur in Lambdas der Zeichenphase gelesen; der Inhalt wird pro Frame nicht neu komponiert
+    val flying by remember { derivedStateOf { open.value < 1f } }
     Box(
-        modifier = modifier
-            .size(buttonSize)
-            .bounceClick(pressedScale = 0.94f, onClick = onClick)
-            .clip(CircleShape)
-            .background(circleColor.copy(alpha = 0.45f))
-            .semantics { contentDescription = if (isPlaying) str(R.string.cd_pause) else str(R.string.cd_play) },
-        contentAlignment = Alignment.Center
+        Modifier.fillMaxSize().onSizeChanged {
+            rootHeightPx = it.height.toFloat().coerceAtLeast(1f)
+            rootWidthPx = it.width.toFloat().coerceAtLeast(1f)
+        }
     ) {
-        // Beim Wechsel zwischen Play und Pause tauscht das Symbol mit einem kleinen Zoom
-        AnimatedContent(
-            targetState = isPlaying,
-            transitionSpec = {
-                (scaleIn(tween(Motion.MEDIUM, easing = Motion.Ease), initialScale = 0.6f) +
-                    fadeIn(tween(Motion.FAST))) togetherWith
-                    (scaleOut(tween(Motion.FAST), targetScale = 0.6f) +
-                        fadeOut(tween(Motion.FAST))) using SizeTransform(clip = false)
-            },
-            label = "playPause"
-        ) { playing ->
-            Canvas(Modifier.size(buttonSize * 0.5f)) {
-                val s = this.size.minDimension
-                val stroke = outline(s * 0.09f, s * 0.14f)
-                if (playing) {
-                    // ausgefüllte, schmale Balken mit voll gerundeten Enden
-                    val barW = s * 0.26f
-                    val gap = s * 0.08f
-                    val barH = s * 0.74f
-                    val left = (s - (2 * barW + gap)) / 2f
-                    val top = (s - barH) / 2f
-                    val corner = CornerRadius(barW / 2f)
-                    drawRoundRect(iconColor, Offset(left, top), Size(barW, barH), corner)
-                    drawRoundRect(iconColor, Offset(left + barW + gap, top), Size(barW, barH), corner)
-                } else {
-                    // etwas nach rechts versetzt, damit das Dreieck optisch mittig sitzt
-                    roundedTriangle(s * 0.24f, s * 0.90f, s * 0.13f, s * 0.87f, iconColor, stroke)
+        // Abdunkelung der Liste hinter dem aufgehenden Player
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer { alpha = open.value * 0.55f }
+                .background(Color.Black)
+        )
+        Surface(
+            Modifier
+                .fillMaxSize()
+                .draggable(
+                    state = dragState,
+                    orientation = androidx.compose.foundation.gestures.Orientation.Vertical,
+                    onDragStarted = { start ->
+                        // laufende Animation abfangen: der Finger übernimmt genau an der aktuellen Stelle
+                        closing = false
+                        dragFromQueueZone = start.y >= queueZoneTop - queueZonePad
+                        upDrag = 0f
+                        val cur = open.value.coerceIn(0f, 1f)
+                        motion.follow(cur)
+                        offsetY = (1f - cur) * rootHeightPx * SHEET_DRAG_FRACTION
+                    },
+                    onDragStopped = { velocity ->
+                        if (queueFollowing) {
+                            // Loslassen: ab etwa einem Drittel oder bei schnellem Wischen ganz öffnen, sonst wieder schließen
+                            queueFollowing = false
+                            val shownFraction = -upDrag / (rootHeightPx * QUEUE_HEIGHT_FRACTION)
+                            upDrag = 0f
+                            if (shownFraction > 0.3f || velocity < -900f) openQueue() else closeQueue()
+                        } else {
+                            // Fortschritt und Geschwindigkeit (pro Sekunde) aus dem Fingerweg ableiten,
+                            // dann per Feder weiterlaufen: schnelles Wischen fühlt sich anders an als langsames
+                            val dist = rootHeightPx * SHEET_DRAG_FRACTION
+                            val p = (1f - offsetY.coerceAtLeast(0f) / dist).coerceIn(0f, 1f)
+                            val v = -velocity / dist
+                            offsetY = 0f
+                            if (p + v * SHEET_PROJECTION_S < 0.5f) {
+                                closing = true
+                                motion.settle(0f, v, p) { onDismiss() }
+                            } else {
+                                motion.settle(1f, v, p)
+                            }
+                        }
+                    }
+                )
+                .pointerInput(Unit) {}
+                .graphicsLayer {
+                    shape = SheetRevealShape(eo, open.value, 0f)
+                    clip = true
+
+                }
+                .drawBehind {
+                    val color = androidx.compose.ui.graphics.lerp(eo.color, sheetColor, open.value)
+                        .copy(alpha = (open.value / 0.3f).coerceIn(0f, 1f))
+                    drawRect(color)
+                },
+            shape = androidx.compose.ui.graphics.RectangleShape,
+            color = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ) {
+            // Hintergrund hinter den Bedienelementen: Einfarbig, Farbverlauf oder verschwommenes Cover
+            PlayerBackdrop(song, CornerSettings.playerBg, open)
+            BoxWithConstraints(
+                Modifier
+                    .fillMaxSize()
+                    .systemBarsPadding()
+                    .padding(horizontal = 24.dp)
+            ) {
+                val coverSize = minOf(maxWidth, maxHeight * 0.55f)
+                Column(
+                    Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(Modifier.fillMaxWidth().reveal({ open.value }, 0.30f, 0.75f, 0.dp)) {
+                        // 0 = Player offen, 1 = Kopfzeilen-Symbole ganz flach (wird nur beim Zeichnen gelesen)
+                        val headerFlatten: () -> Float = {
+                            ((1f - open.value) / 0.25f).coerceIn(0f, 1f)
+                        }
+                        CloseSheetButton(
+                            onClick = { requestClose() },
+                            modifier = Modifier.align(Alignment.CenterStart).headerPop { open.value },
+                            // Pfeil flacht beim Runterziehen zu einer Linie ab und knickt beim Öffnen wieder ein
+                            flatten = headerFlatten
+                        )
+                        Text(
+                            song.album.ifBlank { str(R.string.unknown_album) },
+                            // Albumname: genau in der Mitte des Bildschirms, solange er nicht zu lang ist.
+                            // Ist er zu lang, beginnt er direkt neben dem Pfeil und füllt den Platz bis zur Menü-Taste.
+                            // Platz links: Pfeil 48 dp + 8 dp Abstand, rechts: Menü-Taste 36 dp + 8 dp Abstand
+                            modifier = Modifier
+                                .align(Alignment.CenterStart)
+                                .layout { measurable, constraints ->
+                                    val left = 56.dp.roundToPx()
+                                    val right = 44.dp.roundToPx()
+                                    val total = constraints.maxWidth
+                                    val placeable = measurable.measure(
+                                        constraints.copy(minWidth = 0, maxWidth = (total - left - right).coerceAtLeast(0))
+                                    )
+                                    layout(total, placeable.height) {
+                                        placeable.placeRelative(maxOf(left, (total - placeable.width) / 2), 0)
+                                    }
+                                },
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),   // wie die Audio-Infos
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Box(Modifier.align(Alignment.CenterEnd)) {
+                            MoreButton(
+                                onClick = { menuOpen = true },
+                                // zieht sich oben und unten zusammen, genau im Takt mit dem Pfeil links
+                                modifier = Modifier.padding(end = 4.dp).headerPop { open.value }.headerSquash(headerFlatten)
+                            )
+                            BounceMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text(str(R.string.track_info)) },
+                                    leadingIcon = { InfoIcon() },
+                                    onClick = { menuOpen = false; showInfo = true }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(str(R.string.edit_tags)) },
+                                    leadingIcon = { EditIcon() },
+                                    onClick = { menuOpen = false; showTags = true }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(str(R.string.go_to_album)) },
+                                    leadingIcon = { AlbumDiscIcon() },
+                                    onClick = { menuOpen = false; onGoToAlbum() }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(str(R.string.add_to_playlist_np)) },
+                                    leadingIcon = {
+                                        PlaylistAddIcon()
+                                    },
+                                    onClick = { menuOpen = false; onAddToPlaylist() }
+                                )
+                            }
+                            if (showInfo) SongInfoDialog(song) { showInfo = false }
+                            if (showTags) TagEditDialog(song) { showTags = false }
+                        }
+                    }
+                    Spacer(Modifier.weight(1.25f))   // Abstand oben: kleiner = Cover weiter oben
+                    Box(
+                        Modifier
+                            .onGloballyPositioned { finalCover = it.boundsInRoot() }
+                            .graphicsLayer {
+                                compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
+                                // beim Öffnen übernimmt das fliegende Cover; danach wird getauscht
+                                alpha = if (hasFly) (if (open.value < 1f) 0f else 1f)
+                                else ((open.value - 0.35f) / 0.45f).coerceIn(0f, 1f)
+                            }
+                            .offset { IntOffset(coverOffset.value.roundToInt(), 0) }
+                            .pointerInput(c) {
+                                val threshold = size.width * 0.25f
+                                detectHorizontalDragGestures(
+                                    onDragEnd = {
+                                        val dx = coverOffset.value
+                                        if (dx < -threshold) skipNext(c)
+                                        else if (dx > threshold) skipPrev(c)
+                                        coverScope.launch { coverOffset.animateTo(0f) }
+                                    },
+                                    onDragCancel = {
+                                        coverScope.launch { coverOffset.animateTo(0f) }
+                                    },
+                                    onHorizontalDrag = { change, delta ->
+                                        change.consume()
+                                        coverScope.launch {
+                                            coverOffset.snapTo(coverOffset.value + delta)
+                                        }
+                                    }
+                                )
+                            }
+                    ) {
+                        // Beim Titelwechsel gleitet das alte Cover heraus und das neue herein
+                        // (vorwärts von rechts, zurück von links). Ändern sich nur die Tags, bleibt das Cover ruhig.
+                        AnimatedContent(
+                            targetState = song,
+                            contentKey = { it.id },
+                            transitionSpec = {
+                                val dir = SkipDirection.dir
+                                (slideInHorizontally(
+                                    animationSpec = tween(Motion.MEDIUM, easing = Motion.Ease),
+                                    initialOffsetX = { w -> dir * w / 4 }
+                                ) + fadeIn(tween(Motion.MEDIUM - 40))) togetherWith
+                                    (slideOutHorizontally(
+                                        animationSpec = tween(Motion.MEDIUM, easing = Motion.Ease),
+                                        targetOffsetX = { w -> -dir * w / 4 }
+                                    ) + fadeOut(tween(Motion.FAST))) using SizeTransform(clip = false)
+                            },
+                            label = "cover"
+                        ) { s ->
+                            Cover(
+                                s, coverSize, corner = 20.dp,
+                                shadow = if (CornerSettings.coverShadow) COVER_SHADOW else 0.dp
+                            )
+                        }
+                    }
+                    Spacer(Modifier.weight(1.7f))    // Abstand Cover -> Titel
+                    // Titel links, Favoriten-Herz rechts auf gleicher Höhe
+                    Row(
+                        Modifier.fillMaxWidth().reveal({ open.value }, 0.35f, 0.85f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            song.title,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.headlineSmall,
+                            textAlign = TextAlign.Start,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        // 6 dp nach rechts: das Herz schließt bündig mit dem Cover ab
+                        FavoriteButton(
+                            isFavorite = isFavorite,
+                            onClick = onToggleFavorite,
+                            modifier = Modifier.size(40.dp).offset(x = 6.dp)
+                        )
+                    }
+                    Text(
+                        song.artist,
+                        modifier = Modifier.fillMaxWidth().reveal({ open.value }, 0.40f, 0.88f),
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Start,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.weight(0.8f))    // Abstand Künstler -> Fortschrittsbalken
+
+                    Column(Modifier.fillMaxWidth().reveal({ open.value }, 0.45f, 0.92f)) {
+                        PillProgress(
+                            progress = { if (dragging) dragFraction else frac.floatValue },
+                            onChange = { dragging = true; dragFraction = it },
+                            onFinished = {
+                                val target = (dragFraction * duration).toLong()
+                                c.seekTo(target)
+                                position = target
+                                frac.floatValue = dragFraction
+                                dragging = false
+                            }
+                        )
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(fmt(shownMs), style = MaterialTheme.typography.labelMedium)
+                            Text(fmt(duration), style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                    Spacer(Modifier.weight(1.0f))    // Abstand Balken -> Tasten
+
+                    Row(
+                        Modifier.fillMaxWidth().reveal({ open.value }, 0.50f, 1.0f, 32.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ShuffleButton(active = shuffle, onClick = { c.shuffleModeEnabled = !shuffle })
+                        SkipButton(forward = false, onClick = { skipPrev(c) })
+                        PlayPauseButton(
+                            isPlaying = isPlaying,
+                            onClick = { if (isPlaying) c.pause() else c.play() },
+                            buttonSize = 76.dp
+                        )
+                        SkipButton(forward = true, onClick = { skipNext(c) })
+                        RepeatButton(
+                            active = repeat != Player.REPEAT_MODE_OFF,
+                            repeatOne = repeat == Player.REPEAT_MODE_ONE,
+                            onClick = {
+                                c.repeatMode = when (repeat) {
+                                    Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                                    Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+                                    else -> Player.REPEAT_MODE_OFF
+                                }
+                            }
+                        )
+                    }
+                    Box(
+                        Modifier.fillMaxWidth().weight(1.95f)
+                            .onGloballyPositioned { queueZoneTop = it.boundsInRoot().top }
+                            .reveal({ open.value }, 0.60f, 1.0f, 16.dp),   // Abstand unten
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        audioInfo?.let {
+                            Text(
+                                it,
+                                modifier = Modifier.padding(bottom = 8.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),   // Akzentfarbe, gleiche Deckkraft wie vorher
+                                maxLines = 1
+                            )
+                        }
+                    }
                 }
             }
         }
-    }
-}
-
-/* ---------- Zufall & Wiederholen im gleichen Umriss-Stil ---------- */
-
-/** Kleiner Pfeilkopf (Winkel) mit Spitze bei (tipX, tipY); dir = +1 zeigt nach rechts, -1 nach links. */
-private fun DrawScope.chevron(tipX: Float, tipY: Float, dir: Float, size: Float, color: Color, style: Stroke) {
-    val p = Path().apply {
-        moveTo(tipX - dir * size, tipY - size)
-        lineTo(tipX, tipY)
-        lineTo(tipX - dir * size, tipY + size)
-    }
-    drawPath(p, color, style = style)
-}
-
-@Composable
-fun ShuffleButton(
-    active: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    iconSize: Dp = 26.dp
-) {
-    val tint by animateColorAsState(
-        if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-        animationSpec = tween(Motion.FAST), label = "shuffleTint"
-    )
-    val pop by popOnChange(active)
-    Box(
-        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = str(R.string.cd_shuffle) },
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(Modifier.size(iconSize).graphicsLayer { scaleX = pop; scaleY = pop }) {
-            val s = this.size.minDimension
-            val w = s * 0.085f
-            val line = outline(w, s * 0.10f)
-            val head = outline(w, s * 0.03f)
-            val a = Path().apply {
-                moveTo(s * 0.10f, s * 0.30f); lineTo(s * 0.30f, s * 0.30f)
-                lineTo(s * 0.64f, s * 0.70f); lineTo(s * 0.86f, s * 0.70f)
+        // Das Cover fliegt vom Miniplayer an seinen Platz im Player
+        val fb = eo.coverBounds
+        val fin = finalCover
+        if (fb != null && fin != null && flying) {
+            val finalDp = with(dens) { fin.width.toDp() }
+            val coverStyle = LocalCoverStyle.current
+            val r0 = coverRadius(coverStyle, 56.dp, 12.dp).value   // Rundung im Miniplayer
+            val r1 = coverRadius(coverStyle, finalDp, 20.dp).value // Rundung im Player
+            val flightScale = { e: Float ->
+                androidx.compose.ui.util.lerp(fb.width / fin.width.coerceAtLeast(1f), 1f, e).coerceAtLeast(0.05f)
             }
-            val b = Path().apply {
-                moveTo(s * 0.10f, s * 0.70f); lineTo(s * 0.30f, s * 0.70f)
-                lineTo(s * 0.64f, s * 0.30f); lineTo(s * 0.86f, s * 0.30f)
+            // Ecken: von der Rundung im Mini zu der im Player, vor der Skalierung umgerechnet
+            val flightShape = { e: Float, d: Float ->
+                RoundedCornerShape(androidx.compose.ui.util.lerp(r0, r1, e) * d / flightScale(e))
             }
-            drawPath(a, tint, style = line)
-            drawPath(b, tint, style = line)
-            chevron(s * 0.88f, s * 0.70f, 1f, s * 0.11f, tint, head)
-            chevron(s * 0.88f, s * 0.30f, 1f, s * 0.11f, tint, head)
+            Box(
+                Modifier
+                    .size(finalDp)
+                    .graphicsLayer {
+                        val e = coverPath(open.value.coerceIn(0f, 1f))
+                        val sc = flightScale(e)
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
+                        scaleX = sc
+                        scaleY = sc
+                        translationX = androidx.compose.ui.util.lerp(fb.left, fin.left, e)
+                        translationY = androidx.compose.ui.util.lerp(fb.top, fin.top, e)
+                    }
+                    // Schatten (gleiche Lagen wie im Cover) wachsen mit dem Flug an, damit beim Tausch nichts springt
+                    .then(
+                        if (CornerSettings.coverShadow) {
+                            var m: Modifier = Modifier
+                            for ((factor, layerAlpha) in CoverShadowLayers) {
+                                m = m.graphicsLayer {
+                                    val e = coverPath(open.value.coerceIn(0f, 1f))
+                                    shape = flightShape(e, density)
+                                    clip = false
+                                    shadowElevation = COVER_SHADOW.toPx() * factor * e.coerceIn(0f, 1f)
+                                    ambientShadowColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = layerAlpha)
+                                    spotShadowColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = layerAlpha)
+                                }
+                            }
+                            m
+                        } else Modifier
+                    )
+                    .graphicsLayer {
+                        shape = flightShape(coverPath(open.value.coerceIn(0f, 1f)), density)
+                        clip = true
+                    }
+            ) {
+                Cover(song, finalDp, corner = 0.dp, fallbackSize = 56.dp)
+            }
+        }
+        if (queueShown) {
+            QueuePanel(c, library, queueProgress) { closeQueue() }
         }
     }
 }
 
-@Composable
-fun RepeatButton(
-    active: Boolean,
-    repeatOne: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    iconSize: Dp = 26.dp
-) {
-    val tint by animateColorAsState(
-        if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-        animationSpec = tween(Motion.FAST), label = "repeatTint"
-    )
-    val pop by popOnChange(active to repeatOne)
-    Box(
-        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = str(R.string.cd_repeat) },
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(Modifier.size(iconSize).graphicsLayer { scaleX = pop; scaleY = pop }) {
-            val s = this.size.minDimension
-            val w = s * 0.085f
-            val line = outline(w, s * 0.14f)
-            val head = outline(w, s * 0.03f)
-            // oben: von links unten hoch, dann nach rechts
-            val top = Path().apply {
-                moveTo(s * 0.14f, s * 0.58f); lineTo(s * 0.14f, s * 0.30f); lineTo(s * 0.80f, s * 0.30f)
-            }
-            // unten: von rechts oben runter, dann nach links
-            val bottom = Path().apply {
-                moveTo(s * 0.86f, s * 0.42f); lineTo(s * 0.86f, s * 0.70f); lineTo(s * 0.20f, s * 0.70f)
-            }
-            drawPath(top, tint, style = line)
-            drawPath(bottom, tint, style = line)
-            chevron(s * 0.82f, s * 0.30f, 1f, s * 0.11f, tint, head)
-            chevron(s * 0.18f, s * 0.70f, -1f, s * 0.11f, tint, head)
-            if (repeatOne) {
-                drawLine(tint, Offset(s * 0.52f, s * 0.40f), Offset(s * 0.52f, s * 0.60f), strokeWidth = w, cap = StrokeCap.Round)
-                drawLine(tint, Offset(s * 0.52f, s * 0.40f), Offset(s * 0.44f, s * 0.46f), strokeWidth = w, cap = StrokeCap.Round)
-            }
-        }
-    }
+/** Größe des optionalen Schattens unter dem Cover im Player */
+private val COVER_SHADOW = 28.dp
+
+/** Stärke des Überschwingers beim Cover-Flug (0 = keiner). 0.4 ≈ 3 % über das Ziel hinaus, dann zurück. */
+private const val COVER_BOUNCE = 0.4f
+
+/**
+ * Weg des fliegenden Covers in Abhängigkeit vom Öffnen-Fortschritt [t] (0 = Miniplayer, 1 = Platz im Player).
+ * Bei 0 und 1 identisch zum Fortschritt, dazwischen kommt eine kleine Beule dazu: Das Cover schießt kurz
+ * ein wenig über sein Ziel und setzt sich dann. Weil es eine reine Funktion des Fortschritts ist, wirkt es
+ * beim Öffnen per Tippen und per Hochziehen und umgekehrt beim Schließen (dort leichtes Ausholen),
+ * damit Öffnen und Schließen gleich aussehen. Nie negativ, deshalb bleiben Größe und Ecken gültig.
+ */
+private fun coverPath(t: Float): Float = t + COVER_BOUNCE * kotlin.math.sin(kotlin.math.PI.toFloat() * t)
+
+/** Zieht ein Element von oben und unten zusammen: bei [flatten] = 1 ist es nur noch eine dünne Linie in seiner Mitte */
+private fun Modifier.headerSquash(flatten: () -> Float): Modifier = graphicsLayer {
+    scaleY = 1f - 0.88f * flatten()
 }
 
-/* ---------- Schließen-Pfeil (Player nach unten wegschieben) ---------- */
-
-@Composable
-fun CloseSheetButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    iconSize: Dp = 30.dp,   // größer = höherer/breiterer Pfeil
-    tint: Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),   // gleiche Farbe wie der Kreis des Play-Buttons
-    // 0 = Pfeil, 1 = flache Linie (wird nur beim Zeichnen gelesen)
-    flatten: () -> Float = { 0f }
-) {
-    Box(
-        // drückt sich ein und schubst ein Stück nach unten (Richtung Schließen), federt mit Überschwinger zurück
-        modifier = modifier.size(48.dp)
-            .bounceClick(pressedScale = 0.8f, nudgeY = 5.dp, onClick = onClick)
-            .semantics { contentDescription = str(R.string.close) },
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(Modifier.size(iconSize)) {
-            val f = flatten().coerceIn(0f, 1f)
-            val s = this.size.minDimension
-            val style = outline(s * 0.075f, s * 0.06f)
-            // Seiten und Spitze laufen zur gemeinsamen Mittelhöhe zusammen, der Pfeil wird zur Linie
-            val sideY = androidx.compose.ui.util.lerp(0.30f, 0.46f, f)
-            val midY = androidx.compose.ui.util.lerp(0.72f, 0.46f, f)
-            val p = Path().apply {
-                moveTo(s * 0.12f, s * sideY)
-                lineTo(s * 0.50f, s * midY)
-                lineTo(s * 0.88f, s * sideY)
-            }
-            drawPath(p, tint, style = style)
-        }
-    }
+/** Kopfzeilen-Tasten wachsen beim Öffnen mit dem Fortschritt auf (und schrumpfen beim Schließen wieder), statt nur einzublenden */
+private fun Modifier.headerPop(progress: () -> Float): Modifier = graphicsLayer {
+    val t = ((progress() - 0.35f) / 0.4f).coerceIn(0f, 1f)
+    val s = 0.55f + 0.45f * t
+    scaleX = s
+    scaleY = s
 }
 
-/* ---------- Mehr-Menü: drei ausgefüllte Punkte (waagerecht) im Kreis ---------- */
-
-@Composable
-fun MoreButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    buttonSize: Dp = 32.dp,
-    circleColor: Color = MaterialTheme.colorScheme.primary,
-    iconColor: Color = MaterialTheme.colorScheme.onSurface
-) {
-    Box(
-        modifier = modifier
-            .size(buttonSize)
-            .bounceClick(pressedScale = 0.82f, onClick = onClick)
-            .clip(CircleShape)
-            .background(circleColor.copy(alpha = 0.45f))   // gleiche Füllung wie der Play-Button
-            .semantics { contentDescription = str(R.string.more) },
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(Modifier.size(buttonSize * 0.5f)) {
-            val s = this.size.minDimension
-            val r = s * 0.095f
-            for (x in listOf(0.14f, 0.50f, 0.86f)) {
-                drawCircle(iconColor, radius = r, center = Offset(s * x, s * 0.5f))
-            }
-        }
+/** Blendet ein Element gestaffelt ein (progress zwischen start und end) und schiebt es leicht nach oben */
+private fun Modifier.reveal(progress: () -> Float, start: Float, end: Float, rise: Dp = 24.dp): Modifier =
+    graphicsLayer {
+        // Alpha direkt beim Zeichnen anwenden statt über einen Zwischenspeicher (spart GPU-Arbeit pro Frame)
+        compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
+        val t = ((progress() - start) / (end - start)).coerceIn(0f, 1f)
+        alpha = t
+        translationY = (1f - t) * rise.toPx()
     }
-}
-
-/* ---------- Update-Symbol: abgerundetes Quadrat mit Pfeil nach oben und Ablage ---------- */
-
-@Composable
-fun UpdateButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    iconSize: Dp = 26.dp,
-    tint: Color = MaterialTheme.colorScheme.primary
-) {
-    Box(
-        modifier = modifier.size(48.dp).bounceClick(onClick = onClick).semantics { contentDescription = str(R.string.update_available) },
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(Modifier.size(iconSize)) {
-            val s = this.size.minDimension
-            val w = s * 0.08f
-            val line = outline(w, s * 0.04f)
-            // Rahmen mit großen, runden Ecken
-            drawRoundRect(
-                color = tint,
-                topLeft = Offset(s * 0.08f, s * 0.08f),
-                size = Size(s * 0.84f, s * 0.84f),
-                cornerRadius = CornerRadius(s * 0.26f),
-                style = line
-            )
-            // Pfeil nach oben
-            drawLine(tint, Offset(s * 0.50f, s * 0.57f), Offset(s * 0.50f, s * 0.29f), strokeWidth = w, cap = StrokeCap.Round)
-            val head = Path().apply {
-                moveTo(s * 0.38f, s * 0.41f)
-                lineTo(s * 0.50f, s * 0.29f)
-                lineTo(s * 0.62f, s * 0.41f)
-            }
-            drawPath(head, tint, style = line)
-            // Ablage unter dem Pfeil
-            val tray = Path().apply {
-                moveTo(s * 0.27f, s * 0.62f)
-                quadraticBezierTo(s * 0.50f, s * 0.82f, s * 0.73f, s * 0.62f)
-            }
-            drawPath(tray, tint, style = line)
-        }
-    }
-}
-
-/* ---------- Zahnrad (Einstellungen) im gleichen Umriss-Stil ---------- */
-
-/** Sechs abgerundete Zacken: Der Radius schwankt zwischen Zacke (außen) und Kerbe (innen) */
-private fun gearPath(s: Float): Path = Path().apply {
-    val steps = 360
-    for (i in 0..steps) {
-        val th = (i.toFloat() / steps) * 2f * Math.PI.toFloat()
-        val c = kotlin.math.cos(6f * th)
-        val f = kotlin.math.tanh(2.2f * (c + 0.3f))   // breite, runde Zacken, schmale Kerben
-        val r = s * (0.34f + 0.062f * f)
-        val x = s / 2f + r * kotlin.math.cos(th)
-        val y = s / 2f + r * kotlin.math.sin(th)
-        if (i == 0) moveTo(x, y) else lineTo(x, y)
-    }
-    close()
-}
-
-/** Zahnrad mit Mittelring, nur Umriss */
-@Composable
-fun SettingsGearIcon(
-    modifier: Modifier = Modifier,
-    iconSize: Dp = 24.dp,
-    tint: Color = LocalContentColor.current,
-    description: String? = null
-) {
-    Canvas(
-        modifier
-            .size(iconSize)
-            .semantics { if (description != null) contentDescription = description }
-    ) {
-        val s = this.size.minDimension
-        val st = Stroke(width = s * 0.075f, cap = StrokeCap.Round, join = StrokeJoin.Round)
-        drawPath(gearPath(s), tint, style = st)
-        drawCircle(tint, radius = s * 0.11f, center = Offset(s / 2f, s / 2f), style = st)
-    }
-}
