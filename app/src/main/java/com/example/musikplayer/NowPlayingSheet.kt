@@ -172,6 +172,15 @@ private fun NowPlayingSheetContent(
     onToggleFavorite: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    // Farbe und Hintergrund von Vorgänger und Nachfolger vorab laden: der Wechsel startet dann ohne Wartezeit
+    val prefetchCtx = LocalContext.current
+    LaunchedEffect(song.id, library) {
+        for (idx in listOf(c.nextMediaItemIndex, c.previousMediaItemIndex)) {
+            if (idx < 0 || idx >= c.mediaItemCount) continue
+            val id = c.getMediaItemAt(idx).mediaId.toLongOrNull() ?: continue
+            library.firstOrNull { it.id == id }?.let { prefetchCoverColors(prefetchCtx, it) }
+        }
+    }
     // Öffnen/Schließen: der Miniplayer wächst zum Vollbild-Player und zurück (0 = Miniplayer, 1 = Vollbild).
     // Finger, Loslassen, Zurück-Taste und Zurück-Geste steuern alle denselben Fortschritt (SheetMotion).
     val open = motion.progress
