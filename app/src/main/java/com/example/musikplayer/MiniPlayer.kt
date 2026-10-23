@@ -14,7 +14,6 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.runtime.mutableStateOf
@@ -29,8 +28,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
@@ -209,8 +206,7 @@ fun PillProgress(
     // als Lambda, damit der Wert nur beim Zeichnen gelesen wird: pro Frame wird nur neu gezeichnet, nicht neu komponiert
     progress: () -> Float,
     onChange: (Float) -> Unit,
-    onFinished: () -> Unit,
-    elevated: Boolean = false
+    onFinished: () -> Unit
 ) {
     val baseColor = MaterialTheme.colorScheme.onSurface
     val change = rememberUpdatedState(onChange)
@@ -271,58 +267,9 @@ fun PillProgress(
                 val fill = baseColor.copy(alpha = 0.6f + 0.25f * gc)
                 val radius = CornerRadius(h / 2f, h / 2f)
                 drawRoundRect(color = track, topLeft = Offset(0f, top), size = Size(size.width, h), cornerRadius = radius)
-                if (elevated) {
-                    // Rinne wirkt eingelassen: oben dunkler Schatten nach innen, unten ein Hauch Licht
-                    val groove = androidx.compose.ui.graphics.Path().apply {
-                        addRoundRect(androidx.compose.ui.geometry.RoundRect(0f, top, size.width, top + h, radius))
-                    }
-                    clipPath(groove) {
-                        drawRect(
-                            Brush.verticalGradient(
-                                listOf(Color.Black.copy(alpha = 0.28f), Color.Transparent, Color.White.copy(alpha = 0.10f)),
-                                startY = top, endY = top + h
-                            ),
-                            topLeft = Offset(0f, top), size = Size(size.width, h)
-                        )
-                    }
-                }
                 // Füllung startet als kleiner Kreis (Höhe = Breite) und füllt den Balken bei 100 % genau aus
                 val fillW = (h + progress().coerceIn(0f, 1f) * (size.width - h)).coerceAtLeast(h)
-                if (elevated) {
-                    // weicher Schatten unter der Füllung: drei versetzte, immer größere, sehr blasse Lagen
-                    for (i in 1..3) {
-                        val spread = i * 1.5.dp.toPx()
-                        drawRoundRect(
-                            color = Color.Black.copy(alpha = 0.07f),
-                            topLeft = Offset(-spread, top + 2.dp.toPx() - spread * 0.4f),
-                            size = Size(fillW + 2 * spread, h + 2 * spread),
-                            cornerRadius = CornerRadius(h / 2f + spread, h / 2f + spread)
-                        )
-                    }
-                    // Füllung mit leichtem Verlauf (oben heller) statt flacher Farbe
-                    drawRoundRect(
-                        brush = Brush.verticalGradient(
-                            listOf(fill.copy(alpha = (fill.alpha + 0.15f).coerceAtMost(1f)), fill.copy(alpha = fill.alpha * 0.8f)),
-                            startY = top, endY = top + h
-                        ),
-                        topLeft = Offset(0f, top), size = Size(fillW, h), cornerRadius = radius
-                    )
-                    // Lichtkante oben und dunklere Unterkante: die Füllung wirkt wie ein erhabener Wulst
-                    val bead = androidx.compose.ui.graphics.Path().apply {
-                        addRoundRect(androidx.compose.ui.geometry.RoundRect(0f, top, fillW, top + h, radius))
-                    }
-                    clipPath(bead) {
-                        drawRect(
-                            Brush.verticalGradient(
-                                listOf(Color.White.copy(alpha = 0.22f), Color.Transparent, Color.Black.copy(alpha = 0.16f)),
-                                startY = top, endY = top + h
-                            ),
-                            topLeft = Offset(0f, top), size = Size(fillW, h)
-                        )
-                    }
-                } else {
-                    drawRoundRect(color = fill, topLeft = Offset(0f, top), size = Size(fillW, h), cornerRadius = radius)
-                }
+                drawRoundRect(color = fill, topLeft = Offset(0f, top), size = Size(fillW, h), cornerRadius = radius)
             }
     )
 }
