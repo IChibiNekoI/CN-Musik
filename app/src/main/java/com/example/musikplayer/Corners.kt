@@ -25,10 +25,8 @@ object CornerSettings {
     var playerBg by mutableStateOf(PlayerBackground.BLUR)
     /** Menüs, Dialoge und Einstellungen sehen aus wie der Player (nur bei Unschärfe) */
     var menuUnified by mutableStateOf(false)
-    /** Weicher Schatten unter dem Cover im Player (wirkt etwas dreidimensional), optional */
+    /** Weicher Schatten unter dem Cover im Player, optional */
     var coverShadow by mutableStateOf(false)
-    /** Play-Taste und Fortschrittsbalken wirken erhaben (Schatten und leichter Verlauf), optional */
-    var controlDepth by mutableStateOf(false)
     private var loaded = false
 
     /** Gespeicherte Wahl einmal beim Start laden (vor der ersten Anzeige) */
@@ -39,7 +37,6 @@ object CornerSettings {
             playerBg = readPlayerBg(ctx)
             menuUnified = readMenuUnified(ctx)
             coverShadow = readCoverShadow(ctx)
-            controlDepth = readControlDepth(ctx)
         }
     }
 }
