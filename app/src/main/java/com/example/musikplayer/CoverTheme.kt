@@ -88,29 +88,15 @@ private fun saveSeed(ctx: android.content.Context, s: CoverSeed) {
 private class Tones(val v: List<Color>)
 
 /**
- * Zeitversatz je Farbe (Anteil der Gesamtdauer): Akzente (Tasten, Regler) wechseln zuerst,
- * danach folgen die Texte, zuletzt die Flächen. So rollt die neue Farbe wie eine Welle ins Bild.
- */
-private fun toneDelay(i: Int): Float = when (i) {
-    in 9..16 -> 0f        // primary / secondary und deren Container
-    1, 2 -> 0.06f         // Texte
-    17, 18 -> 0.06f       // Linien
-    else -> 0.14f         // Hintergründe und Flächen
-}
-
-private const val TONE_WINDOW = 0.8f
-
-/**
  * Überblendung in Oklab (Compose-Standard).
- * [wave] = true: jede Farbe mit eigenem Zeitversatz und sehr weichem Start (für den Unschärfe-Hintergrund, der die Flächen verdeckt).
- * [wave] = false: alle Farben starten sofort gemeinsam, damit der Wechsel bei einfarbigem Hintergrund gleich sichtbar beginnt.
+ * Alle Farben starten gleichzeitig und laufen mit derselben Kurve. [soft] = true nutzt dieselbe weiche Kurve wie das
+ * Überblenden des unscharfen Cover-Bilds (PlayerBackdrop), damit Bild, Flächen, Texte und Tasten gleichmäßig wechseln
+ * und nicht nacheinander.
  */
-private fun lerpTones(a: Tones, b: Tones, f: Float, wave: Boolean) =
-    Tones(List(a.v.size) {
-        val local = if (wave) ((f - toneDelay(it)) / TONE_WINDOW).coerceIn(0f, 1f) else f
-        val eased = if (wave) Motion.Soft.transform(local) else Motion.Ease.transform(local)
-        androidx.compose.ui.graphics.lerp(a.v[it], b.v[it], eased)
-    })
+private fun lerpTones(a: Tones, b: Tones, f: Float, soft: Boolean): Tones {
+    val eased = if (soft) Motion.Soft.transform(f) else Motion.Ease.transform(f)
+    return Tones(List(a.v.size) { androidx.compose.ui.graphics.lerp(a.v[it], b.v[it], eased) })
+}
 
 private fun tonesOf(c: ColorScheme) = Tones(
     listOf(
