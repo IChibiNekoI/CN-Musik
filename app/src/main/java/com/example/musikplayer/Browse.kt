@@ -50,6 +50,10 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
@@ -188,6 +192,179 @@ private fun GridTile(
                         TrashIcon(iconSize = 18.dp, description = str(R.string.delete))
                     }
                 }
+            }
+        }
+    }
+}
+
+/* ---------- Suche: Albenzeile, Karten, Überschriften ---------- */
+
+/** Albumkarte der Suche: Cover mit Jahr oben rechts und Abspielen-Taste unten rechts, darunter Titel, Künstler, Titelzahl und Laufzeit */
+@Composable
+private fun SearchAlbumCard(
+    songs: List<Song>,
+    name: String,
+    onOpen: () -> Unit,
+    onPlay: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val first = songs.first()
+    val year = remember(songs) { songs.map { it.year }.filter { it > 0 }.minOrNull() ?: 0 }
+    val minutes = remember(songs) {
+        val total = songs.sumOf { it.durationMs }
+        if (total <= 0L) 0 else maxOf(1, Math.round(total / 60000.0).toInt())
+    }
+    val card = MaterialTheme.colorScheme.surfaceContainerHigh
+    val side = 160.dp
+    Column(
+        modifier
+            .width(side)
+            .clip(RoundedCornerShape(24.dp))
+            .background(card)
+            .bounceClick(pressedScale = 0.95f, haptic = false) { onOpen() }
+    ) {
+        Box(Modifier.size(side)) {
+            Cover(first, side, corner = 0.dp)
+            if (year > 0) {
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .clip(RoundedCornerShape(bottomStart = 16.dp))
+                        .background(card)
+                        .padding(horizontal = 12.dp, vertical = 5.dp)
+                ) {
+                    Text(
+                        year.toString(),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Box(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(8.dp)
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(card.copy(alpha = 0.85f))
+                    .bounceClick(pressedScale = 0.88f) { onPlay() },
+                contentAlignment = Alignment.Center
+            ) {
+                PlayTriangleIcon(
+                    iconSize = 22.dp,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    description = str(R.string.play_album)
+                )
+            }
+        }
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+            Text(
+                name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                first.artist,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                if (minutes > 0) "${plural(R.plurals.n_tracks, songs.size)} • ${minutes}min" else plural(R.plurals.n_tracks, songs.size),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+/** Überschrift eines Suchabschnitts: Symbol, Titel mit Anzahl und optional die Taste "Alle anzeigen" */
+@Composable
+private fun SearchSectionHeader(
+    icon: @Composable () -> Unit,
+    title: String,
+    onShowAll: (() -> Unit)? = null
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        icon()
+        Spacer(Modifier.width(12.dp))
+        Text(
+            title,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        if (onShowAll != null) {
+            Row(
+                Modifier
+                    .clip(CircleShape)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                    .bounceClick(pressedScale = 0.95f) { onShowAll() }
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                GridIcon(iconSize = 22.dp, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    str(R.string.search_show_all),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+/** Alle Alben einer Liste in der Darstellung der Albenansicht (Liste oder Raster mit eingestellter Spaltenzahl) */
+@Composable
+private fun AlbumCollection(
+    albums: List<Pair<String, List<Song>>>,
+    style: ViewStyle,
+    bottomSpace: Dp,
+    modifier: Modifier = Modifier,
+    onOpen: (String) -> Unit
+) {
+    if (style.grid) {
+        HapticLazyGrid(
+            columns = GridCells.Fixed(style.cols),
+            modifier = modifier,
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp + bottomSpace),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            gridItems(albums, key = { it.first }) { (albumName, list) ->
+                GridTile(
+                    title = albumName,
+                    subtitle = list.first().artist,
+                    onClick = { onOpen(albumName) },
+                    cover = { w -> Cover(list.first(), w) }
+                )
+            }
+        }
+    } else {
+        HapticLazyColumn(modifier, contentPadding = PaddingValues(bottom = bottomSpace)) {
+            items(albums, key = { it.first }) { (albumName, list) ->
+                ListItem(
+                    headlineContent = { Text(albumName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    supportingContent = {
+                        Text(
+                            "${list.first().artist} · ${plural(R.plurals.n_tracks, list.size)}",
+                            maxLines = 1, overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    leadingContent = { Cover(list.first(), 56.dp) },
+                    colors = clearColors(),
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { onOpen(albumName) }
+                )
             }
         }
     }
@@ -409,6 +586,8 @@ fun LibraryScreen(
     val latestPlaylists by rememberUpdatedState(playlists)
     var searching by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
+    var searchAll by remember { mutableStateOf(false) }          // Suche: alle passenden Alben als Liste oder Raster
+    var searchAlbum by remember { mutableStateOf<String?>(null) } // Suche: ein geöffnetes Album
     var plusMenu by remember { mutableStateOf(false) }
     var showUpdate by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
@@ -471,8 +650,16 @@ fun LibraryScreen(
         searching = false
         query = ""
     }
+    // Zurück: erst aus dem Album, dann aus der Albenübersicht, dann aus der Suche
+    BackHandler(enabled = searching && (searchAlbum != null || searchAll)) {
+        if (searchAlbum != null) searchAlbum = null else searchAll = false
+    }
     LaunchedEffect(searching) {
         if (searching) runCatching { searchFocus.requestFocus() }
+        else { searchAll = false; searchAlbum = null }
+    }
+    LaunchedEffect(query) {
+        if (query.isBlank()) { searchAll = false; searchAlbum = null }
     }
     val results = remember(sorted, query) {
         val q = query.trim()
@@ -481,6 +668,15 @@ fun LibraryScreen(
             it.title.contains(q, ignoreCase = true) ||
                 it.artist.contains(q, ignoreCase = true) ||
                 it.album.contains(q, ignoreCase = true)
+        }
+    }
+
+    // Passende Alben: Name oder Künstler enthält den Suchtext
+    val matchedAlbums = remember(albums, query) {
+        val q = query.trim()
+        if (q.isEmpty()) emptyList()
+        else albums.filter { (name, list) ->
+            name.contains(q, ignoreCase = true) || list.any { it.artist.contains(q, ignoreCase = true) }
         }
     }
 
@@ -631,16 +827,81 @@ fun LibraryScreen(
                     Spacer(Modifier.height(0.dp))
                 }
             }
-            HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
-                itemsIndexed(results, key = { _, s -> s.id }) { i, s ->
-                    SongRow(
-                        s, s.id.toString() == currentId,
-                        { focusManager.clearFocus(); onPlay(results, i) },
-                        { addSong = s },
-                        isFavorite = s.id in favSet,
-                        modifier = Modifier.animateItem(),
-                        onToggleFavorite = { onToggleFavorite(s) }
-                    )
+            val openName = searchAlbum
+            if (openName != null) {
+                // Ein Album aus der Suche: Titelliste mit Zurück-Pfeil
+                val ordered = remember(albums, openName) {
+                    (albums.firstOrNull { it.first == openName }?.second ?: emptyList())
+                        .sortedWith(compareBy<Song>({ it.track }, { it.title.lowercase() }))
+                }
+                DetailHeader(openName, onBack = { searchAlbum = null })
+                HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
+                    itemsIndexed(ordered, key = { _, s -> s.id }) { i, s ->
+                        SongRow(
+                            s, s.id.toString() == currentId, { onPlay(ordered, i) }, { addSong = s },
+                            isFavorite = s.id in favSet,
+                            modifier = Modifier.animateItem(),
+                            onToggleFavorite = { onToggleFavorite(s) }
+                        )
+                    }
+                }
+            } else if (searchAll && matchedAlbums.isNotEmpty()) {
+                // Alle passenden Alben, so dargestellt wie in der Albenansicht eingestellt
+                DetailHeader(str(R.string.search_albums_title, matchedAlbums.size), onBack = { searchAll = false })
+                AlbumCollection(
+                    albums = matchedAlbums,
+                    style = albumStyle,
+                    bottomSpace = bottomSpace,
+                    modifier = Modifier.weight(1f)
+                ) { name -> focusManager.clearFocus(); searchAlbum = name }
+            } else {
+                HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
+                    if (matchedAlbums.isNotEmpty()) {
+                        item(key = "albumsHeader") {
+                            SearchSectionHeader(
+                                icon = { AlbumDiscIcon(iconSize = 28.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                title = str(R.string.search_albums_title, matchedAlbums.size),
+                                onShowAll = if (matchedAlbums.size > 2) ({ focusManager.clearFocus(); searchAll = true }) else null
+                            )
+                        }
+                        item(key = "albumsRow") {
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(matchedAlbums, key = { it.first }) { (albumName, list) ->
+                                    SearchAlbumCard(
+                                        songs = list,
+                                        name = albumName,
+                                        onOpen = { focusManager.clearFocus(); searchAlbum = albumName },
+                                        onPlay = {
+                                            focusManager.clearFocus()
+                                            val ordered = list.sortedWith(compareBy<Song>({ it.track }, { it.title.lowercase() }))
+                                            onPlay(ordered, 0)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (matchedAlbums.isNotEmpty() && results.isNotEmpty()) {
+                        item(key = "tracksHeader") {
+                            SearchSectionHeader(
+                                icon = { MusicNoteIcon(iconSize = 28.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                title = str(R.string.search_tracks_title, results.size)
+                            )
+                        }
+                    }
+                    itemsIndexed(results, key = { _, s -> s.id }) { i, s ->
+                        SongRow(
+                            s, s.id.toString() == currentId,
+                            { focusManager.clearFocus(); onPlay(results, i) },
+                            { addSong = s },
+                            isFavorite = s.id in favSet,
+                            modifier = Modifier.animateItem(),
+                            onToggleFavorite = { onToggleFavorite(s) }
+                        )
+                    }
                 }
             }
         } else {
