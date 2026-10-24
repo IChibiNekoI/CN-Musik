@@ -156,6 +156,23 @@ fun AlbumDiscIcon(
     }
 }
 
+/** Abspielen: abgerundetes Dreieck */
+@Composable
+fun PlayTriangleIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        val p = androidx.compose.ui.graphics.Path().apply {
+            moveTo(8.5f * k, 5.5f * k)
+            lineTo(18.5f * k, 12f * k)
+            lineTo(8.5f * k, 18.5f * k)
+            close()
+        }
+        drawPath(p, c, style = st)
+    }
+}
+
 /** Vier Kacheln (Ansicht) */
 @Composable
 fun GridIcon(
