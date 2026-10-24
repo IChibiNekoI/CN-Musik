@@ -1,6 +1,7 @@
 package com.example.musikplayer
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -26,18 +27,47 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 /**
- * Haptisches Feedback: ein sehr leichtes "Ticken" beim Tippen auf Tasten und beim Verschieben von Titeln.
- * Es nutzt den vorgefertigten Effekt EFFECT_TICK des Geräts, das ist der sanfteste, den Android kennt.
- * Standardmäßig ausgeschaltet, einschaltbar in den Einstellungen.
+ * Haptisches Feedback im Stil von "Micro-Haptics": winzige, knackige Impulse, die dem Finger nur bestätigen,
+ * dass etwas ausgelöst wurde. Nie ein Brummen.
+ *
+ * Drei Stufen:
+ *  - [tick]  : sehr leicht (Raster beim Ziehen, Listenende, Tausch beim Sortieren)
+ *  - [click] : kurz und knackig wie ein mechanischer Schalter (Tasten, Schalter, Reiter)
+ *  - [snap]  : etwas voller (Player rastet ein, Titel angehoben/abgelegt)
+ *
+ * Unabhängig von den Android-Systemeinstellungen ("Touch-Feedback", "Berührungsfeedback" usw.):
+ * Der Vibrator wird direkt angesprochen, und zwar mit einer ausdrücklichen Verwendung ([ATTRS]).
+ * Ohne Angabe ordnet Android kurze Vibrationen selbst "Touch-Feedback" zu und unterdrückt sie, sobald
+ * der Nutzer das im System abgeschaltet hat. Nur der Schalter in der App entscheidet.
+ * Die Effekte kommen aus den Grundbausteinen (Primitives) des Vibrationsmotors; wo es die nicht gibt,
+ * folgt ein ganz kurzer Impuls mit passender Stärke.
  */
 object Haptics {
     /** Ein/aus (aus dem Speicher geladen, siehe [load]) */
     var enabled by mutableStateOf(false)
         private set
 
+    /**
+     * Verwendung der Vibration. ALARM wird von Android nie wegen der Touch-Feedback-Einstellung, des Lautlos-Modus
+     * oder des Energiesparmodus unterdrückt. Falls das stören sollte (z. B. wegen einer eigenen Systemlautstärke
+     * für Alarme), lässt sich hier [AudioAttributes.USAGE_MEDIA] einsetzen. Dann gilt aber die Medien-Einstellung des Systems.
+     */
+    private val ATTRS: AudioAttributes = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_ALARM)
+        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+        .build()
+
+    /** Grundbaustein, Stärke (0..1) und Ersatz für Geräte ohne Grundbausteine (Dauer in ms, Stärke 1..255) */
+    private enum class Kind(val primitive: Int, val scale: Float, val ms: Long, val amp: Int) {
+        TICK(VibrationEffect.Composition.PRIMITIVE_TICK, 0.45f, 8L, 70),
+        CLICK(VibrationEffect.Composition.PRIMITIVE_TICK, 0.95f, 10L, 140),
+        SNAP(VibrationEffect.Composition.PRIMITIVE_CLICK, 0.65f, 14L, 190)
+    }
+
     private var loaded = false
-    private var lastTickMs = 0L
+    private var lastMs = 0L
     private var vibrator: Vibrator? = null
+    private val effects = HashMap<Kind, VibrationEffect>()
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
@@ -55,23 +85,68 @@ object Haptics {
         prefs(ctx).edit().putBoolean("haptics", on).apply()
     }
 
-    /** Ganz leichtes Ticken. Tut nichts, wenn das Feedback aus ist oder das Gerät nicht vibrieren kann. */
-    fun tick(ctx: Context) {
+    /** Sehr leichtes Ticken */
+    fun tick(ctx: Context) = fire(ctx, Kind.TICK)
+
+    /** Kurzer, knackiger Klick wie bei einem mechanischen Schalter */
+    fun click(ctx: Context) = fire(ctx, Kind.CLICK)
+
+    /** Etwas volleres Einrasten */
+    fun snap(ctx: Context) = fire(ctx, Kind.SNAP)
+
+    @Suppress("DEPRECATION")   // vibrate(Effekt, AudioAttributes): nur so lässt sich die Verwendung festlegen
+    private fun fire(ctx: Context, kind: Kind) {
         load(ctx)
         if (!enabled) return
-        // viele Aufrufe kurz hintereinander (z. B. beim schnellen Verschieben) werden zusammengefasst
+        // viele Aufrufe kurz hintereinander (z. B. beim schnellen Ziehen) werden zusammengefasst
         val now = SystemClock.uptimeMillis()
-        if (now - lastTickMs < 40) return
-        lastTickMs = now
+        if (now - lastMs < 25) return
+        lastMs = now
         try {
             val v = vibrator ?: ctx.applicationContext
                 .getSystemService(VibratorManager::class.java)?.defaultVibrator
                 ?.also { vibrator = it }
-            if (v != null && v.hasVibrator()) {
-                v.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
-            }
+            if (v == null || !v.hasVibrator()) return
+            val effect = effects.getOrPut(kind) { build(v, kind) }
+            v.vibrate(effect, ATTRS)
         } catch (e: Exception) {
         }
+    }
+
+    private fun build(v: Vibrator, k: Kind): VibrationEffect = when {
+        v.areAllPrimitivesSupported(k.primitive) ->
+            VibrationEffect.startComposition().addPrimitive(k.primitive, k.scale).compose()
+        v.hasAmplitudeControl() -> VibrationEffect.createOneShot(k.ms, k.amp)
+        // ohne Stärkeregelung: kurz halten, aber lang genug, dass der Motor überhaupt anläuft
+        else -> VibrationEffect.createOneShot(k.ms.coerceAtLeast(10L), VibrationEffect.DEFAULT_AMPLITUDE)
+    }
+}
+
+/**
+ * Haptik beim Ziehen an einem Fortschrittsbalken: ein leichtes Raster alle 1/[steps] der Strecke,
+ * ein Klick beim Anfassen und Antippen, ein Einrasten, wenn der Finger an den Anfang oder das Ende kommt.
+ */
+class ScrubHaptics(private val ctx: Context, private val steps: Int = 40) {
+    private var lastStep = 0
+    private var atEdge = false
+
+    private fun edge(f: Float) = f <= 0.002f || f >= 0.998f
+
+    fun tap() = Haptics.click(ctx)
+
+    fun start(f: Float) {
+        lastStep = (f * steps).toInt()
+        atEdge = edge(f)
+        Haptics.click(ctx)
+    }
+
+    fun move(f: Float) {
+        val e = edge(f)
+        val step = (f * steps).toInt()
+        if (e && !atEdge) Haptics.snap(ctx)
+        else if (!e && step != lastStep) Haptics.tick(ctx)
+        atEdge = e
+        lastStep = step
     }
 }
 
