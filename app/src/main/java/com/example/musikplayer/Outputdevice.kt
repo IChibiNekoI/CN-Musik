@@ -34,19 +34,17 @@ data class OutputDevice(val name: String, val kind: OutputKind)
 object OutputDevices {
     private val SPEAKER_NAME = Regex("speaker|soundbar|boom|lautsprecher|homepod|soundlink", RegexOption.IGNORE_CASE)
 
-    /** Je kleiner, desto eher wird das Gerät als aktuelle Ausgabe angenommen (nur als Rückfall vor Android 13) */
-    private fun rank(type: Int): Int = when (type) {
-        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_HEARING_AID -> 0
-        26, 27, 30 -> 0    // BLE-Headset, BLE-Lautsprecher, BLE-Broadcast
-        AudioDeviceInfo.TYPE_WIRED_HEADSET, AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
-        AudioDeviceInfo.TYPE_USB_HEADSET -> 1
-        AudioDeviceInfo.TYPE_USB_DEVICE, AudioDeviceInfo.TYPE_USB_ACCESSORY, AudioDeviceInfo.TYPE_LINE_ANALOG,
-        AudioDeviceInfo.TYPE_LINE_DIGITAL -> 2
-        AudioDeviceInfo.TYPE_HDMI, AudioDeviceInfo.TYPE_HDMI_ARC -> 3
-        AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> 5
-        else -> 99
+    /** Bluetooth-Ausgaben: A2DP, Telefonie (SCO), BLE-Headset, BLE-Lautsprecher, BLE-Broadcast und Hörgeräte */
+    private fun isBluetooth(type: Int): Boolean = when (type) {
+        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLUETOOTH_SCO, AudioDeviceInfo.TYPE_HEARING_AID,
+        26, 27, 30 -> true
+        else -> false
     }
 
+    /**
+     * Das über Bluetooth verbundene Ausgabegerät, sonst null. Lautsprecher des Geräts, Kabel-Kopfhörer, USB und HDMI
+     * werden bewusst nicht angezeigt.
+     */
     fun current(ctx: Context): OutputDevice? {
         val am = ctx.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return null
         val outputs = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS).filter { it.isSink }
@@ -66,25 +64,12 @@ object OutputDevices {
             } catch (_: Exception) {
             }
         }
-        if (dev == null) dev = outputs.filter { rank(it.type) < 99 }.minByOrNull { rank(it.type) }
-        if (dev == null) return null
-        val product = dev.productName?.toString()?.trim().orEmpty()
-        return when (dev.type) {
-            AudioDeviceInfo.TYPE_BUILTIN_SPEAKER, AudioDeviceInfo.TYPE_BUILTIN_EARPIECE ->
-                OutputDevice(ctx.getString(R.string.output_speaker), OutputKind.SPEAKER)
-            AudioDeviceInfo.TYPE_WIRED_HEADPHONES, AudioDeviceInfo.TYPE_WIRED_HEADSET ->
-                // bei Kabel-Kopfhörern nennt das System meist nur den Gerätenamen des Handys
-                OutputDevice(ctx.getString(R.string.output_headphones), OutputKind.HEADPHONES)
-            AudioDeviceInfo.TYPE_USB_HEADSET ->
-                OutputDevice(product.ifBlank { ctx.getString(R.string.output_headphones) }, OutputKind.HEADPHONES)
-            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_HEARING_AID, 26, 30 -> {
-                val name = product.ifBlank { "Bluetooth" }
-                OutputDevice(name, if (SPEAKER_NAME.containsMatchIn(name)) OutputKind.SPEAKER else OutputKind.HEADPHONES)
-            }
-            27 -> OutputDevice(product.ifBlank { "Bluetooth" }, OutputKind.SPEAKER)
-            AudioDeviceInfo.TYPE_HDMI, AudioDeviceInfo.TYPE_HDMI_ARC -> OutputDevice(product.ifBlank { "HDMI" }, OutputKind.OTHER)
-            else -> OutputDevice(product.ifBlank { ctx.getString(R.string.output_speaker) }, OutputKind.OTHER)
-        }
+        // Rückfall (und wenn die Weiterleitung noch nicht steht): irgendein verbundenes Bluetooth-Gerät
+        if (dev == null || !isBluetooth(dev.type)) dev = outputs.firstOrNull { isBluetooth(it.type) }
+        if (dev == null || !isBluetooth(dev.type)) return null
+        val name = dev.productName?.toString()?.trim().orEmpty().ifBlank { "Bluetooth" }
+        val speaker = dev.type == 27 || SPEAKER_NAME.containsMatchIn(name)
+        return OutputDevice(name, if (speaker) OutputKind.SPEAKER else OutputKind.HEADPHONES)
     }
 }
 
@@ -116,21 +101,20 @@ fun rememberOutputDevice(): State<OutputDevice?> {
     return state
 }
 
-/** Name des Ausgabegeräts, bei Kopfhörern mit Symbol davor. Wird mittig zwischen die Zeiten gesetzt. */
+/** Name der angeschlossenen Kopfhörer mit Symbol davor. Wird mittig zwischen die Zeiten gesetzt. */
 @Composable
 fun OutputDeviceLabel(modifier: Modifier = Modifier) {
     val device by rememberOutputDevice()
-    val d = device ?: return
+    // Nur bei Kopfhörern (Bluetooth, Kabel, USB). Bei Lautsprecher und allem anderen bleibt die Mitte leer.
+    val d = device?.takeIf { it.kind == OutputKind.HEADPHONES } ?: return
     val color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
     Row(
         modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
-        if (d.kind == OutputKind.HEADPHONES) {
-            HeadphonesIcon(iconSize = 18.dp, tint = color)
-            Spacer(Modifier.width(6.dp))
-        }
+        HeadphonesIcon(iconSize = 18.dp, tint = color)
+        Spacer(Modifier.width(6.dp))
         Text(
             d.name,
             style = MaterialTheme.typography.labelLarge,
