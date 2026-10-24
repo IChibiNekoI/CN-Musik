@@ -45,6 +45,16 @@ import androidx.media3.common.Player
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/** Stärke des Miniplayer-Bounces beim Landen des Players (Anteil der Höhe). Das ist die Obergrenze, die bei schnellem Schließen erreicht wird. */
+private const val MINI_BOUNCE_MAX = 0.035f
+
+/** Anteil von [MINI_BOUNCE_MAX], der auch bei ganz langsamem Schließen bleibt (0 = dann gar kein Bounce) */
+private const val MINI_BOUNCE_MIN_SHARE = 0.2f
+
+/** Schließ-Geschwindigkeit (Fortschritt pro Sekunde): bis hier gilt es als langsam, ab [CLOSE_SPEED_FAST] volle Stärke. Die Zurück-Taste liegt bei etwa 6,5. */
+private const val CLOSE_SPEED_SLOW = 2f
+private const val CLOSE_SPEED_FAST = 9f
+
 @Composable
 fun MusikApp(
     openPlayerSignal: Int = 0,
@@ -423,8 +433,12 @@ fun MusikApp(
                 val landed = (liveOrigin ?: origin) != null
                 showNow = false
                 gestureOpen = false
+                // Stärke hängt davon ab, wie schnell der Player geschlossen wurde; MINI_BOUNCE_MAX ist die Obergrenze
+                val speed = sheetMotion.lastSettleSpeed
+                val fast = ((speed - CLOSE_SPEED_SLOW) / (CLOSE_SPEED_FAST - CLOSE_SPEED_SLOW)).coerceIn(0f, 1f)
+                val bounce = MINI_BOUNCE_MAX * (MINI_BOUNCE_MIN_SHARE + (1f - MINI_BOUNCE_MIN_SHARE) * fast)
                 if (landed) scope.launch {
-                    miniBounce.snapTo(0.035f)
+                    miniBounce.snapTo(bounce)
                     miniBounce.animateTo(
                         0f,
                         androidx.compose.animation.core.spring(
