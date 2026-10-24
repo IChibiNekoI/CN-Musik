@@ -229,6 +229,26 @@ fun VibrationIcon(
     }
 }
 
+/** Kopfhörer: Bügel mit zwei Hörmuscheln */
+@Composable
+fun HeadphonesIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        // Bügel: obere Hälfte eines Kreises
+        drawArc(
+            c, startAngle = 180f, sweepAngle = 180f, useCenter = false,
+            topLeft = Offset(5.3f * k, 3.8f * k), size = Size(13.4f * k, 13.4f * k), style = st
+        )
+        seg(c, st, k, 5.3f, 10.5f, 5.3f, 12.4f)
+        seg(c, st, k, 18.7f, 10.5f, 18.7f, 12.4f)
+        // Hörmuscheln
+        drawRoundRect(c, topLeft = Offset(3.4f * k, 12.2f * k), size = Size(3.8f * k, 6.4f * k), cornerRadius = CornerRadius(1.6f * k), style = st)
+        drawRoundRect(c, topLeft = Offset(16.8f * k, 12.2f * k), size = Size(3.8f * k, 6.4f * k), cornerRadius = CornerRadius(1.6f * k), style = st)
+    }
+}
+
 /** Info: Kreis mit i */
 @Composable
 fun InfoIcon(
