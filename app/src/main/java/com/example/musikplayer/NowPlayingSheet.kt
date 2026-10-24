@@ -650,12 +650,22 @@ private fun NowPlayingSheetContent(
                         } else {
                             PillProgress(progress = progressValue, onChange = progressChange, onFinished = progressDone)
                         }
-                        Row(
+                        // Optional mittig zwischen den Zeiten: das Ausgabegerät (bei Kopfhörern mit Symbol)
+                        Box(
                             Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(fmt(shownMs), style = MaterialTheme.typography.labelMedium)
-                            Text(fmt(duration), style = MaterialTheme.typography.labelMedium)
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(fmt(shownMs), style = MaterialTheme.typography.labelMedium)
+                                Text(fmt(duration), style = MaterialTheme.typography.labelMedium)
+                            }
+                            if (CornerSettings.showOutputDevice) {
+                                // Rand links und rechts: Platz für die beiden Zeiten
+                                OutputDeviceLabel(Modifier.padding(horizontal = 56.dp))
+                            }
                         }
                     }
                 }
