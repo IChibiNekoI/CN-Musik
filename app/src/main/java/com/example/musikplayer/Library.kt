@@ -448,6 +448,8 @@ fun loadLibrary(ctx: Context): List<Song> {
         MediaStore.Audio.Media.DATE_MODIFIED,
         MediaStore.Audio.Media.TRACK,
         MediaStore.Audio.Media.DISPLAY_NAME,
+        MediaStore.Audio.Media.YEAR,
+        MediaStore.Audio.Media.DURATION,
         folderField
     )
     ctx.contentResolver.query(
@@ -462,6 +464,8 @@ fun loadLibrary(ctx: Context): List<Song> {
         val trackCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
         val nameCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
         val folderCol = c.getColumnIndexOrThrow(folderField)
+        val yearCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
+        val durCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
         while (c.moveToNext()) {
             val id = c.getLong(idCol)
             val raw = c.getString(folderCol) ?: ""
@@ -476,7 +480,9 @@ fun loadLibrary(ctx: Context): List<Song> {
                 dateAdded = c.getLong(dateCol),
                 dateModified = c.getLong(modCol),
                 track = c.getInt(trackCol),
-                fileName = c.getString(nameCol) ?: ""
+                fileName = c.getString(nameCol) ?: "",
+                year = c.getInt(yearCol),
+                durationMs = c.getLong(durCol)
             )
         }
     }
