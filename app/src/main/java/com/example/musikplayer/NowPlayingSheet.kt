@@ -241,7 +241,8 @@ private fun NowPlayingSheetContent(
 
           var offsetY by remember { mutableFloatStateOf(0f) }
     // Warteschlange: von unten hochwischen (Start im Bereich unter den Tasten) öffnet sie
-    val queueProgress = remember { Animatable(0f) }
+    // Auf 0..1 begrenzt: mit viel Anfangsschwung darf die Feder die Fläche nicht über die Endlage hinausschieben
+    val queueProgress = remember { Animatable(0f).apply { updateBounds(0f, 1f) } }
     var queueShown by remember { mutableStateOf(false) }
     var queueZoneTop by remember { mutableFloatStateOf(Float.MAX_VALUE) }
     var dragFromQueueZone by remember { mutableStateOf(false) }
@@ -267,14 +268,17 @@ private fun NowPlayingSheetContent(
     // Das Theme wechselt bei geöffneter Warteschlange sofort (keine Welle)
     SideEffect { PlayerUiState.queueOpen = queueShown }
     DisposableEffect(Unit) { onDispose { PlayerUiState.queueOpen = false } }
-    fun openQueue() {
+    // velocity = Fingergeschwindigkeit beim Loslassen in Fortschritt pro Sekunde (positiv = Richtung offen)
+    fun openQueue(velocity: Float = 0f) {
         queueShown = true
-        queueScope.launch { queueProgress.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 320f)) }
+        queueScope.launch {
+            queueProgress.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 320f), velocity)
+        }
     }
-    fun closeQueue() {
+    fun closeQueue(velocity: Float = 0f) {
         queueScope.launch {
             // dieselbe Feder wie beim Öffnen und beim Player: weich, ohne feste Dauer
-            queueProgress.animateTo(0f, sheetSpring()) {
+            queueProgress.animateTo(0f, sheetSpring(), velocity) {
                 // kurz vor dem Ende ausblenden, die Feder klingt sonst noch lange unsichtbar nach
                 if (value < 0.02f) queueShown = false
             }
@@ -374,7 +378,9 @@ private fun NowPlayingSheetContent(
                             queueFollowing = false
                             val shownFraction = -upDrag / (rootHeightPx * QUEUE_HEIGHT_FRACTION)
                             upDrag = 0f
-                            if (shownFraction > 0.3f || velocity < -900f) openQueue() else closeQueue()
+                            // Fingergeschwindigkeit (px/s, nach oben negativ) als Fortschritt pro Sekunde an die Feder weitergeben
+                            val qv = -velocity / (rootHeightPx * QUEUE_HEIGHT_FRACTION)
+                            if (shownFraction > 0.3f || velocity < -900f) openQueue(qv) else closeQueue(qv)
                         } else {
                             // Fortschritt und Geschwindigkeit (pro Sekunde) aus dem Fingerweg ableiten,
                             // dann per Feder weiterlaufen: schnelles Wischen fühlt sich anders an als langsames
@@ -746,7 +752,7 @@ private fun NowPlayingSheetContent(
             }
         }
         if (queueShown) {
-            QueuePanel(c, library, queueProgress) { closeQueue() }
+            QueuePanel(c, library, queueProgress) { v -> closeQueue(v) }
         }
     }
 }
