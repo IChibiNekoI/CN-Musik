@@ -338,6 +338,17 @@ private fun NowPlayingSheetContent(
     androidx.activity.compose.BackHandler(enabled = queueShown) { closeQueue() }
     // Ecken werden beim Runterziehen nach und nach rund (bis 38.dp)
     val density = LocalDensity.current.density
+    // Titel und Cover weichen der aufgehenden Warteschlange aus (Hochformat)
+    val queueGeo = remember { QueueGeo() }
+    val queueMotion = remember {
+        QueueMotion(
+            geo = queueGeo,
+            progress = { queueProgress.value },
+            anchorBottom = { queueAnchor.coords?.takeIf { it.isAttached }?.boundsInRoot()?.bottom },
+            rootHeight = { rootHeightPx },
+            density = { density }
+        )
+    }
     // Endposition des großen Covers (für die Flug-Animation) und ob geflogen wird
     var finalCover by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     val hasFly = eo.coverBounds != null
@@ -424,12 +435,18 @@ private fun NowPlayingSheetContent(
             ) {
                 // Querformat: links das Cover, rechts Titel und Steuerung. Hochformat: wie bisher in einer Spalte.
                 val landscape = maxWidth > maxHeight * 1.2f
+                queueGeo.enabled = !landscape
                 // Cover-Größe: Hochformat wie bisher (Breite oder 55 % der Höhe), Querformat durch die Höhe begrenzt
                 val coverSize = if (landscape) minOf(maxHeight, maxWidth * 0.46f) else minOf(maxWidth, maxHeight * 0.55f)
                 val columnWidth = coverSize
 
                 val headerBlock: @Composable () -> Unit = {
-                    Box(Modifier.fillMaxWidth().reveal({ open.value }, 0.30f, 0.75f, 0.dp)) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { queueGeo.headerBottom = it.boundsInRoot().bottom }
+                            .reveal({ open.value }, 0.30f, 0.75f, 0.dp)
+                    ) {
                         // 0 = Player offen, 1 = Kopfzeilen-Symbole ganz flach (wird nur beim Zeichnen gelesen)
                         val headerFlatten: () -> Float = {
                             ((1f - open.value) / 0.25f).coerceIn(0f, 1f)
@@ -502,12 +519,22 @@ private fun NowPlayingSheetContent(
                 val coverBlock: @Composable () -> Unit = {
                     Box(
                         Modifier
-                            .onGloballyPositioned { finalCover = it.boundsInRoot() }
+                            .onGloballyPositioned { finalCover = it.boundsInRoot(); queueGeo.cover = it.boundsInRoot() }
                             .graphicsLayer {
                                 compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
                                 // beim Öffnen übernimmt das fliegende Cover; danach wird getauscht
                                 alpha = if (hasFly) (if (open.value < 1f) 0f else 1f)
                                 else ((open.value - 0.35f) / 0.45f).coerceIn(0f, 1f)
+                            }
+                            .graphicsLayer {
+                                // Warteschlange öffnet: das Cover wird vom Text hochgeschoben und schrumpft nach links oben
+                                val x = queueMotion.compute()
+                                if (x != null) {
+                                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
+                                    scaleX = x.coverScale
+                                    scaleY = x.coverScale
+                                    translationY = x.coverDy
+                                }
                             }
                             .offset { IntOffset(coverOffset.value.roundToInt(), 0) }
                             .pointerInput(c) {
@@ -557,6 +584,25 @@ private fun NowPlayingSheetContent(
                     }
                 }
                 val titleBlock: @Composable () -> Unit = {
+                    Column(
+                        Modifier
+                            .onGloballyPositioned { queueGeo.title = it.boundsInRoot() }
+                            .layout { measurable, constraints ->
+                                // Beim Öffnen der Warteschlange wird der Text schmaler (Platz neben dem kleinen Cover).
+                                // Die gemeldete Breite bleibt gleich, damit die Spalte nicht mittig rutscht.
+                                val x = queueMotion.compute()
+                                val w = if (x != null) x.titleWidth.roundToInt().coerceIn(0, constraints.maxWidth) else constraints.maxWidth
+                                val placeable = measurable.measure(constraints.copy(minWidth = 0, maxWidth = w))
+                                layout(constraints.maxWidth, placeable.height) { placeable.placeRelative(0, 0) }
+                            }
+                            .graphicsLayer {
+                                val x = queueMotion.compute()
+                                if (x != null) {
+                                    translationX = x.titleDx
+                                    translationY = x.titleDy
+                                }
+                            }
+                    ) {
                     // Titel links, Favoriten-Herz rechts auf gleicher Höhe
                     Row(
                         Modifier.fillMaxWidth().reveal({ open.value }, 0.35f, 0.85f),
@@ -586,6 +632,7 @@ private fun NowPlayingSheetContent(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    }
                 }
                 val progressBlock: @Composable () -> Unit = {
                     Column(Modifier.fillMaxWidth().reveal({ open.value }, 0.45f, 0.92f)) {
