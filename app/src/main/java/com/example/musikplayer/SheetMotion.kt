@@ -56,6 +56,13 @@ class SheetMotion {
 
     private val cmds = Channel<Cmd>(Channel.CONFLATED)
 
+    /**
+     * Höchste Geschwindigkeit (Fortschritt pro Sekunde, immer positiv) der zuletzt abgeschlossenen [settle]-Bewegung.
+     * Wird vor [onEnd] gesetzt und sagt, wie schnell der Player zuletzt geschlossen wurde.
+     */
+    var lastSettleSpeed: Float = 0f
+        private set
+
     /** Der Finger bestimmt den Fortschritt direkt */
     fun follow(value: Float) {
         cmds.trySend(Follow(value.coerceIn(0f, 1f)))
@@ -82,7 +89,11 @@ class SheetMotion {
                 is Follow -> progress.snapTo(cmd.value)
                 is Settle -> {
                     cmd.from?.let { progress.snapTo(it.coerceIn(0f, 1f)) }
-                    progress.animateTo(cmd.target, sheetSpring(), cmd.velocity)
+                    var peak = kotlin.math.abs(cmd.velocity)
+                    progress.animateTo(cmd.target, sheetSpring(), cmd.velocity) {
+                        peak = maxOf(peak, kotlin.math.abs(velocity))
+                    }
+                    lastSettleSpeed = peak
                     cmd.onEnd?.invoke()
                 }
             }
