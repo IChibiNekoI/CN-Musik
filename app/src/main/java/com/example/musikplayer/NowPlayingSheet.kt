@@ -172,7 +172,6 @@ private fun NowPlayingSheetContent(
     onToggleFavorite: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val dolbyAtmos by rememberDolbyAtmosEnabled()
     // Farbe und Hintergrund von Vorgänger und Nachfolger vorab laden: der Wechsel startet dann ohne Wartezeit
     val prefetchCtx = LocalContext.current
     LaunchedEffect(song.id, library) {
@@ -597,19 +596,12 @@ private fun NowPlayingSheetContent(
                         } else {
                             PillProgress(progress = progressValue, onChange = progressChange, onFinished = progressDone)
                         }
-                        // Zwischen den beiden Zeiten, mittig: Dolby Atmos, solange es am Gerät eingeschaltet ist
-                        Box(
+                        Row(
                             Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                            contentAlignment = Alignment.Center
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(fmt(shownMs), style = MaterialTheme.typography.labelMedium)
-                                Text(fmt(duration), style = MaterialTheme.typography.labelMedium)
-                            }
-                            if (dolbyAtmos) DolbyAtmosBadge()
+                            Text(fmt(shownMs), style = MaterialTheme.typography.labelMedium)
+                            Text(fmt(duration), style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
