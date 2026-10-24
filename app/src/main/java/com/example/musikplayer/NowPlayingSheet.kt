@@ -415,10 +415,11 @@ private fun NowPlayingSheetContent(
                     .padding(horizontal = 24.dp),
                 contentAlignment = Alignment.TopCenter
             ) {
-                // Auf Tablets (breiter im Verhältnis zur Höhe) bleibt der Player eine schmale, zentrierte Spalte mit den
-                // Proportionen des Smartphones. Auf Handys ändert sich nichts (die Grenze liegt über der Handy-Breite).
-                val columnWidth = minOf(maxWidth, maxOf(maxHeight * 0.43f, 360.dp))
-                val coverSize = minOf(columnWidth, maxHeight * 0.55f)
+                // Cover-Größe wie bisher (durch Breite und 55 % der Höhe begrenzt). Auf Tablets ist die Höhe der Engpass:
+                // Titel, Fortschrittsbalken und Tasten laufen dann genau so breit wie das Cover (zentrierte Spalte),
+                // statt weit über das Cover hinaus. Auf Handys ist die Breite der Engpass, dort ändert sich nichts.
+                val coverSize = minOf(maxWidth, maxHeight * 0.55f)
+                val columnWidth = coverSize
                 Column(
                     Modifier.fillMaxHeight().width(columnWidth),
                     horizontalAlignment = Alignment.CenterHorizontally
