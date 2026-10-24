@@ -150,5 +150,9 @@
     <string name="design_summary">Rundungen, Player-Hintergrund und Cover-Schatten</string>
     <string name="audio_info_summary">Zusätzliche Informationen zu Musikdateien</string>
     <string name="haptics_summary">Vibrationen bei unterstützten Interaktionen</string>
-    <string name="wave_progress">Wellen-Fortschrittsbalken</string>
+    <string name="progress_bar">Fortschrittsbalken</string>
+    <string name="progress_bar_style">Balken</string>
+    <string name="progress_wave">Welle</string>
+    <string name="progress_bar_style_sub">Einfacher, durchgehender Balken</string>
+    <string name="progress_wave_sub">Wellenform aus einzelnen Balken</string>
 </resources>
