@@ -129,6 +129,21 @@ fun TitleTIcon(
     }
 }
 
+/** Senkrechte Balken unterschiedlicher Höhe (Fortschrittsbalken / Wellenform) */
+@Composable
+fun WaveBarsIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        seg(c, st, k, 4.5f, 10f, 4.5f, 14f)
+        seg(c, st, k, 8.25f, 7f, 8.25f, 17f)
+        seg(c, st, k, 12f, 4.5f, 12f, 19.5f)
+        seg(c, st, k, 15.75f, 8f, 15.75f, 16f)
+        seg(c, st, k, 19.5f, 10.5f, 19.5f, 13.5f)
+    }
+}
+
 /** Schallplatte / Album */
 @Composable
 fun AlbumDiscIcon(
