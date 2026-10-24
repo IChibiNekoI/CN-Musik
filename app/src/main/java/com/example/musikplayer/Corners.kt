@@ -27,6 +27,8 @@ object CornerSettings {
     var menuUnified by mutableStateOf(false)
     /** Weicher Schatten unter dem Cover im Player, optional */
     var coverShadow by mutableStateOf(false)
+    /** Fortschrittsbalken im Player als Wellenform aus einzelnen Balken, optional */
+    var waveProgress by mutableStateOf(false)
     private var loaded = false
 
     /** Gespeicherte Wahl einmal beim Start laden (vor der ersten Anzeige) */
@@ -37,6 +39,7 @@ object CornerSettings {
             playerBg = readPlayerBg(ctx)
             menuUnified = readMenuUnified(ctx)
             coverShadow = readCoverShadow(ctx)
+            waveProgress = readWaveProgress(ctx)
         }
     }
 }
