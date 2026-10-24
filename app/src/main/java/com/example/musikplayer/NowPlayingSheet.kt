@@ -415,15 +415,13 @@ private fun NowPlayingSheetContent(
                     .padding(horizontal = 24.dp),
                 contentAlignment = Alignment.TopCenter
             ) {
-                // Cover-Größe wie bisher (durch Breite und 55 % der Höhe begrenzt). Auf Tablets ist die Höhe der Engpass:
-                // Titel, Fortschrittsbalken und Tasten laufen dann genau so breit wie das Cover (zentrierte Spalte),
-                // statt weit über das Cover hinaus. Auf Handys ist die Breite der Engpass, dort ändert sich nichts.
-                val coverSize = minOf(maxWidth, maxHeight * 0.55f)
+                // Querformat: links das Cover, rechts Titel und Steuerung. Hochformat: wie bisher in einer Spalte.
+                val landscape = maxWidth > maxHeight * 1.2f
+                // Cover-Größe: Hochformat wie bisher (Breite oder 55 % der Höhe), Querformat durch die Höhe begrenzt
+                val coverSize = if (landscape) minOf(maxHeight, maxWidth * 0.46f) else minOf(maxWidth, maxHeight * 0.55f)
                 val columnWidth = coverSize
-                Column(
-                    Modifier.fillMaxHeight().width(columnWidth),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
+
+                val headerBlock: @Composable () -> Unit = {
                     Box(Modifier.fillMaxWidth().reveal({ open.value }, 0.30f, 0.75f, 0.dp)) {
                         // 0 = Player offen, 1 = Kopfzeilen-Symbole ganz flach (wird nur beim Zeichnen gelesen)
                         val headerFlatten: () -> Float = {
@@ -493,7 +491,8 @@ private fun NowPlayingSheetContent(
                             if (showTags) TagEditDialog(song) { showTags = false }
                         }
                     }
-                    Spacer(Modifier.weight(1.25f))   // Abstand oben: kleiner = Cover weiter oben
+                }
+                val coverBlock: @Composable () -> Unit = {
                     Box(
                         Modifier
                             .onGloballyPositioned { finalCover = it.boundsInRoot() }
@@ -549,7 +548,8 @@ private fun NowPlayingSheetContent(
                             )
                         }
                     }
-                    Spacer(Modifier.weight(1.7f))    // Abstand Cover -> Titel
+                }
+                val titleBlock: @Composable () -> Unit = {
                     // Titel links, Favoriten-Herz rechts auf gleicher Höhe
                     Row(
                         Modifier.fillMaxWidth().reveal({ open.value }, 0.35f, 0.85f),
@@ -579,8 +579,8 @@ private fun NowPlayingSheetContent(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(Modifier.weight(0.8f))    // Abstand Künstler -> Fortschrittsbalken
-
+                }
+                val progressBlock: @Composable () -> Unit = {
                     Column(Modifier.fillMaxWidth().reveal({ open.value }, 0.45f, 0.92f)) {
                         PillProgress(
                             progress = { if (dragging) dragFraction else frac.floatValue },
@@ -601,8 +601,8 @@ private fun NowPlayingSheetContent(
                             Text(fmt(duration), style = MaterialTheme.typography.labelMedium)
                         }
                     }
-                    Spacer(Modifier.weight(1.0f))    // Abstand Balken -> Tasten
-
+                }
+                val controlsBlock: @Composable () -> Unit = {
                     Row(
                         Modifier.fillMaxWidth().reveal({ open.value }, 0.50f, 1.0f, 32.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -628,8 +628,10 @@ private fun NowPlayingSheetContent(
                             }
                         )
                     }
+                }
+                val infoBlock: @Composable (Modifier) -> Unit = { extra ->
                     Box(
-                        Modifier.fillMaxWidth().weight(1.95f)
+                        Modifier.fillMaxWidth().then(extra)
                             .onGloballyPositioned { queueZoneTop = it.boundsInRoot().top }
                             .reveal({ open.value }, 0.60f, 1.0f, 16.dp),   // Abstand unten
                         contentAlignment = Alignment.BottomCenter
@@ -642,6 +644,47 @@ private fun NowPlayingSheetContent(
                                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),   // Akzentfarbe, gleiche Deckkraft wie vorher
                                 maxLines = 1
                             )
+                        }
+                    }
+                }
+
+                if (!landscape) {
+                    Column(
+                        Modifier.fillMaxHeight().width(columnWidth),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        headerBlock()
+                        Spacer(Modifier.weight(1.25f))   // Abstand oben: kleiner = Cover weiter oben
+                        coverBlock()
+                        Spacer(Modifier.weight(1.7f))    // Abstand Cover -> Titel
+                        titleBlock()
+                        Spacer(Modifier.weight(0.8f))    // Abstand Künstler -> Fortschrittsbalken
+                        progressBlock()
+                        Spacer(Modifier.weight(1.0f))    // Abstand Balken -> Tasten
+                        controlsBlock()
+                        infoBlock(Modifier.weight(1.95f))
+                    }
+                } else {
+                    Row(
+                        Modifier.fillMaxSize(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // links: Cover, in der Höhe zentriert
+                        Box(Modifier.size(coverSize), contentAlignment = Alignment.Center) { coverBlock() }
+                        Spacer(Modifier.width(32.dp))
+                        // rechts: Kopfzeile oben, darunter Titel, Fortschritt und Tasten
+                        Column(
+                            Modifier.weight(1f).fillMaxHeight().widthIn(max = 520.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            headerBlock()
+                            Spacer(Modifier.weight(1.0f))
+                            titleBlock()
+                            Spacer(Modifier.weight(0.7f))
+                            progressBlock()
+                            Spacer(Modifier.weight(0.8f))
+                            controlsBlock()
+                            infoBlock(Modifier.weight(1.0f))
                         }
                     }
                 }
