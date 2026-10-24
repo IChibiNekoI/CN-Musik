@@ -172,7 +172,10 @@ fun MusikApp(
     // Ein Antrieb für Öffnen und Schließen des Players (0 = Miniplayer, 1 = Vollbild):
     // Finger, Loslassen mit Geschwindigkeit, Zurück-Taste und Zurück-Geste, alles unterbrechbar
     val sheetMotion = remember { SheetMotion() }
-    LaunchedEffect(sheetMotion) { sheetMotion.run() }
+    LaunchedEffect(sheetMotion) {
+        sheetMotion.onLanded = { Haptics.snap(ctx) }   // Einrasten des Players spürbar machen
+        sheetMotion.run()
+    }
     // Landung des Players im Miniplayer: kurzes, leichtes Eindrücken mit Nachfedern (0 = Ruhe)
     val miniBounce = remember { Animatable(0f) }
     // Ist der Player weg (egal wie), steht der Fortschritt wieder auf Miniplayer
@@ -334,7 +337,7 @@ fun MusikApp(
                         if (headerTaps >= 50 && !foxUnlocked) {
                             foxUnlocked = true
                             saveFoxUnlocked(ctx)
-                            Haptics.tick(ctx)
+                            Haptics.snap(ctx)
                             Toast.makeText(ctx, str(R.string.fox_unlocked), Toast.LENGTH_LONG).show()
                         }
                     },
@@ -471,7 +474,7 @@ fun MusikApp(
                 menuUnified = CornerSettings.menuUnified,
                 onMenuUnified = { CornerSettings.menuUnified = it; saveMenuUnified(ctx, it) },
                 haptics = Haptics.enabled,
-                onHaptics = { Haptics.setEnabled(ctx, it); if (it) Haptics.tick(ctx) },
+                onHaptics = { Haptics.setEnabled(ctx, it); if (it) Haptics.click(ctx) },
                 language = Lang.load(ctx),
                 onLanguage = {
                     if (it != Lang.load(ctx)) {
@@ -736,7 +739,7 @@ fun AppSettingsSheet(
                         Switch(checked = showAudioInfo, onCheckedChange = null)
                     },
                     colors = clear,
-                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { onShowAudioInfo(!showAudioInfo) }
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f) { onShowAudioInfo(!showAudioInfo) }
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.haptics)) },
@@ -746,7 +749,7 @@ fun AppSettingsSheet(
                         Switch(checked = haptics, onCheckedChange = null)
                     },
                     colors = clear,
-                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { onHaptics(!haptics) }
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f) { onHaptics(!haptics) }
                 )
                 HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
                 Text(
@@ -910,7 +913,7 @@ fun AppSettingsSheet(
                         Switch(checked = menuUnified, onCheckedChange = null, enabled = menuSwitchEnabled)
                     },
                     colors = clear,
-                    modifier = Modifier.bounceClick(pressedScale = 0.97f, enabled = menuSwitchEnabled, haptic = false) { onMenuUnified(!menuUnified) }
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, enabled = menuSwitchEnabled) { onMenuUnified(!menuUnified) }
                 )
                 // Schatten unter dem Cover im Player
                 val shadowCtx = LocalContext.current
@@ -919,7 +922,7 @@ fun AppSettingsSheet(
                     headlineContent = { Text(str(R.string.shadow)) },
                     trailingContent = { Switch(checked = shadowOn, onCheckedChange = null) },
                     colors = clear,
-                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) {
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f) {
                         val on = !shadowOn
                         CornerSettings.coverShadow = on
                         saveCoverShadow(shadowCtx, on)
