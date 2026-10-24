@@ -667,7 +667,7 @@ fun LibraryScreen(
                     interactionSource = chipSource,
                     selected = effTab == i,
                     onClick = {
-                        Haptics.tick(chipCtx)
+                        Haptics.click(chipCtx)
                         tab = i; openAlbum = null; openPlaylist = null
                     },
                     label = {
