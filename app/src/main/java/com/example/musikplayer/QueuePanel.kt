@@ -63,13 +63,15 @@ private fun queueIndices(c: MediaController): List<Int> {
 /**
  * Warteschlange als Fläche, die von unten in den Player hochfährt.
  * [progress]: 0 = geschlossen, 1 = offen. Nach unten ziehen oder neben die Fläche tippen schließt sie.
+ * [onClose] bekommt die Geschwindigkeit des Fingers beim Loslassen (Fortschritt pro Sekunde, negativ = Richtung zu),
+ * damit die Feder sie übernimmt: schnelles Wischen fliegt zu, langsames sinkt ab.
  */
 @Composable
 fun QueuePanel(
     c: MediaController,
     library: List<Song>,
     progress: Animatable<Float, AnimationVector1D>,
-    onClose: () -> Unit
+    onClose: (velocity: Float) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     var version by remember { mutableIntStateOf(0) }
@@ -122,7 +124,7 @@ fun QueuePanel(
                 .fillMaxSize()
                 .graphicsLayer { alpha = progress.value * 0.5f }
                 .background(Color.Black)
-                .clickable(interactionSource = noRipple, indication = null) { onClose() }
+                .clickable(interactionSource = noRipple, indication = null) { onClose(0f) }
         )
         Surface(
             modifier = Modifier
@@ -146,8 +148,12 @@ fun QueuePanel(
                             },
                             orientation = Orientation.Vertical,
                             onDragStopped = { v ->
-                                if (progress.value < 0.75f || v > 1000f) onClose()
-                                else scope.launch { progress.animateTo(1f, spring(dampingRatio = 0.8f, stiffness = 400f)) }
+                                // Finger-Geschwindigkeit (px/s, nach unten positiv) in Fortschritt pro Sekunde umrechnen
+                                val pv = -v / panelHpx
+                                if (progress.value < 0.75f || v > 1000f) onClose(pv)
+                                else scope.launch {
+                                    progress.animateTo(1f, spring(dampingRatio = 0.8f, stiffness = 400f), pv)
+                                }
                             }
                         )
                 ) {
