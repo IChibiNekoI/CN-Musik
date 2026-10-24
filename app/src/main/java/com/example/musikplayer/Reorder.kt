@@ -98,7 +98,7 @@ fun ReorderableSongList(
         if (firstIndex in minOf(from, to)..maxOf(from, to)) {
             listState.requestScrollToItem(firstIndex, firstOffset)
         }
-        Haptics.tick(ctx)
+        Haptics.tick(ctx)   // Tausch mit dem Nachbarn: leichtes Raster
         order = order.toMutableList().apply { add(to, removeAt(from)) }
     }
 
@@ -110,7 +110,7 @@ fun ReorderableSongList(
         grabY = y - info.offset
         follow = 1f
         dragKey = key
-        Haptics.tick(ctx)
+        Haptics.snap(ctx)   // Titel angehoben
         liftJob?.cancel()
         liftJob = scope.launch {
             animate(lift, 1f, animationSpec = tween(260, easing = FastOutSlowInEasing)) { v, _ -> lift = v }
@@ -121,7 +121,7 @@ fun ReorderableSongList(
     fun endDrag() {
         if (dragKey == null || settleJob?.isActive == true) return
         val result = order
-        Haptics.tick(ctx)
+        Haptics.click(ctx)   // Titel abgelegt
         liftJob?.cancel()
         settleJob = scope.launch {
             // Die Zeile gleitet federnd an ihren Platz, Schatten und Karte blenden dabei aus
