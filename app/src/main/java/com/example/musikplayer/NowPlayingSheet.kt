@@ -663,8 +663,14 @@ private fun NowPlayingSheetContent(
                                 Text(fmt(duration), style = MaterialTheme.typography.labelMedium)
                             }
                             if (CornerSettings.showOutputDevice) {
-                                // Rand links und rechts: Platz für die beiden Zeiten
-                                OutputDeviceLabel(Modifier.padding(horizontal = 56.dp))
+                                // Liegt über der Zeile und zählt nicht zu ihrer Höhe: der Fortschrittsbalken bleibt an seinem
+                                // Platz, ob ein Gerät verbunden ist oder nicht. Rand links und rechts: Platz für die Zeiten.
+                                Box(
+                                    Modifier.matchParentSize().padding(horizontal = 56.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    OutputDeviceLabel()
+                                }
                             }
                         }
                     }
