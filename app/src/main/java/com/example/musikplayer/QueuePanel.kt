@@ -17,6 +17,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.util.lerp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -33,6 +48,34 @@ import kotlin.math.max
 
 /** Anteil der Bildschirmhöhe, den die Warteschlange einnimmt */
 const val QUEUE_HEIGHT_FRACTION = 0.78f
+
+/**
+ * Merkt sich die Tastenreihe des Players. Die Warteschlange wächst aus einer kleinen Blase direkt darunter heraus.
+ * Die Lage wird erst beim Zeichnen abgefragt (kein Zustand, also keine Neu-Komposition bei jeder Bewegung).
+ */
+class QueueAnchor {
+    var coords: LayoutCoordinates? = null
+}
+
+/**
+ * Form der Warteschlange: eine Blase, die aus der kleinen Startform [origin] (Lage im Panel) zur ganzen Fläche wächst.
+ * [p] = 0 ist die Blase, 1 die volle Fläche. Seitlich geht es am Anfang schneller, die Ecken wandern von der Pille
+ * (ganz rund) zu den oberen Ecken der Fläche; unten läuft sie gerade aus.
+ */
+private class BubbleShape(private val p: Float, private val origin: Rect, private val topRadius: Float) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val t = p.coerceIn(0f, 1f)
+        val wide = 1f - (1f - t) * (1f - t)
+        val left = lerp(origin.left, 0f, wide)
+        val right = lerp(origin.right, size.width, wide)
+        val top = lerp(origin.top, 0f, t)
+        val bottom = lerp(origin.bottom, size.height, t)
+        val start = origin.height / 2f
+        val rt = CornerRadius(lerp(start, topRadius, t))
+        val rb = CornerRadius(lerp(start, 0f, t))
+        return Outline.Rounded(RoundRect(left, top, right, bottom, rt, rt, rb, rb))
+    }
+}
 
 /** Ein Eintrag der Warteschlange: stabiler Schlüssel (bleibt beim Verschieben gleich), aktuelle Position im Player und der Titel */
 private data class QueueEntry(val key: Long, val queueIndex: Int, val song: Song)
@@ -65,12 +108,14 @@ private fun queueIndices(c: MediaController): List<Int> {
  * [progress]: 0 = geschlossen, 1 = offen. Nach unten ziehen oder neben die Fläche tippen schließt sie.
  * [onClose] bekommt die Geschwindigkeit des Fingers beim Loslassen (Fortschritt pro Sekunde, negativ = Richtung zu),
  * damit die Feder sie übernimmt: schnelles Wischen fliegt zu, langsames sinkt ab.
+ * Die Fläche wächst wie eine Blase aus einer kleinen Pille direkt unter der Tastenreihe ([anchor]).
  */
 @Composable
 fun QueuePanel(
     c: MediaController,
     library: List<Song>,
     progress: Animatable<Float, AnimationVector1D>,
+    anchor: QueueAnchor,
     onClose: (velocity: Float) -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -115,9 +160,13 @@ fun QueuePanel(
     // Erster Eintrag, der beim Öffnen zu sehen ist (die Liste springt zum aktuellen Titel)
     val firstShown = max(0, order.indexOf(current) - 1)
 
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    // Eigene Lage im Fenster, um die Tastenreihe (Fensterkoordinaten) in dieses Feld umzurechnen
+    val self = remember { QueueAnchor() }
+    BoxWithConstraints(Modifier.fillMaxSize().onGloballyPositioned { self.coords = it }) {
         val panelH = maxHeight * QUEUE_HEIGHT_FRACTION
         val panelHpx = with(density) { panelH.toPx() }
+        val boxW = with(density) { maxWidth.toPx() }
+        val boxH = with(density) { maxHeight.toPx() }
         // Abdunkelung hinter der Fläche, Tipp darauf schließt
         Box(
             Modifier
@@ -131,13 +180,28 @@ fun QueuePanel(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .height(panelH)
-                .graphicsLayer { translationY = (1f - progress.value) * panelHpx }
+                .graphicsLayer {
+                    // Startform: kleine Pille mittig direkt unter der Tastenreihe, im Feld des Panels gerechnet
+                    val pillW = 136.dp.toPx()
+                    val pillH = 26.dp.toPx()
+                    val a = anchor.coords?.takeIf { it.isAttached }?.boundsInRoot()
+                    val me = self.coords?.takeIf { it.isAttached }?.positionInRoot() ?: Offset.Zero
+                    val cx = if (a != null) a.center.x - me.x else boxW / 2f
+                    val topInBox = if (a != null) a.bottom - me.y + 6.dp.toPx() else boxH - 120.dp.toPx()
+                    val top = (topInBox - (boxH - panelHpx)).coerceAtMost(panelHpx - pillH)
+                    val origin = Rect(cx - pillW / 2f, top, cx + pillW / 2f, top + pillH)
+                    shape = BubbleShape(progress.value, origin, 28.dp.toPx())
+                    clip = true
+                }
                 .pointerInput(Unit) {},
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            shape = RectangleShape,
             color = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
         ) {
-            Column(Modifier.fillMaxSize()) {
+            // Der Inhalt blendet erst ein, wenn die Blase schon ein Stück gewachsen ist
+            Column(
+                Modifier.fillMaxSize().graphicsLayer { alpha = ((progress.value - 0.3f) / 0.5f).coerceIn(0f, 1f) }
+            ) {
                 // Kopf: Griff + Titel. Hier nach unten ziehen schließt die Fläche.
                 Column(
                     Modifier
