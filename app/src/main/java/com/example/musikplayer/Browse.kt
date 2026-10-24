@@ -215,11 +215,11 @@ private fun SearchAlbumCard(
         if (total <= 0L) 0 else maxOf(1, Math.round(total / 60000.0).toInt())
     }
     val card = MaterialTheme.colorScheme.surfaceContainerHigh
-    val side = 160.dp
+    val side = 128.dp
     Column(
         modifier
             .width(side)
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(20.dp))
             .background(card)
             .bounceClick(pressedScale = 0.95f, haptic = false) { onOpen() }
     ) {
@@ -229,13 +229,13 @@ private fun SearchAlbumCard(
                 Box(
                     Modifier
                         .align(Alignment.TopEnd)
-                        .clip(RoundedCornerShape(bottomStart = 16.dp))
+                        .clip(RoundedCornerShape(bottomStart = 12.dp))
                         .background(card)
-                        .padding(horizontal = 12.dp, vertical = 5.dp)
+                        .padding(horizontal = 9.dp, vertical = 3.dp)
                 ) {
                     Text(
                         year.toString(),
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -244,36 +244,36 @@ private fun SearchAlbumCard(
             Box(
                 Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(8.dp)
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .padding(6.dp)
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .background(card.copy(alpha = 0.85f))
                     .bounceClick(pressedScale = 0.88f) { onPlay() },
                 contentAlignment = Alignment.Center
             ) {
                 PlayTriangleIcon(
-                    iconSize = 22.dp,
+                    iconSize = 18.dp,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     description = str(R.string.play_album)
                 )
             }
         }
-        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
             Text(
                 name,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis
             )
             Text(
                 first.artist,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1, overflow = TextOverflow.Ellipsis
             )
             Text(
                 if (minutes > 0) "${plural(R.plurals.n_tracks, songs.size)} • ${minutes}min" else plural(R.plurals.n_tracks, songs.size),
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1, overflow = TextOverflow.Ellipsis
             )
@@ -289,14 +289,14 @@ private fun SearchSectionHeader(
     onShowAll: (() -> Unit)? = null
 ) {
     Row(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         icon()
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(10.dp))
         Text(
             title,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
@@ -307,14 +307,14 @@ private fun SearchSectionHeader(
                     .clip(CircleShape)
                     .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
                     .bounceClick(pressedScale = 0.95f) { onShowAll() }
-                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                GridIcon(iconSize = 22.dp, tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(10.dp))
+                GridIcon(iconSize = 18.dp, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(8.dp))
                 Text(
                     str(R.string.search_show_all),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1
@@ -859,7 +859,7 @@ fun LibraryScreen(
                     if (matchedAlbums.isNotEmpty()) {
                         item(key = "albumsHeader") {
                             SearchSectionHeader(
-                                icon = { AlbumDiscIcon(iconSize = 28.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                icon = { AlbumDiscIcon(iconSize = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                                 title = str(R.string.search_albums_title, matchedAlbums.size),
                                 onShowAll = if (matchedAlbums.size > 2) ({ focusManager.clearFocus(); searchAll = true }) else null
                             )
@@ -887,7 +887,7 @@ fun LibraryScreen(
                     if (matchedAlbums.isNotEmpty() && results.isNotEmpty()) {
                         item(key = "tracksHeader") {
                             SearchSectionHeader(
-                                icon = { MusicNoteIcon(iconSize = 28.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                icon = { MusicNoteIcon(iconSize = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                                 title = str(R.string.search_tracks_title, results.size)
                             )
                         }
