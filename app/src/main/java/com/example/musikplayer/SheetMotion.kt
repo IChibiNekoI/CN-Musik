@@ -63,6 +63,12 @@ class SheetMotion {
     var lastSettleSpeed: Float = 0f
         private set
 
+    /**
+     * Wird einmal aufgerufen, wenn der Player kurz vor seiner Endposition ankommt (Ziel 0 oder 1 als Wert),
+     * aber nur, wenn er vorher ein Stück unterwegs war. Dafür die Haptik beim Einrasten.
+     */
+    var onLanded: ((Float) -> Unit)? = null
+
     /** Der Finger bestimmt den Fortschritt direkt */
     fun follow(value: Float) {
         cmds.trySend(Follow(value.coerceIn(0f, 1f)))
@@ -90,8 +96,14 @@ class SheetMotion {
                 is Settle -> {
                     cmd.from?.let { progress.snapTo(it.coerceIn(0f, 1f)) }
                     var peak = kotlin.math.abs(cmd.velocity)
+                    val travels = kotlin.math.abs(progress.value - cmd.target) > 0.08f
+                    var landed = false
                     progress.animateTo(cmd.target, sheetSpring(), cmd.velocity) {
                         peak = maxOf(peak, kotlin.math.abs(velocity))
+                        if (travels && !landed && kotlin.math.abs(value - cmd.target) < 0.025f) {
+                            landed = true
+                            onLanded?.invoke(cmd.target)
+                        }
                     }
                     lastSettleSpeed = peak
                     cmd.onEnd?.invoke()
