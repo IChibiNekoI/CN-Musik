@@ -52,6 +52,7 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.text.font.FontWeight
@@ -612,6 +613,13 @@ fun LibraryScreen(
     // Scrollstände der Trefferliste und der Albenzeile bleiben beim Öffnen eines Albums und beim Zurückkehren erhalten
     val searchListState = rememberLazyListState()
     val searchRowState = rememberLazyListState()
+    // Scrollstände der Hauptlisten: Sie liegen hier oben, damit sie beim Öffnen eines Albums oder einer Playlist
+    // und beim Wechsel der Tabs nicht verloren gehen (die Listen selbst verlassen dabei kurz die Komposition)
+    val songsState = rememberLazyListState()
+    val albumsGridState = rememberLazyGridState()
+    val albumsListState = rememberLazyListState()
+    val playlistsGridState = rememberLazyGridState()
+    val playlistsListState = rememberLazyListState()
     var plusMenu by remember { mutableStateOf(false) }
     var showUpdate by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
@@ -1000,7 +1008,7 @@ fun LibraryScreen(
                         modifier = Modifier.padding(16.dp)
                     )
                 }
-                HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
+                HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace), state = songsState) {
                     itemsIndexed(sorted, key = { _, s -> s.id }) { i, s ->
                         SongRow(
                             s, s.id.toString() == currentId, { onPlay(sorted, i) }, { addSong = s },
@@ -1023,6 +1031,7 @@ fun LibraryScreen(
                     HapticLazyGrid(
                         columns = GridCells.Fixed(albumStyle.cols),
                         modifier = Modifier.weight(1f),
+                        state = albumsGridState,
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp + bottomSpace),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -1037,7 +1046,7 @@ fun LibraryScreen(
                         }
                     }
                 } else if (name == null) {
-                    HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
+                    HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace), state = albumsListState) {
                         items(albums, key = { it.first }) { (albumName, list) ->
                             ListItem(
                                 headlineContent = {
@@ -1116,6 +1125,7 @@ fun LibraryScreen(
                     HapticLazyGrid(
                         columns = GridCells.Fixed(playlistStyle.cols),
                         modifier = Modifier.weight(1f),
+                        state = playlistsGridState,
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp + bottomSpace),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -1143,7 +1153,7 @@ fun LibraryScreen(
                         }
                     }
                 } else if (pl == null) {
-                    HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
+                    HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace), state = playlistsListState) {
                         items(playlists, key = { it.id }) { p ->
                             ListItem(
                                 headlineContent = {
