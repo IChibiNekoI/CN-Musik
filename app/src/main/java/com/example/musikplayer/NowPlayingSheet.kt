@@ -250,6 +250,7 @@ private fun NowPlayingSheetContent(
     var upDrag by remember { mutableFloatStateOf(0f) }
     var rootHeightPx by remember { mutableFloatStateOf(1f) }
     val queueScope = rememberCoroutineScope()
+    val queueAnchor = remember { QueueAnchor() }
     var closing by remember { mutableStateOf(false) }        // Schließen läuft bereits
     var rootWidthPx by remember { mutableFloatStateOf(1f) }
     // Der Player schrumpft beim Schließen immer in den Miniplayer (Umkehrung des Öffnens). Ist dessen Position nicht
@@ -613,7 +614,8 @@ private fun NowPlayingSheetContent(
                 }
                 val controlsBlock: @Composable () -> Unit = {
                     Row(
-                        Modifier.fillMaxWidth().reveal({ open.value }, 0.50f, 1.0f, 32.dp),
+                        // Lage der Tastenreihe merken: die Warteschlange wächst als Blase direkt darunter heraus
+                        Modifier.fillMaxWidth().onGloballyPositioned { queueAnchor.coords = it }.reveal({ open.value }, 0.50f, 1.0f, 32.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -752,7 +754,7 @@ private fun NowPlayingSheetContent(
             }
         }
         if (queueShown) {
-            QueuePanel(c, library, queueProgress) { v -> closeQueue(v) }
+            QueuePanel(c, library, queueProgress, queueAnchor) { v -> closeQueue(v) }
         }
     }
 }
