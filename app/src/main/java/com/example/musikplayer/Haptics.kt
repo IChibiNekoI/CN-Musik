@@ -27,13 +27,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 /**
- * Haptisches Feedback im Stil von "Micro-Haptics": winzige, knackige Impulse, die dem Finger nur bestätigen,
- * dass etwas ausgelöst wurde. Nie ein Brummen.
+ * Haptisches Feedback: kurze, knackige Impulse (kein Brummen, kein Nachschwingen).
+ * Alle Stufen nutzen den kürzesten Baustein des Vibrationsmotors (TICK) bei voller Stärke. Das Gefühl ist ein einzelner,
+ * trockener Schlag von nur wenigen Millisekunden. PRIMITIVE_CLICK und PRIMITIVE_THUD sind länger und klingen aus,
+ * deshalb werden sie nicht mehr verwendet.
  *
- * Drei Stufen:
- *  - [tick]  : sehr leicht (Raster beim Ziehen, Listenende, Tausch beim Sortieren)
- *  - [click] : kurz und knackig wie ein mechanischer Schalter (Tasten, Schalter, Reiter)
- *  - [snap]  : etwas voller (Player rastet ein, Titel angehoben/abgelegt)
+ * Drei Aufrufe (fühlen sich gleich an, damit alles gleich knackig ist; getrennt, damit sich das später ändern lässt):
+ *  - [tick]  : Raster beim Ziehen, Listenende, Tausch beim Sortieren
+ *  - [click] : Tasten, Schalter, Reiter
+ *  - [snap]  : Player rastet ein, Titel angehoben/abgelegt
  *
  * Unabhängig von den Android-Systemeinstellungen ("Touch-Feedback", "Berührungsfeedback" usw.):
  * Der Vibrator wird direkt angesprochen, und zwar mit einer ausdrücklichen Verwendung ([ATTRS]).
@@ -57,11 +59,17 @@ object Haptics {
         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
         .build()
 
-    /** Grundbaustein, Stärke (0..1) und Ersatz für Geräte ohne Grundbausteine (Dauer in ms, Stärke 1..255) */
-    private enum class Kind(val primitive: Int, val scale: Float, val ms: Long, val amp: Int) {
-        TICK(VibrationEffect.Composition.PRIMITIVE_TICK, 0.45f, 8L, 70),
-        CLICK(VibrationEffect.Composition.PRIMITIVE_TICK, 0.95f, 10L, 140),
-        SNAP(VibrationEffect.Composition.PRIMITIVE_CLICK, 0.65f, 14L, 190)
+    /** Ein Baustein des Effekts: Grundbaustein des Vibrationsmotors, Stärke (0..1) und Pause davor (ms) */
+    private class Step(val primitive: Int, val scale: Float, val delayMs: Int = 0)
+
+    /**
+     * Effekt aus Bausteinen (Geräte ohne einen der Bausteine lassen ihn aus) und Ersatz für Geräte ganz ohne
+     * Grundbausteine: ein kurzer Impuls (Dauer in ms, Stärke 1..255).
+     */
+    private enum class Kind(val steps: List<Step>, val ms: Long, val amp: Int) {
+        TICK(listOf(Step(VibrationEffect.Composition.PRIMITIVE_TICK, 1.0f)), 8L, 160),
+        CLICK(listOf(Step(VibrationEffect.Composition.PRIMITIVE_TICK, 1.0f)), 8L, 230),
+        SNAP(listOf(Step(VibrationEffect.Composition.PRIMITIVE_TICK, 1.0f)), 8L, 255)
     }
 
     private var loaded = false
@@ -85,13 +93,13 @@ object Haptics {
         prefs(ctx).edit().putBoolean("haptics", on).apply()
     }
 
-    /** Sehr leichtes Ticken */
+    /** Kurzer, knackiger Impuls (Raster) */
     fun tick(ctx: Context) = fire(ctx, Kind.TICK)
 
-    /** Kurzer, knackiger Klick wie bei einem mechanischen Schalter */
+    /** Kurzer, knackiger Klick (Tasten, Schalter) */
     fun click(ctx: Context) = fire(ctx, Kind.CLICK)
 
-    /** Etwas volleres Einrasten */
+    /** Kurzer, knackiger Impuls beim Einrasten */
     fun snap(ctx: Context) = fire(ctx, Kind.SNAP)
 
     @Suppress("DEPRECATION")   // vibrate(Effekt, AudioAttributes): nur so lässt sich die Verwendung festlegen
@@ -113,12 +121,18 @@ object Haptics {
         }
     }
 
-    private fun build(v: Vibrator, k: Kind): VibrationEffect = when {
-        v.areAllPrimitivesSupported(k.primitive) ->
-            VibrationEffect.startComposition().addPrimitive(k.primitive, k.scale).compose()
-        v.hasAmplitudeControl() -> VibrationEffect.createOneShot(k.ms, k.amp)
-        // ohne Stärkeregelung: kurz halten, aber lang genug, dass der Motor überhaupt anläuft
-        else -> VibrationEffect.createOneShot(k.ms.coerceAtLeast(10L), VibrationEffect.DEFAULT_AMPLITUDE)
+    private fun build(v: Vibrator, k: Kind): VibrationEffect {
+        val usable = k.steps.filter { v.areAllPrimitivesSupported(it.primitive) }
+        if (usable.isNotEmpty()) {
+            val c = VibrationEffect.startComposition()
+            usable.forEachIndexed { i, st ->
+                c.addPrimitive(st.primitive, st.scale, if (i == 0) 0 else st.delayMs)
+            }
+            return c.compose()
+        }
+        if (v.hasAmplitudeControl()) return VibrationEffect.createOneShot(k.ms, k.amp)
+        // ohne Stärkeregelung: so kurz wie möglich, aber lang genug, dass der Motor überhaupt anläuft
+        return VibrationEffect.createOneShot(k.ms.coerceAtLeast(8L), VibrationEffect.DEFAULT_AMPLITUDE)
     }
 }
 
