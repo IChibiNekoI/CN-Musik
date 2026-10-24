@@ -155,4 +155,8 @@
     <string name="progress_wave">Wave</string>
     <string name="progress_bar_style_sub">Simple continuous bar</string>
     <string name="progress_wave_sub">Waveform made of single bars</string>
+    <string name="output_device">Show output device</string>
+    <string name="output_device_summary">Device name between the times, with an icon for headphones</string>
+    <string name="output_speaker">Speaker</string>
+    <string name="output_headphones">Headphones</string>
 </resources>
