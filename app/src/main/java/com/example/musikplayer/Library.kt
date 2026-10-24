@@ -114,6 +114,12 @@ fun saveCoverShadow(ctx: Context, on: Boolean) {
     prefs(ctx).edit().putBoolean("cover_shadow", on).apply()
 }
 
+fun readShowOutputDevice(ctx: Context): Boolean = prefs(ctx).getBoolean("show_output_device", false)
+
+fun saveShowOutputDevice(ctx: Context, on: Boolean) {
+    prefs(ctx).edit().putBoolean("show_output_device", on).apply()
+}
+
 fun readWaveProgress(ctx: Context): Boolean = prefs(ctx).getBoolean("wave_progress", false)
 
 fun saveWaveProgress(ctx: Context, on: Boolean) {
