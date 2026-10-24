@@ -28,7 +28,8 @@ import androidx.compose.ui.unit.dp
 
 /**
  * Haptisches Feedback: kurze, knackige Impulse (kein Brummen, kein Nachschwingen).
- * Alle Stufen nutzen den kürzesten Baustein des Vibrationsmotors (TICK) bei voller Stärke. Das Gefühl ist ein einzelner,
+ * Bevorzugt der Standard-Effekt EFFECT_TICK des Geräts (siehe [USE_PREDEFINED]), sonst der kürzeste Baustein
+ * des Vibrationsmotors (TICK) bei voller Stärke. Das Gefühl ist ein einzelner,
  * trockener Schlag von nur wenigen Millisekunden. PRIMITIVE_CLICK und PRIMITIVE_THUD sind länger und klingen aus,
  * deshalb werden sie nicht mehr verwendet.
  *
@@ -59,6 +60,14 @@ object Haptics {
         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
         .build()
 
+    /**
+     * true  = die vom Hersteller auf den Motor abgestimmten Standard-Effekte des Geräts (EFFECT_TICK usw.) verwenden,
+     *         sofern das Gerät sie ausdrücklich unterstützt. Auf Xiaomi/HyperOS meist sehr kurz und knackig.
+     * false = die selbst zusammengesetzten Bausteine (Primitives), wie in der Version davor.
+     * Zum Vergleichen auf dem Handy einfach umstellen und neu bauen.
+     */
+    private const val USE_PREDEFINED = true
+
     /** Ein Baustein des Effekts: Grundbaustein des Vibrationsmotors, Stärke (0..1) und Pause davor (ms) */
     private class Step(val primitive: Int, val scale: Float, val delayMs: Int = 0)
 
@@ -66,10 +75,12 @@ object Haptics {
      * Effekt aus Bausteinen (Geräte ohne einen der Bausteine lassen ihn aus) und Ersatz für Geräte ganz ohne
      * Grundbausteine: ein kurzer Impuls (Dauer in ms, Stärke 1..255).
      */
-    private enum class Kind(val steps: List<Step>, val ms: Long, val amp: Int) {
-        TICK(listOf(Step(VibrationEffect.Composition.PRIMITIVE_TICK, 1.0f)), 8L, 160),
-        CLICK(listOf(Step(VibrationEffect.Composition.PRIMITIVE_TICK, 1.0f)), 8L, 230),
-        SNAP(listOf(Step(VibrationEffect.Composition.PRIMITIVE_TICK, 1.0f)), 8L, 255)
+    // predefined: Standard-Effekt des Geräts. EFFECT_TICK ist der kürzeste und leichteste; EFFECT_CLICK ist voller
+    // und länger. Für Klick und Einrasten bewusst ebenfalls TICK, damit nichts stärker wird.
+    private enum class Kind(val steps: List<Step>, val ms: Long, val amp: Int, val predefined: Int) {
+        TICK(listOf(Step(VibrationEffect.Composition.PRIMITIVE_TICK, 1.0f)), 8L, 160, VibrationEffect.EFFECT_TICK),
+        CLICK(listOf(Step(VibrationEffect.Composition.PRIMITIVE_TICK, 1.0f)), 8L, 230, VibrationEffect.EFFECT_TICK),
+        SNAP(listOf(Step(VibrationEffect.Composition.PRIMITIVE_TICK, 1.0f)), 8L, 255, VibrationEffect.EFFECT_TICK)
     }
 
     private var loaded = false
@@ -122,6 +133,12 @@ object Haptics {
     }
 
     private fun build(v: Vibrator, k: Kind): VibrationEffect {
+        // Standard-Effekt nur, wenn das Gerät ihn sicher kennt (bei "unbekannt" würde Android einen längeren Ersatz abspielen)
+        if (USE_PREDEFINED &&
+            v.areEffectsSupported(k.predefined).firstOrNull() == Vibrator.VIBRATION_EFFECT_SUPPORT_YES
+        ) {
+            return VibrationEffect.createPredefined(k.predefined)
+        }
         val usable = k.steps.filter { v.areAllPrimitivesSupported(it.primitive) }
         if (usable.isNotEmpty()) {
             val c = VibrationEffect.startComposition()
