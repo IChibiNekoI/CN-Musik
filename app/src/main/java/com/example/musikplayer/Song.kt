@@ -15,5 +15,7 @@ data class Song(
     val dateAdded: Long = 0L,
     val track: Int = 0,
     val fileName: String = "",
-    val dateModified: Long = 0L   // Sekunden, zuletzt geändert
+    val dateModified: Long = 0L,   // Sekunden, zuletzt geändert
+    val year: Int = 0,             // Erscheinungsjahr laut Tag, 0 = unbekannt
+    val durationMs: Long = 0L      // Laufzeit in Millisekunden, 0 = unbekannt
 )
