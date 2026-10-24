@@ -582,17 +582,20 @@ private fun NowPlayingSheetContent(
                 }
                 val progressBlock: @Composable () -> Unit = {
                     Column(Modifier.fillMaxWidth().reveal({ open.value }, 0.45f, 0.92f)) {
-                        PillProgress(
-                            progress = { if (dragging) dragFraction else frac.floatValue },
-                            onChange = { dragging = true; dragFraction = it },
-                            onFinished = {
-                                val target = (dragFraction * duration).toLong()
-                                c.seekTo(target)
-                                position = target
-                                frac.floatValue = dragFraction
-                                dragging = false
-                            }
-                        )
+                        val progressValue = { if (dragging) dragFraction else frac.floatValue }
+                        val progressChange: (Float) -> Unit = { dragging = true; dragFraction = it }
+                        val progressDone = {
+                            val target = (dragFraction * duration).toLong()
+                            c.seekTo(target)
+                            position = target
+                            frac.floatValue = dragFraction
+                            dragging = false
+                        }
+                        if (CornerSettings.waveProgress) {
+                            WaveProgress(progress = progressValue, seed = song.id, onChange = progressChange, onFinished = progressDone)
+                        } else {
+                            PillProgress(progress = progressValue, onChange = progressChange, onFinished = progressDone)
+                        }
                         Row(
                             Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween
