@@ -888,6 +888,19 @@ fun AppSettingsSheet(
                         saveCoverShadow(shadowCtx, on)
                     }
                 )
+                // Fortschrittsbalken im Player als Wellenform
+                val waveCtx = LocalContext.current
+                val waveOn = CornerSettings.waveProgress
+                ListItem(
+                    headlineContent = { Text(str(R.string.wave_progress)) },
+                    trailingContent = { Switch(checked = waveOn, onCheckedChange = null) },
+                    colors = clear,
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) {
+                        val on = !waveOn
+                        CornerSettings.waveProgress = on
+                        saveWaveProgress(waveCtx, on)
+                    }
+                )
                 Spacer(Modifier.height(32.dp + bottomExtra))
             }
             "albumView" -> {
