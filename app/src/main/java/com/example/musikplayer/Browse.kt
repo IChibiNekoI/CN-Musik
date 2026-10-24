@@ -220,9 +220,10 @@ private fun SearchAlbumCard(
     Column(
         modifier
             .width(side)
+            // Eindrücken zuerst: Es gilt dann für die ganze Karte samt Hintergrund und Rundung, nicht nur für den Inhalt
+            .bounceClick(pressedScale = 0.95f, haptic = false) { onOpen() }
             .clip(RoundedCornerShape(20.dp))
             .background(card)
-            .bounceClick(pressedScale = 0.95f, haptic = false) { onOpen() }
     ) {
         Box(Modifier.size(side)) {
             Cover(first, side, corner = 0.dp)
@@ -247,9 +248,9 @@ private fun SearchAlbumCard(
                     .align(Alignment.BottomEnd)
                     .padding(6.dp)
                     .size(34.dp)
+                    .bounceClick(pressedScale = 0.88f) { onPlay() }
                     .clip(RoundedCornerShape(12.dp))
-                    .background(card.copy(alpha = 0.85f))
-                    .bounceClick(pressedScale = 0.88f) { onPlay() },
+                    .background(card.copy(alpha = 0.85f)),
                 contentAlignment = Alignment.Center
             ) {
                 PlayTriangleIcon(
@@ -306,9 +307,9 @@ private fun SearchSectionHeader(
         if (onShowAll != null) {
             Row(
                 Modifier
+                    .bounceClick(pressedScale = 0.95f) { onShowAll() }
                     .clip(CircleShape)
                     .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                    .bounceClick(pressedScale = 0.95f) { onShowAll() }
                     .padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
