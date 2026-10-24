@@ -149,7 +149,7 @@
     <string name="index_summary">Choose music folders and rescan the library</string>
     <string name="design_summary">Corners, player background and cover shadow</string>
     <string name="audio_info_summary">Additional information about music files</string>
-    <string name="haptics_summary">Vibration for supported interactions</string>
+    <string name="haptics_summary">Subtle vibrations for buttons, switches and gestures</string>
     <string name="progress_bar">Progress bar</string>
     <string name="progress_bar_style">Bar</string>
     <string name="progress_wave">Wave</string>
