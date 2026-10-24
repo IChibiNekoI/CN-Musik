@@ -18,6 +18,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -360,16 +362,24 @@ fun WaveProgress(
                 val p = progress().coerceIn(0f, 1f)
                 val track = baseColor.copy(alpha = 0.14f + 0.08f * gc)
                 val fill = baseColor.copy(alpha = 0.6f + 0.25f * gc)
-                for (i in 0 until n) {
-                    val h = (size.height * heights[i] * (1f + 0.1f * g)).coerceIn(bw, size.height)
-                    val x = i * pitch + (pitch - bw) / 2f
-                    val played = (i + 0.5f) / n <= p
-                    drawRoundRect(
-                        color = if (played) fill else track,
-                        topLeft = Offset(x, (size.height - h) / 2f),
-                        size = Size(bw, h),
-                        cornerRadius = CornerRadius(bw / 2f, bw / 2f)
-                    )
+                // Erst alle Balken im Hintergrundton, dann dieselben Balken in der Füllfarbe, von links bis zur aktuellen
+                // Position abgeschnitten. So läuft die Füllung stufenlos durch die Balken, statt von Balken zu Balken zu springen.
+                val progressX = p * size.width
+                for (pass in 0..1) {
+                    val drawPass: DrawScope.() -> Unit = {
+                        for (i in 0 until n) {
+                            val h = (size.height * heights[i] * (1f + 0.1f * g)).coerceIn(bw, size.height)
+                            val x = i * pitch + (pitch - bw) / 2f
+                            drawRoundRect(
+                                color = if (pass == 0) track else fill,
+                                topLeft = Offset(x, (size.height - h) / 2f),
+                                size = Size(bw, h),
+                                cornerRadius = CornerRadius(bw / 2f, bw / 2f)
+                            )
+                        }
+                    }
+                    if (pass == 0) drawPass()
+                    else clipRect(left = 0f, top = 0f, right = progressX, bottom = size.height) { drawPass() }
                 }
             }
     )
