@@ -113,11 +113,11 @@ fun OutputDeviceLabel(modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
-        HeadphonesIcon(iconSize = 18.dp, tint = color)
-        Spacer(Modifier.width(6.dp))
+        HeadphonesIcon(iconSize = 14.dp, tint = color)
+        Spacer(Modifier.width(4.dp))
         Text(
             d.name,
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.labelMedium,
             color = color,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
