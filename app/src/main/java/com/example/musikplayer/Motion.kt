@@ -99,7 +99,7 @@ fun Modifier.bounceClick(
             enabled = enabled,
             role = role,
             onClick = {
-                if (haptic) Haptics.tick(ctx)   // sanftes Ticken (nur wenn in den Einstellungen eingeschaltet)
+                if (haptic) Haptics.click(ctx)   // kurzer Klick (nur wenn in den Einstellungen eingeschaltet)
                 onClick()
             }
         )
