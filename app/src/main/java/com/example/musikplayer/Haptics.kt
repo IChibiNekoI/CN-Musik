@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -209,9 +210,9 @@ fun EdgeHaptics(state: ScrollableState) {
 fun HapticLazyColumn(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
+    state: LazyListState = rememberLazyListState(),
     content: LazyListScope.() -> Unit
 ) {
-    val state = rememberLazyListState()
     EdgeHaptics(state)
     NoSystemOverscroll {
         LazyColumn(modifier.bounceOverscroll().topEdgeFade(state), state = state, contentPadding = contentPadding, content = content)
