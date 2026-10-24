@@ -412,11 +412,15 @@ private fun NowPlayingSheetContent(
                 Modifier
                     .fillMaxSize()
                     .systemBarsPadding()
-                    .padding(horizontal = 24.dp)
+                    .padding(horizontal = 24.dp),
+                contentAlignment = Alignment.TopCenter
             ) {
-                val coverSize = minOf(maxWidth, maxHeight * 0.55f)
+                // Auf Tablets (breiter im Verhältnis zur Höhe) bleibt der Player eine schmale, zentrierte Spalte mit den
+                // Proportionen des Smartphones. Auf Handys ändert sich nichts (die Grenze liegt über der Handy-Breite).
+                val columnWidth = minOf(maxWidth, maxOf(maxHeight * 0.43f, 360.dp))
+                val coverSize = minOf(columnWidth, maxHeight * 0.55f)
                 Column(
-                    Modifier.fillMaxSize(),
+                    Modifier.fillMaxHeight().width(columnWidth),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box(Modifier.fillMaxWidth().reveal({ open.value }, 0.30f, 0.75f, 0.dp)) {
