@@ -156,11 +156,19 @@ private fun Modifier.playlistFx(appear: Boolean, removing: Boolean): Modifier {
     }
 }
 
+/** Titelzahl und Gesamtlaufzeit eines Albums, z. B. "12 Titel • 45min" (ohne bekannte Laufzeit nur die Titelzahl). Gleich in Suche und Albenansicht. */
+private fun albumMeta(songs: List<Song>): String {
+    val total = songs.sumOf { it.durationMs }
+    val minutes = if (total <= 0L) 0 else maxOf(1, Math.round(total / 60000.0).toInt())
+    return if (minutes > 0) "${plural(R.plurals.n_tracks, songs.size)} • ${minutes}min" else plural(R.plurals.n_tracks, songs.size)
+}
+
 @Composable
 private fun GridTile(
     title: String,
     subtitle: String,
     onClick: () -> Unit,
+    detail: String? = null,
     onDelete: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     cover: @Composable (Dp) -> Unit
@@ -188,6 +196,14 @@ private fun GridTile(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1, overflow = TextOverflow.Ellipsis
                     )
+                    if (detail != null) {
+                        Text(
+                            detail,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
                 if (onDelete != null) {
                     BounceIconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
@@ -212,10 +228,6 @@ private fun SearchAlbumCard(
 ) {
     val first = songs.first()
     val year = remember(songs) { songs.map { it.year }.filter { it > 0 }.minOrNull() ?: 0 }
-    val minutes = remember(songs) {
-        val total = songs.sumOf { it.durationMs }
-        if (total <= 0L) 0 else maxOf(1, Math.round(total / 60000.0).toInt())
-    }
     val card = MaterialTheme.colorScheme.surfaceContainerHigh
     val side = 128.dp
     Column(
@@ -275,7 +287,7 @@ private fun SearchAlbumCard(
                 maxLines = 1, overflow = TextOverflow.Ellipsis
             )
             Text(
-                if (minutes > 0) "${plural(R.plurals.n_tracks, songs.size)} • ${minutes}min" else plural(R.plurals.n_tracks, songs.size),
+                albumMeta(songs),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1, overflow = TextOverflow.Ellipsis
@@ -349,6 +361,7 @@ private fun AlbumCollection(
                 GridTile(
                     title = albumName,
                     subtitle = list.first().artist,
+                    detail = albumMeta(list),
                     onClick = { onOpen(albumName) },
                     cover = { w -> Cover(list.first(), w) }
                 )
@@ -360,10 +373,14 @@ private fun AlbumCollection(
                 ListItem(
                     headlineContent = { Text(albumName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     supportingContent = {
-                        Text(
-                            "${list.first().artist} · ${plural(R.plurals.n_tracks, list.size)}",
-                            maxLines = 1, overflow = TextOverflow.Ellipsis
-                        )
+                        Column {
+                            Text(list.first().artist, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                albumMeta(list),
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     },
                     leadingContent = { Cover(list.first(), 56.dp) },
                     colors = clearColors(),
@@ -1040,6 +1057,7 @@ fun LibraryScreen(
                             GridTile(
                                 title = albumName,
                                 subtitle = list.first().artist,
+                                detail = albumMeta(list),
                                 onClick = { openAlbum = albumName },
                                 cover = { w -> Cover(list.first(), w) }
                             )
@@ -1053,10 +1071,14 @@ fun LibraryScreen(
                                     Text(albumName, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 },
                                 supportingContent = {
-                                    Text(
-                                        "${list.first().artist} · ${plural(R.plurals.n_tracks, list.size)}",
-                                        maxLines = 1, overflow = TextOverflow.Ellipsis
-                                    )
+                                    Column {
+                                        Text(list.first().artist, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(
+                                            albumMeta(list),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            maxLines = 1, overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 },
                                 leadingContent = { Cover(list.first(), 56.dp) },
                                 colors = clearColors(),
