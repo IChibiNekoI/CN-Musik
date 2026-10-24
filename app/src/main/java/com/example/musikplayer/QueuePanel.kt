@@ -71,8 +71,15 @@ private class BubbleShape(private val p: Float, private val origin: Rect, privat
         val top = lerp(origin.top, 0f, t)
         val bottom = lerp(origin.bottom, size.height, t)
         val start = origin.height / 2f
-        val rt = CornerRadius(lerp(start, topRadius, t))
-        val rb = CornerRadius(lerp(start, 0f, t))
+        // Weiche Blase statt Kasten: Zwischen Pille und voller Fläche wölbt sich der Eckenradius zusätzlich auf (am stärksten
+        // in der Mitte der Bewegung) und fällt zum Ende hin auf den Radius der fertigen Fläche zurück.
+        val hump = with(density) { 22.dp.toPx() } * 4f * t * (1f - t)
+        val base = lerp(start, topRadius, t) + hump
+        // Die unteren Ecken bleiben lange rund und laufen erst im letzten Stück gerade aus (die Fläche endet am Bildschirmrand)
+        val flatT = ((t - 0.6f) / 0.4f).coerceIn(0f, 1f)
+        val flat = flatT * flatT * (3f - 2f * flatT)
+        val rt = CornerRadius(base)
+        val rb = CornerRadius(base * (1f - flat))
         return Outline.Rounded(RoundRect(left, top, right, bottom, rt, rt, rb, rb))
     }
 }
@@ -192,6 +199,8 @@ fun QueuePanel(
                     val origin = Rect(cx - pillW / 2f, top, cx + pillW / 2f, top + pillH)
                     shape = BubbleShape(progress.value, origin, 28.dp.toPx())
                     clip = true
+                    // Von der Pille bis etwa zur Größe eines Kastens (ca. 40 % der Bewegung) von ganz durchsichtig zu deckend
+                    alpha = (progress.value / 0.4f).coerceIn(0f, 1f)
                 }
                 .pointerInput(Unit) {},
             shape = RectangleShape,
