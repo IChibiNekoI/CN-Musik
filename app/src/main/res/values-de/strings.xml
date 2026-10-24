@@ -155,4 +155,8 @@
     <string name="progress_wave">Welle</string>
     <string name="progress_bar_style_sub">Einfacher, durchgehender Balken</string>
     <string name="progress_wave_sub">Wellenform aus einzelnen Balken</string>
+    <string name="output_device">Ausgabegerät anzeigen</string>
+    <string name="output_device_summary">Gerätename zwischen den Zeiten, bei Kopfhörern mit Symbol</string>
+    <string name="output_speaker">Lautsprecher</string>
+    <string name="output_headphones">Kopfhörer</string>
 </resources>
