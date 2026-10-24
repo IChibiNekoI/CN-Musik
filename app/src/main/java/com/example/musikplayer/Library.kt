@@ -114,6 +114,12 @@ fun saveCoverShadow(ctx: Context, on: Boolean) {
     prefs(ctx).edit().putBoolean("cover_shadow", on).apply()
 }
 
+fun readWaveProgress(ctx: Context): Boolean = prefs(ctx).getBoolean("wave_progress", false)
+
+fun saveWaveProgress(ctx: Context, on: Boolean) {
+    prefs(ctx).edit().putBoolean("wave_progress", on).apply()
+}
+
 /** Aussehen der Kopfzeile: Text, Logo oder (nach dem Easter Egg) der müde Fuchs */
 enum class HeaderStyle { TEXT, LOGO, FOX }
 
