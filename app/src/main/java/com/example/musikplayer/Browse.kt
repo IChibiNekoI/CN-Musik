@@ -286,10 +286,11 @@ private fun SearchAlbumCard(
 private fun SearchSectionHeader(
     icon: @Composable () -> Unit,
     title: String,
-    onShowAll: (() -> Unit)? = null
+    onShowAll: (() -> Unit)? = null,
+    topPadding: Dp = 8.dp
 ) {
     Row(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 6.dp),
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = topPadding, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         icon()
@@ -888,7 +889,8 @@ fun LibraryScreen(
                         item(key = "tracksHeader") {
                             SearchSectionHeader(
                                 icon = { MusicNoteIcon(iconSize = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                                title = str(R.string.search_tracks_title, results.size)
+                                title = str(R.string.search_tracks_title, results.size),
+                                topPadding = 28.dp   // Luft zwischen der Albenzeile und den Titeln
                             )
                         }
                     }
