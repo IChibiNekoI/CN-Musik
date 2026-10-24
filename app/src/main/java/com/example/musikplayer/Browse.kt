@@ -52,6 +52,7 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.background
@@ -546,6 +547,24 @@ private fun AnimatedContentTransitionScope<String?>.pushPop(): ContentTransform 
     return (enter togetherWith exit) using SizeTransform(clip = false)
 }
 
+/** Welche Ansicht die Suche gerade zeigt: Treffer, alle Alben oder ein geöffnetes Album. [depth] bestimmt die Richtung des Übergangs. */
+private data class SearchView(val all: Boolean = false, val album: String? = null) {
+    val depth: Int get() = (if (all) 1 else 0) + (if (album != null) 1 else 0)
+}
+
+/** Wie [pushPop] bei Album und Playlist: tiefer hinein schiebt die neue Ansicht von rechts herein, zurück läuft es umgekehrt */
+private fun AnimatedContentTransitionScope<SearchView>.searchPushPop(): ContentTransform {
+    val push = targetState.depth > initialState.depth
+    val move = spring<IntOffset>(dampingRatio = 1f, stiffness = 380f, visibilityThreshold = IntOffset.VisibilityThreshold)
+    val enter = slideInHorizontally(move) { w -> if (push) w / 4 else -w / 8 } +
+        fadeIn(tween(Motion.MEDIUM, delayMillis = 40)) +
+        scaleIn(tween(Motion.MEDIUM, easing = Motion.Ease), initialScale = if (push) 0.96f else 1.03f)
+    val exit = slideOutHorizontally(move) { w -> if (push) -w / 8 else w / 4 } +
+        fadeOut(tween(Motion.FAST)) +
+        scaleOut(tween(Motion.MEDIUM, easing = Motion.Ease), targetScale = if (push) 1.03f else 0.96f)
+    return (enter togetherWith exit) using SizeTransform(clip = false)
+}
+
 @Composable
 fun LibraryScreen(
     loaded: Boolean = true,
@@ -589,6 +608,9 @@ fun LibraryScreen(
     var query by remember { mutableStateOf("") }
     var searchAll by remember { mutableStateOf(false) }          // Suche: alle passenden Alben als Liste oder Raster
     var searchAlbum by remember { mutableStateOf<String?>(null) } // Suche: ein geöffnetes Album
+    // Scrollstände der Trefferliste und der Albenzeile bleiben beim Öffnen eines Albums und beim Zurückkehren erhalten
+    val searchListState = rememberLazyListState()
+    val searchRowState = rememberLazyListState()
     var plusMenu by remember { mutableStateOf(false) }
     var showUpdate by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
@@ -661,6 +683,7 @@ fun LibraryScreen(
     }
     LaunchedEffect(query) {
         if (query.isBlank()) { searchAll = false; searchAlbum = null }
+        runCatching { searchListState.scrollToItem(0); searchRowState.scrollToItem(0) }
     }
     val results = remember(sorted, query) {
         val q = query.trim()
@@ -828,7 +851,14 @@ fun LibraryScreen(
                     Spacer(Modifier.height(0.dp))
                 }
             }
-            val openName = searchAlbum
+            AnimatedContent(
+                targetState = SearchView(searchAll && matchedAlbums.isNotEmpty(), searchAlbum),
+                modifier = Modifier.weight(1f),
+                transitionSpec = { searchPushPop() },
+                label = "searchView"
+            ) { view ->
+            Column(Modifier.fillMaxSize()) {
+            val openName = view.album
             if (openName != null) {
                 // Ein Album aus der Suche: Titelliste mit Zurück-Pfeil
                 val ordered = remember(albums, openName) {
@@ -846,7 +876,7 @@ fun LibraryScreen(
                         )
                     }
                 }
-            } else if (searchAll && matchedAlbums.isNotEmpty()) {
+            } else if (view.all && matchedAlbums.isNotEmpty()) {
                 // Alle passenden Alben, so dargestellt wie in der Albenansicht eingestellt
                 DetailHeader(str(R.string.search_albums_title, matchedAlbums.size), onBack = { searchAll = false })
                 AlbumCollection(
@@ -856,7 +886,7 @@ fun LibraryScreen(
                     modifier = Modifier.weight(1f)
                 ) { name -> focusManager.clearFocus(); searchAlbum = name }
             } else {
-                HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
+                HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace), state = searchListState) {
                     if (matchedAlbums.isNotEmpty()) {
                         item(key = "albumsHeader") {
                             SearchSectionHeader(
@@ -867,6 +897,7 @@ fun LibraryScreen(
                         }
                         item(key = "albumsRow") {
                             LazyRow(
+                                state = searchRowState,
                                 contentPadding = PaddingValues(horizontal = 16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
@@ -905,6 +936,8 @@ fun LibraryScreen(
                         )
                     }
                 }
+            }
+            }
             }
         } else {
         Row(
