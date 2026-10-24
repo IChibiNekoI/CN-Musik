@@ -751,6 +751,22 @@ fun AppSettingsSheet(
                     colors = clear,
                     modifier = Modifier.bounceClick(pressedScale = 0.97f) { onHaptics(!haptics) }
                 )
+                val outputCtx = LocalContext.current
+                val outputOn = CornerSettings.showOutputDevice
+                ListItem(
+                    headlineContent = { Text(str(R.string.output_device)) },
+                    supportingContent = { Text(str(R.string.output_device_summary)) },
+                    leadingContent = { HeadphonesIcon() },
+                    trailingContent = {
+                        Switch(checked = outputOn, onCheckedChange = null)
+                    },
+                    colors = clear,
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f) {
+                        val on = !outputOn
+                        CornerSettings.showOutputDevice = on
+                        saveShowOutputDevice(outputCtx, on)
+                    }
+                )
                 HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
                 Text(
                     str(R.string.settings_general),
