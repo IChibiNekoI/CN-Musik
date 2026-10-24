@@ -273,3 +273,104 @@ fun PillProgress(
             }
     )
 }
+
+
+/** Kleine, feste Wellenform pro Titel: glatter Verlauf aus drei Sinuswellen plus etwas Zufall, an den Rändern flacher */
+private fun waveHeights(seed: Long, count: Int): FloatArray {
+    val r = java.util.Random(seed * 1103515245L + 12345L)
+    val p1 = r.nextFloat() * 6.2832f
+    val p2 = r.nextFloat() * 6.2832f
+    val p3 = r.nextFloat() * 6.2832f
+    val f1 = 0.10f + r.nextFloat() * 0.06f
+    val f2 = 0.22f + r.nextFloat() * 0.08f
+    val f3 = 0.45f + r.nextFloat() * 0.15f
+    return FloatArray(count) { i ->
+        val s = kotlin.math.sin(i * f1 + p1) * 0.5f + kotlin.math.sin(i * f2 + p2) * 0.3f + kotlin.math.sin(i * f3 + p3) * 0.2f
+        val jitter = (r.nextFloat() - 0.5f) * 0.18f
+        var v = 0.58f + 0.34f * s + jitter
+        val edge = minOf(i, count - 1 - i)
+        if (edge < 2) v *= 0.55f + 0.225f * edge
+        v.coerceIn(0.18f, 1f)
+    }
+}
+
+/**
+ * Fortschrittsbalken als Wellenform aus runden, senkrechten Balken. Bedienung wie [PillProgress]
+ * (Tippen und Ziehen), beim Berühren werden die Balken etwas höher.
+ * Die Form ist dekorativ und pro Titel immer gleich (aus der Titel-ID berechnet), sie zeigt nicht den echten Klang.
+ */
+@Composable
+fun WaveProgress(
+    progress: () -> Float,
+    seed: Long,
+    onChange: (Float) -> Unit,
+    onFinished: () -> Unit
+) {
+    val baseColor = MaterialTheme.colorScheme.onSurface
+    val change = rememberUpdatedState(onChange)
+    val finished = rememberUpdatedState(onFinished)
+    var width by remember { mutableFloatStateOf(1f) }
+    var pressed by remember { mutableStateOf(false) }
+    val grow = animateFloatAsState(
+        targetValue = if (pressed) 1f else 0f,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = 450f),
+        label = "waveGrow"
+    )
+    val cache = remember(seed) { HashMap<Int, FloatArray>() }
+
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .onSizeChanged { width = it.width.toFloat().coerceAtLeast(1f) }
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    pressed = true
+                    do {
+                        val ev = awaitPointerEvent(PointerEventPass.Initial)
+                    } while (ev.changes.any { it.pressed })
+                    pressed = false
+                }
+            }
+            .pointerInput(Unit) {
+                detectTapGestures { pos ->
+                    change.value((pos.x / width).coerceIn(0f, 1f))
+                    finished.value()
+                }
+            }
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragStart = { pos -> change.value((pos.x / width).coerceIn(0f, 1f)) },
+                    onDragEnd = { finished.value() },
+                    onDragCancel = { finished.value() },
+                    onHorizontalDrag = { ch, _ ->
+                        ch.consume()
+                        change.value((ch.position.x / width).coerceIn(0f, 1f))
+                    }
+                )
+            }
+            .drawBehind {
+                val g = grow.value
+                val gc = g.coerceIn(0f, 1f)
+                val n = (size.width / 8.dp.toPx()).toInt().coerceAtLeast(8)
+                val heights = cache.getOrPut(n) { waveHeights(seed, n) }
+                val pitch = size.width / n
+                val bw = pitch * 0.5f
+                val p = progress().coerceIn(0f, 1f)
+                val track = baseColor.copy(alpha = 0.14f + 0.08f * gc)
+                val fill = baseColor.copy(alpha = 0.6f + 0.25f * gc)
+                for (i in 0 until n) {
+                    val h = (size.height * heights[i] * (1f + 0.1f * g)).coerceIn(bw, size.height)
+                    val x = i * pitch + (pitch - bw) / 2f
+                    val played = (i + 0.5f) / n <= p
+                    drawRoundRect(
+                        color = if (played) fill else track,
+                        topLeft = Offset(x, (size.height - h) / 2f),
+                        size = Size(bw, h),
+                        cornerRadius = CornerRadius(bw / 2f, bw / 2f)
+                    )
+                }
+            }
+    )
+}
