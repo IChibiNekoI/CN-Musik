@@ -214,6 +214,8 @@ fun PillProgress(
     val change = rememberUpdatedState(onChange)
     val finished = rememberUpdatedState(onFinished)
     var width by remember { mutableFloatStateOf(1f) }
+    val scrubCtx = LocalContext.current
+    val scrub = remember { ScrubHaptics(scrubCtx) }
     // Berührt der Finger den Balken (auch beim Ziehen), wird er dicker und heller
     var pressed by remember { mutableStateOf(false) }
     // Leicht unterdämpfte Feder: der Balken wächst mit einem kleinen Überschwinger, beim Loslassen federt er zurück
@@ -241,18 +243,25 @@ fun PillProgress(
             }
             .pointerInput(Unit) {
                 detectTapGestures { pos ->
+                    scrub.tap()
                     change.value((pos.x / width).coerceIn(0f, 1f))
                     finished.value()
                 }
             }
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
-                    onDragStart = { pos -> change.value((pos.x / width).coerceIn(0f, 1f)) },
+                    onDragStart = { pos ->
+                        val f = (pos.x / width).coerceIn(0f, 1f)
+                        scrub.start(f)
+                        change.value(f)
+                    },
                     onDragEnd = { finished.value() },
                     onDragCancel = { finished.value() },
                     onHorizontalDrag = { ch, _ ->
                         ch.consume()
-                        change.value((ch.position.x / width).coerceIn(0f, 1f))
+                        val f = (ch.position.x / width).coerceIn(0f, 1f)
+                        scrub.move(f)   // leichtes Raster beim Ziehen, Einrasten an Anfang und Ende
+                        change.value(f)
                     }
                 )
             }
@@ -312,6 +321,8 @@ fun WaveProgress(
     val change = rememberUpdatedState(onChange)
     val finished = rememberUpdatedState(onFinished)
     var width by remember { mutableFloatStateOf(1f) }
+    val scrubCtx = LocalContext.current
+    val scrub = remember { ScrubHaptics(scrubCtx) }
     var pressed by remember { mutableStateOf(false) }
     val grow = animateFloatAsState(
         targetValue = if (pressed) 1f else 0f,
@@ -337,18 +348,25 @@ fun WaveProgress(
             }
             .pointerInput(Unit) {
                 detectTapGestures { pos ->
+                    scrub.tap()
                     change.value((pos.x / width).coerceIn(0f, 1f))
                     finished.value()
                 }
             }
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
-                    onDragStart = { pos -> change.value((pos.x / width).coerceIn(0f, 1f)) },
+                    onDragStart = { pos ->
+                        val f = (pos.x / width).coerceIn(0f, 1f)
+                        scrub.start(f)
+                        change.value(f)
+                    },
                     onDragEnd = { finished.value() },
                     onDragCancel = { finished.value() },
                     onHorizontalDrag = { ch, _ ->
                         ch.consume()
-                        change.value((ch.position.x / width).coerceIn(0f, 1f))
+                        val f = (ch.position.x / width).coerceIn(0f, 1f)
+                        scrub.move(f)   // leichtes Raster beim Ziehen, Einrasten an Anfang und Ende
+                        change.value(f)
                     }
                 )
             }
