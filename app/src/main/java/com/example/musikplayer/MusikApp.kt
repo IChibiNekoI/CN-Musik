@@ -697,6 +697,16 @@ fun AppSettingsSheet(
                     colors = clear,
                     modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "headerView" }
                 )
+                ListItem(
+                    headlineContent = { Text(str(R.string.progress_bar)) },
+                    supportingContent = { Text(if (CornerSettings.waveProgress) str(R.string.progress_wave) else str(R.string.progress_bar_style)) },
+                    leadingContent = { WaveBarsIcon() },
+                    trailingContent = {
+                        ChevronRightIcon()
+                    },
+                    colors = clear,
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "progressStyle" }
+                )
                 HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
                 Text(
                     str(R.string.settings_playback),
@@ -805,6 +815,19 @@ fun AppSettingsSheet(
                 SortOption("English", null, language == AppLang.EN) { onLanguage(AppLang.EN) }
                 Spacer(Modifier.height(32.dp + bottomExtra))
             }
+            "progressStyle" -> {
+                val progressCtx = LocalContext.current
+                SheetHeader(str(R.string.progress_bar)) { page = "main" }
+                SortOption(str(R.string.progress_bar_style), str(R.string.progress_bar_style_sub), !CornerSettings.waveProgress) {
+                    CornerSettings.waveProgress = false
+                    saveWaveProgress(progressCtx, false)
+                }
+                SortOption(str(R.string.progress_wave), str(R.string.progress_wave_sub), CornerSettings.waveProgress) {
+                    CornerSettings.waveProgress = true
+                    saveWaveProgress(progressCtx, true)
+                }
+                Spacer(Modifier.height(32.dp + bottomExtra))
+            }
             "headerView" -> {
                 SheetHeader(str(R.string.header)) { page = "main" }
                 SortOption(str(R.string.standard), str(R.string.header_option_text), headerStyle == HeaderStyle.TEXT) {
@@ -886,19 +909,6 @@ fun AppSettingsSheet(
                         val on = !shadowOn
                         CornerSettings.coverShadow = on
                         saveCoverShadow(shadowCtx, on)
-                    }
-                )
-                // Fortschrittsbalken im Player als Wellenform
-                val waveCtx = LocalContext.current
-                val waveOn = CornerSettings.waveProgress
-                ListItem(
-                    headlineContent = { Text(str(R.string.wave_progress)) },
-                    trailingContent = { Switch(checked = waveOn, onCheckedChange = null) },
-                    colors = clear,
-                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) {
-                        val on = !waveOn
-                        CornerSettings.waveProgress = on
-                        saveWaveProgress(waveCtx, on)
                     }
                 )
                 Spacer(Modifier.height(32.dp + bottomExtra))
