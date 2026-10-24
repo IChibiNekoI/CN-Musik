@@ -278,7 +278,8 @@ fun SongRow(
         supportingContent = { Text(song.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         leadingContent = { Cover(song, 48.dp) },
         trailingContent = {
-            Box {
+            // 8 dp nach rechts: die drei Punkte stehen genau unter dem Zahnrad und dem Plus der Kopfzeile
+            Box(Modifier.offset(x = 8.dp)) {
                 BounceIconButton(onClick = { expanded = true }) {
                     MoreVertIcon(description = str(R.string.more))
                 }
