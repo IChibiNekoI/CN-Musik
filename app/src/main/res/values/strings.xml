@@ -150,4 +150,5 @@
     <string name="design_summary">Corners, player background and cover shadow</string>
     <string name="audio_info_summary">Additional information about music files</string>
     <string name="haptics_summary">Vibration for supported interactions</string>
+    <string name="wave_progress">Waveform progress bar</string>
 </resources>
