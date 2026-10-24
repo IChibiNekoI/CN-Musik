@@ -29,6 +29,8 @@ object CornerSettings {
     var coverShadow by mutableStateOf(false)
     /** Fortschrittsbalken im Player als Wellenform aus einzelnen Balken, optional */
     var waveProgress by mutableStateOf(false)
+    /** Name des Ausgabegeräts (Lautsprecher, Kopfhörer ...) im Player zwischen den Zeiten zeigen, optional */
+    var showOutputDevice by mutableStateOf(false)
     private var loaded = false
 
     /** Gespeicherte Wahl einmal beim Start laden (vor der ersten Anzeige) */
@@ -40,6 +42,7 @@ object CornerSettings {
             menuUnified = readMenuUnified(ctx)
             coverShadow = readCoverShadow(ctx)
             waveProgress = readWaveProgress(ctx)
+            showOutputDevice = readShowOutputDevice(ctx)
         }
     }
 }
