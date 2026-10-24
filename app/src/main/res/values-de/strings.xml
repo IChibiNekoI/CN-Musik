@@ -149,7 +149,7 @@
     <string name="index_summary">Musikordner auswählen und Bibliothek neu einlesen</string>
     <string name="design_summary">Rundungen, Player-Hintergrund und Cover-Schatten</string>
     <string name="audio_info_summary">Zusätzliche Informationen zu Musikdateien</string>
-    <string name="haptics_summary">Vibrationen bei unterstützten Interaktionen</string>
+    <string name="haptics_summary">Feine Vibrationen bei Tasten, Schaltern und Gesten</string>
     <string name="progress_bar">Fortschrittsbalken</string>
     <string name="progress_bar_style">Balken</string>
     <string name="progress_wave">Welle</string>
