@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -90,6 +91,16 @@ fun MusikApp(
         favorites = if (s.id in favorites) favorites - s.id else listOf(s.id) + favorites
         saveFavorites(ctx, favorites)
     }
+    var hidden by remember { mutableStateOf(readHiddenSongs(ctx)) }
+    val hideSong: (Song) -> Unit = { s ->
+        hidden = hidden + s.id
+        saveHiddenSongs(ctx, hidden)
+        Toast.makeText(ctx, str(R.string.track_hidden), Toast.LENGTH_SHORT).show()
+    }
+    val unhideSong: (Song) -> Unit = { s ->
+        hidden = hidden - s.id
+        saveHiddenSongs(ctx, hidden)
+    }
     var headerStyle by remember { mutableStateOf(readHeaderStyle(ctx)) }
     var foxUnlocked by remember { mutableStateOf(readFoxUnlocked(ctx)) }
     // Easter Egg: 50 Tipps auf die Kopfzeile hintereinander (Pause zwischen zwei Tipps höchstens 2 Sekunden)
@@ -144,8 +155,12 @@ fun MusikApp(
             showWithFileTags(base)
         }
     }
-    val songs = remember(allSongs, selected) {
-        selected?.let { sel -> allSongs.filter { it.folder in sel } } ?: allSongs
+    // Ausgeblendete Titel erscheinen nirgends in der Bibliothek, nur unter Einstellungen > Ausgeblendete Titel
+    val songs = remember(allSongs, selected, hidden) {
+        (selected?.let { sel -> allSongs.filter { it.folder in sel } } ?: allSongs).filter { it.id !in hidden }
+    }
+    val hiddenSongs = remember(allSongs, hidden) {
+        allSongs.filter { it.id in hidden }.sortedBy { it.title.lowercase() }
     }
 
     val controller = rememberController()
@@ -344,6 +359,7 @@ fun MusikApp(
                     update = update,
                     favorites = favorites,
                     onToggleFavorite = toggleFavorite,
+                    onHideSong = hideSong,
                     onReorderFavorites = { favorites = it; saveFavorites(ctx, it) },
                     onPlaylistsChange = { playlists = it; savePlaylists(ctx, it) },
                     onPlay = { list, index ->
@@ -454,6 +470,8 @@ fun MusikApp(
         if (showSettings) {
             AppSettingsSheet(
                 allSongs = allSongs,
+                hiddenSongs = hiddenSongs,
+                onUnhide = unhideSong,
                 selected = selected,
                 sort = sort,
                 onFolders = { selected = it; saveFolderSet(ctx, it) },
@@ -538,6 +556,8 @@ private fun ViewStyleOptions(style: ViewStyle, onChange: (ViewStyle) -> Unit) {
 @Composable
 fun AppSettingsSheet(
     allSongs: List<Song>,
+    hiddenSongs: List<Song>,
+    onUnhide: (Song) -> Unit,
     selected: Set<String>?,
     sort: SortMode,
     onFolders: (Set<String>) -> Unit,
@@ -660,6 +680,21 @@ fun AppSettingsSheet(
                     },
                     colors = clear,
                     modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "sort" }
+                )
+                ListItem(
+                    headlineContent = { Text(str(R.string.hidden_tracks)) },
+                    supportingContent = {
+                        Text(
+                            if (hiddenSongs.isEmpty()) str(R.string.hidden_tracks_none)
+                            else plural(R.plurals.n_tracks, hiddenSongs.size)
+                        )
+                    },
+                    leadingContent = { EyeOffIcon() },
+                    trailingContent = {
+                        ChevronRightIcon()
+                    },
+                    colors = clear,
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "hidden" }
                 )
                 HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
                 Text(
@@ -824,6 +859,34 @@ fun AppSettingsSheet(
                     colors = clear,
                     modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { onRescan() }
                 )
+                Spacer(Modifier.height(32.dp + bottomExtra))
+            }
+            "hidden" -> {
+                SheetHeader(str(R.string.hidden_tracks)) { page = "main" }
+                if (hiddenSongs.isEmpty()) {
+                    Text(
+                        str(R.string.hidden_tracks_empty),
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    hiddenSongs.forEach { s ->
+                        key(s.id) {
+                            ListItem(
+                                headlineContent = { Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                supportingContent = { Text(s.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                leadingContent = { Cover(s, 48.dp) },
+                                trailingContent = {
+                                    BounceIconButton(onClick = { onUnhide(s) }) {
+                                        EyeIcon(description = str(R.string.show_track))
+                                    }
+                                },
+                                colors = clear
+                            )
+                        }
+                    }
+                }
                 Spacer(Modifier.height(32.dp + bottomExtra))
             }
             "sort" -> {
