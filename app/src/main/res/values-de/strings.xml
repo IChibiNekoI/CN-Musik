@@ -161,4 +161,10 @@
     <string name="search_tracks_title">Titel • %1$d</string>
     <string name="search_show_all">Alle anzeigen</string>
     <string name="play_album">Album abspielen</string>
+    <string name="hide_track">Ausblenden</string>
+    <string name="track_hidden">Titel ausgeblendet</string>
+    <string name="hidden_tracks">Ausgeblendete Titel</string>
+    <string name="hidden_tracks_none">Keine</string>
+    <string name="hidden_tracks_empty">Keine ausgeblendeten Titel. Im Titel-Tab blendest du einen Titel über das Drei-Punkte-Menü aus.</string>
+    <string name="show_track">Wieder einblenden</string>
 </resources>
