@@ -157,18 +157,23 @@ private fun Modifier.playlistFx(appear: Boolean, removing: Boolean): Modifier {
 }
 
 /**
- * Titelzahl und Gesamtlaufzeit eines Albums, z. B. "12 Titel • 45 min" oder "12 Titel • 1 h 5 min"
+ * Titelzahl und Gesamtlaufzeit, z. B. "12 Titel • 45 min" oder "12 Titel • 1 h 5 min"
  * (unter 60 Minuten nur Minuten, ab 60 Minuten Stunden und Minuten). Ohne bekannte Laufzeit nur die Titelzahl.
- * Gleich in Suche und Albenansicht.
+ * Gleich bei Alben (Tab und Suche) und Playlists.
  */
-private fun albumMeta(songs: List<Song>): String {
-    val tracks = plural(R.plurals.n_tracks, songs.size)
-    val total = songs.sumOf { it.durationMs }
-    if (total <= 0L) return tracks
-    val minutes = maxOf(1, Math.round(total / 60000.0).toInt())
+private fun trackMeta(count: Int, totalMs: Long): String {
+    val tracks = plural(R.plurals.n_tracks, count)
+    if (totalMs <= 0L) return tracks
+    val minutes = maxOf(1, Math.round(totalMs / 60000.0).toInt())
     val duration = if (minutes < 60) "$minutes min" else "${minutes / 60} h ${minutes % 60} min"
     return "$tracks • $duration"
 }
+
+private fun albumMeta(songs: List<Song>): String = trackMeta(songs.size, songs.sumOf { it.durationMs })
+
+/** Playlist: Titelzahl ist die Zahl der Einträge, die Laufzeit zählt nur Titel, die noch in der Bibliothek sind */
+private fun playlistMeta(songIds: List<Long>, byId: Map<Long, Song>): String =
+    trackMeta(songIds.size, songIds.sumOf { byId[it]?.durationMs ?: 0L })
 
 @Composable
 private fun GridTile(
@@ -1165,7 +1170,7 @@ fun LibraryScreen(
                             }
                             GridTile(
                                 title = p.name,
-                                subtitle = plural(R.plurals.n_tracks, p.songIds.size),
+                                subtitle = playlistMeta(p.songIds, byId),
                                 onClick = { openPlaylist = p.id },
                                 onDelete = { deleteTarget = p },
                                 modifier = Modifier
@@ -1188,7 +1193,7 @@ fun LibraryScreen(
                                 headlineContent = {
                                     Text(p.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 },
-                                supportingContent = { Text(plural(R.plurals.n_tracks, p.songIds.size)) },
+                                supportingContent = { Text(playlistMeta(p.songIds, byId)) },
                                 leadingContent = {
                                     val covers = remember(p.songIds, byId) {
                                         p.songIds.asSequence().mapNotNull { byId[it] }.take(4).toList()
