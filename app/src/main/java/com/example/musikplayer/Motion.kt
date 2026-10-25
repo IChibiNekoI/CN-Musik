@@ -5,7 +5,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Job
-import androidx.compose.runtime.asState
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.interaction.InteractionSource
 import android.os.SystemClock
