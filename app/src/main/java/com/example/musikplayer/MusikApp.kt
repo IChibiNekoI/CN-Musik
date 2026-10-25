@@ -155,10 +155,10 @@ fun MusikApp(
             showWithFileTags(base)
         }
     }
-    // Ausgeblendete Titel erscheinen nirgends in der Bibliothek, nur unter Einstellungen > Ausgeblendete Titel
-    val songs = remember(allSongs, selected, hidden) {
-        (selected?.let { sel -> allSongs.filter { it.folder in sel } } ?: allSongs).filter { it.id !in hidden }
+    val songs = remember(allSongs, selected) {
+        selected?.let { sel -> allSongs.filter { it.folder in sel } } ?: allSongs
     }
+    // Ausgeblendete Titel fehlen nur im Titel-Tab, sie stehen unter Einstellungen > Ausgeblendete Titel
     val hiddenSongs = remember(allSongs, hidden) {
         allSongs.filter { it.id in hidden }.sortedBy { it.title.lowercase() }
     }
@@ -360,6 +360,7 @@ fun MusikApp(
                     favorites = favorites,
                     onToggleFavorite = toggleFavorite,
                     onHideSong = hideSong,
+                    hiddenIds = hidden,
                     onReorderFavorites = { favorites = it; saveFavorites(ctx, it) },
                     onPlaylistsChange = { playlists = it; savePlaylists(ctx, it) },
                     onPlay = { list, index ->
