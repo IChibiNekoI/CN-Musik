@@ -156,11 +156,18 @@ private fun Modifier.playlistFx(appear: Boolean, removing: Boolean): Modifier {
     }
 }
 
-/** Titelzahl und Gesamtlaufzeit eines Albums, z. B. "12 Titel • 45min" (ohne bekannte Laufzeit nur die Titelzahl). Gleich in Suche und Albenansicht. */
+/**
+ * Titelzahl und Gesamtlaufzeit eines Albums, z. B. "12 Titel • 45 min" oder "12 Titel • 1 h 5 min"
+ * (unter 60 Minuten nur Minuten, ab 60 Minuten Stunden und Minuten). Ohne bekannte Laufzeit nur die Titelzahl.
+ * Gleich in Suche und Albenansicht.
+ */
 private fun albumMeta(songs: List<Song>): String {
+    val tracks = plural(R.plurals.n_tracks, songs.size)
     val total = songs.sumOf { it.durationMs }
-    val minutes = if (total <= 0L) 0 else maxOf(1, Math.round(total / 60000.0).toInt())
-    return if (minutes > 0) "${plural(R.plurals.n_tracks, songs.size)} • ${minutes}min" else plural(R.plurals.n_tracks, songs.size)
+    if (total <= 0L) return tracks
+    val minutes = maxOf(1, Math.round(total / 60000.0).toInt())
+    val duration = if (minutes < 60) "$minutes min" else "${minutes / 60} h ${minutes % 60} min"
+    return "$tracks • $duration"
 }
 
 @Composable
