@@ -438,6 +438,8 @@ fun SongRow(
     onClick: () -> Unit,
     onAddToPlaylist: () -> Unit,
     onRemove: (() -> Unit)? = null,
+    // Titel aus der Bibliothek ausblenden (nur im Titel-Tab), null = Eintrag fehlt im Menü
+    onHide: (() -> Unit)? = null,
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {},
     // Tracknummer links vor dem Cover (nur in der Albenansicht), null = keine
@@ -540,6 +542,13 @@ fun SongRow(
                         },
                         onClick = { expanded = false; onAddToPlaylist() }
                     )
+                    if (onHide != null) {
+                        DropdownMenuItem(
+                            text = { Text(str(R.string.hide_track)) },
+                            leadingIcon = { EyeOffIcon() },
+                            onClick = { expanded = false; onHide() }
+                        )
+                    }
                     if (onRemove != null) {
                         DropdownMenuItem(
                             text = { Text(str(R.string.remove_from_playlist)) },
@@ -633,6 +642,7 @@ fun LibraryScreen(
     update: UpdateInfo? = null,
     favorites: List<Long> = emptyList(),
     onToggleFavorite: (Song) -> Unit = {},
+    onHideSong: ((Song) -> Unit)? = null,
     onReorderFavorites: (List<Long>) -> Unit = {},
     onPlaylistsChange: (List<Playlist>) -> Unit,
     onPlay: (List<Song>, Int) -> Unit,
@@ -1060,6 +1070,7 @@ fun LibraryScreen(
                     itemsIndexed(sorted, key = { _, s -> s.id }) { i, s ->
                         SongRow(
                             s, s.id.toString() == currentId, { onPlay(sorted, i) }, { addSong = s },
+                            onHide = onHideSong?.let { hide -> { hide(s) } },
                             isFavorite = s.id in favSet,
                             modifier = Modifier.animateItem(),
                             onToggleFavorite = { onToggleFavorite(s) }
