@@ -465,16 +465,12 @@ fun SongRow(
     // im eingerückten Rechteck gezeichnet (gleiche Breite wie die Hervorhebung des laufenden Titels)
     val pressSource = remember { MutableInteractionSource() }
     // Gedrückt: die ganze Zeile drückt sich leicht ein und federt zurück
-    val rowPressed by pressSource.collectIsPressedAsState()
-    val rowScale = animateFloatAsState(
-        targetValue = if (rowPressed) 0.97f else 1f,
-        animationSpec = spring(dampingRatio = 0.5f, stiffness = 700f),
-        label = "rowPress"
-    )
+    val rowPress = rememberPressProgress(pressSource)
     Box(
         modifier.fillMaxWidth().graphicsLayer {
-            scaleX = rowScale.value
-            scaleY = rowScale.value
+            val s = 1f - 0.03f * rowPress.value
+            scaleX = s
+            scaleY = s
         }
     ) {
     if (rounded) {
@@ -1015,16 +1011,12 @@ fun LibraryScreen(
             tabLabels.forEachIndexed { i, label ->
                 // Gedrückt: Der Chip drückt sich ein und federt beim Loslassen mit kleinem Überschwinger zurück
                 val chipSource = remember { MutableInteractionSource() }
-                val chipPressed by chipSource.collectIsPressedAsState()
-                val chipScale = animateFloatAsState(
-                    targetValue = if (chipPressed) 0.9f else 1f,
-                    animationSpec = spring(dampingRatio = 0.5f, stiffness = 700f),
-                    label = "tabPress"
-                )
+                val chipPress = rememberPressProgress(chipSource)
                 FilterChip(
                     modifier = Modifier.graphicsLayer {
-                        scaleX = chipScale.value
-                        scaleY = chipScale.value
+                        val s = 1f - 0.1f * chipPress.value
+                        scaleX = s
+                        scaleY = s
                     },
                     interactionSource = chipSource,
                     selected = effTab == i,
