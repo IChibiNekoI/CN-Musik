@@ -20,6 +20,8 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -873,11 +875,11 @@ fun AppSettingsSheet(
                     )
                 } else {
                     // Scrollbar und träge geladen: auch mit vielen ausgeblendeten Titeln bleibt die Seite flüssig
-                    androidx.compose.foundation.lazy.LazyColumn(
+                    LazyColumn(
                         Modifier.weight(1f, fill = false),
                         contentPadding = PaddingValues(bottom = 32.dp + bottomExtra)
                     ) {
-                        androidx.compose.foundation.lazy.items(hiddenSongs, key = { it.id }) { s ->
+                        items(hiddenSongs, key = { it.id }) { s ->
                             ListItem(
                                 headlineContent = { Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 supportingContent = { Text(s.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
