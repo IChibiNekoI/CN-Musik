@@ -872,8 +872,12 @@ fun AppSettingsSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
-                    hiddenSongs.forEach { s ->
-                        key(s.id) {
+                    // Scrollbar und träge geladen: auch mit vielen ausgeblendeten Titeln bleibt die Seite flüssig
+                    androidx.compose.foundation.lazy.LazyColumn(
+                        Modifier.weight(1f, fill = false),
+                        contentPadding = PaddingValues(bottom = 32.dp + bottomExtra)
+                    ) {
+                        androidx.compose.foundation.lazy.items(hiddenSongs, key = { it.id }) { s ->
                             ListItem(
                                 headlineContent = { Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 supportingContent = { Text(s.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -888,7 +892,6 @@ fun AppSettingsSheet(
                         }
                     }
                 }
-                Spacer(Modifier.height(32.dp + bottomExtra))
             }
             "sort" -> {
                 SheetHeader(str(R.string.sort)) { page = "main" }
