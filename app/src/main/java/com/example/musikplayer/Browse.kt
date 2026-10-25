@@ -88,6 +88,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -424,6 +425,12 @@ fun DetailHeader(title: String, onBack: () -> Unit, action: (@Composable () -> U
     }
 }
 
+/** Tracknummer für die Anzeige: Das Tag kann die CD-Nummer enthalten (CD 2, Titel 3 = 2003), die wird abgetrennt. Ohne Tag zählt die Position. */
+private fun trackNumberOf(song: Song, position: Int): Int {
+    val n = song.track % 1000
+    return if (n > 0) n else position
+}
+
 @Composable
 fun SongRow(
     song: Song,
@@ -433,6 +440,8 @@ fun SongRow(
     onRemove: (() -> Unit)? = null,
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {},
+    // Tracknummer links vor dem Cover (nur in der Albenansicht), null = keine
+    trackNumber: Int? = null,
     modifier: Modifier = Modifier
 ) {
     // Die Hervorhebung des laufenden Titels erscheint sofort (kein Aufleuchten) und federt dabei mit kleinem
@@ -486,7 +495,24 @@ fun SongRow(
     ListItem(
         headlineContent = { Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = { Text(song.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        leadingContent = { Cover(song, 48.dp) },
+        leadingContent = {
+            if (trackNumber != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "$trackNumber",
+                        modifier = Modifier.widthIn(min = 22.dp),
+                        style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Cover(song, 48.dp)
+                }
+            } else {
+                Cover(song, 48.dp)
+            }
+        },
         trailingContent = {
             // 8 dp nach rechts: die drei Punkte stehen genau unter dem Zahnrad und dem Plus der Kopfzeile
             Box(Modifier.offset(x = 8.dp)) {
@@ -909,6 +935,7 @@ fun LibraryScreen(
                         SongRow(
                             s, s.id.toString() == currentId, { onPlay(ordered, i) }, { addSong = s },
                             isFavorite = s.id in favSet,
+                            trackNumber = trackNumberOf(s, i + 1),
                             modifier = Modifier.animateItem(),
                             onToggleFavorite = { onToggleFavorite(s) }
                         )
@@ -1109,6 +1136,7 @@ fun LibraryScreen(
                             SongRow(
                                 s, s.id.toString() == currentId, { onPlay(ordered, i) }, { addSong = s },
                                 isFavorite = s.id in favSet,
+                                trackNumber = trackNumberOf(s, i + 1),
                                 modifier = Modifier.animateItem(),
                                 onToggleFavorite = { onToggleFavorite(s) }
                             )
