@@ -280,6 +280,42 @@ fun InfoIcon(
 }
 
 /** Stift mit Linie darunter (bearbeiten) */
+/** Auge: Umriss mit Pupille */
+@Composable
+fun EyeIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        drawEye(c, st, k)
+    }
+}
+
+/** Durchgestrichenes Auge (ausgeblendet) */
+@Composable
+fun EyeOffIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        drawEye(c, st, k)
+        seg(c, st, k, 4.5f, 4.5f, 19.5f, 19.5f)
+    }
+}
+
+private fun DrawScope.drawEye(c: Color, st: Stroke, k: Float) {
+    val p = androidx.compose.ui.graphics.Path().apply {
+        moveTo(2.8f * k, 12f * k)
+        cubicTo(5f * k, 7.5f * k, 8.5f * k, 6f * k, 12f * k, 6f * k)
+        cubicTo(15.5f * k, 6f * k, 19f * k, 7.5f * k, 21.2f * k, 12f * k)
+        cubicTo(19f * k, 16.5f * k, 15.5f * k, 18f * k, 12f * k, 18f * k)
+        cubicTo(8.5f * k, 18f * k, 5f * k, 16.5f * k, 2.8f * k, 12f * k)
+        close()
+    }
+    drawPath(p, c, style = st)
+    drawCircle(c, radius = 2.6f * k, center = Offset(12f * k, 12f * k), style = st)
+}
+
 @Composable
 fun EditIcon(
     modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
