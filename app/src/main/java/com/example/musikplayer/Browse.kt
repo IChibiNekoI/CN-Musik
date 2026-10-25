@@ -643,6 +643,7 @@ fun LibraryScreen(
     favorites: List<Long> = emptyList(),
     onToggleFavorite: (Song) -> Unit = {},
     onHideSong: ((Song) -> Unit)? = null,
+    hiddenIds: Set<Long> = emptySet(),   // nur im Titel-Tab ausgeblendet, überall sonst weiter sichtbar
     onReorderFavorites: (List<Long>) -> Unit = {},
     onPlaylistsChange: (List<Playlist>) -> Unit,
     onPlay: (List<Song>, Int) -> Unit,
@@ -704,6 +705,8 @@ fun LibraryScreen(
     }
 
     val sorted = remember(songs, sort) { sortSongs(songs, sort) }
+    // Der Titel-Tab lässt ausgeblendete Titel weg. Alben, Playlists, Favoriten und Suche nutzen die volle Liste.
+    val titleList = remember(sorted, hiddenIds) { if (hiddenIds.isEmpty()) sorted else sorted.filter { it.id !in hiddenIds } }
     val albums = remember(songs) {
         songs.groupBy { it.album.ifBlank { str(R.string.unknown_album) } }
             .toList().sortedBy { it.first.lowercase() }
@@ -1060,16 +1063,16 @@ fun LibraryScreen(
         when (t) {
             0 -> {
                 // Beim Start ist die Liste kurz leer, weil die Bibliothek noch lädt: dann keine Fehlermeldung zeigen
-                if (loaded && sorted.isEmpty()) {
+                if (loaded && titleList.isEmpty()) {
                     Text(
                         str(R.string.no_songs),
                         modifier = Modifier.padding(16.dp)
                     )
                 }
                 HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace), state = songsState) {
-                    itemsIndexed(sorted, key = { _, s -> s.id }) { i, s ->
+                    itemsIndexed(titleList, key = { _, s -> s.id }) { i, s ->
                         SongRow(
-                            s, s.id.toString() == currentId, { onPlay(sorted, i) }, { addSong = s },
+                            s, s.id.toString() == currentId, { onPlay(titleList, i) }, { addSong = s },
                             onHide = onHideSong?.let { hide -> { hide(s) } },
                             isFavorite = s.id in favSet,
                             modifier = Modifier.animateItem(),
