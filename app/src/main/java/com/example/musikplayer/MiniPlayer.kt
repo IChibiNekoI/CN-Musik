@@ -14,6 +14,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.runtime.mutableStateOf
@@ -101,12 +102,8 @@ fun MiniPlayer(
     }
     val openPlayer: () -> Unit = { onOpen(buildOrigin()) }
     // Berührt: der Miniplayer drückt sich leicht ein und federt beim Loslassen zurück
-    var miniPressed by remember { mutableStateOf(false) }
-    val miniScale = animateFloatAsState(
-        targetValue = if (miniPressed) 0.97f else 1f,
-        animationSpec = spring(dampingRatio = 0.5f, stiffness = 700f),
-        label = "miniPress"
-    )
+    val miniSource = remember { MutableInteractionSource() }
+    val miniPress = rememberPressProgress(miniSource)
     var dragTotal by remember { mutableFloatStateOf(0f) }
     val dragState = rememberDraggableState { delta ->
         dragTotal += delta
@@ -123,8 +120,9 @@ fun MiniPlayer(
             }
             // nach der Positionsmessung: das Eindrücken verfälscht die gemerkte Startposition des Players nicht
             .graphicsLayer {
-                scaleX = miniScale.value
-                scaleY = miniScale.value
+                val s = 1f - 0.03f * miniPress.value
+                scaleX = s
+                scaleY = s
             }
             // Nach oben ziehen öffnet den Player, der Finger steuert dabei die Animation (wie Runterwischen ihn schließt)
             .draggable(
@@ -153,7 +151,7 @@ fun MiniPlayer(
             AnimatedContent(
                 targetState = song,
                 contentKey = { it.id },
-                modifier = Modifier.weight(1f).clipToBounds().observePress { miniPressed = it }.clickable(
+                modifier = Modifier.weight(1f).clipToBounds().observePress(miniSource).clickable(
                     interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                     indication = null   // kein Aufleuchten beim Drücken/Halten
                 ) { openPlayer() },
