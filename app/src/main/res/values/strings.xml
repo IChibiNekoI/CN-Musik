@@ -161,4 +161,10 @@
     <string name="search_tracks_title">Tracks • %1$d</string>
     <string name="search_show_all">Show all</string>
     <string name="play_album">Play album</string>
+    <string name="hide_track">Hide</string>
+    <string name="track_hidden">Track hidden</string>
+    <string name="hidden_tracks">Hidden tracks</string>
+    <string name="hidden_tracks_none">None</string>
+    <string name="hidden_tracks_empty">No hidden tracks. In the Tracks tab, hide a track from its three-dot menu.</string>
+    <string name="show_track">Show again</string>
 </resources>
