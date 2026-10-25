@@ -214,6 +214,15 @@ fun saveFolderSet(ctx: Context, set: Set<String>) {
 }
 
 /** Favoriten als Liste von Song-IDs, neueste zuerst */
+/** Titel, die der Nutzer im Titel-Tab ausgeblendet hat (MediaStore-IDs) */
+fun readHiddenSongs(ctx: Context): Set<Long> =
+    prefs(ctx).getString("hidden_songs", null)
+        ?.split(",")?.mapNotNull { it.toLongOrNull() }?.toSet() ?: emptySet()
+
+fun saveHiddenSongs(ctx: Context, ids: Set<Long>) {
+    prefs(ctx).edit().putString("hidden_songs", ids.joinToString(",")).apply()
+}
+
 fun readFavorites(ctx: Context): List<Long> =
     prefs(ctx).getString("favorites", null)
         ?.split(',')?.mapNotNull { it.toLongOrNull() } ?: emptyList()
