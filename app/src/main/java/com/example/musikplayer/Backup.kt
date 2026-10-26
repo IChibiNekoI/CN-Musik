@@ -16,7 +16,7 @@ object Backup {
     private const val VERSION = 1
 
     /** Zwischenspeicher und Laufzeit-Zustand: werden nicht gesichert (entstehen von selbst neu) */
-    private val SKIP = setOf("tag_cache", "last_scan", "q_ids", "q_index", "cover_seed_h", "cover_seed_s", "cover_seed_n", "history", "play_counts", "play_log", "mix_seed")
+    private val SKIP = setOf("tag_cache", "last_scan", "q_ids", "q_index", "cover_seed_h", "cover_seed_s", "cover_seed_n", "history", "play_counts", "play_log", "mix_seed", "mix_order_seed", "mix_dislikes")
 
     /** [ok] = Datei gültig und eingespielt, [matched] von [total] verwendeten Titeln wurden in der Bibliothek gefunden */
     class Result(val ok: Boolean, val matched: Int = 0, val total: Int = 0)
