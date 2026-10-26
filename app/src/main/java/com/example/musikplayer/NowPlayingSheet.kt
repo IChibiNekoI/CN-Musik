@@ -131,6 +131,7 @@ fun NowPlayingSheet(
     onAddToPlaylist: () -> Unit = {},
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {},
+    onQueueRemoved: (Song) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     // Der Player ist immer dunkel -> Statusleisten-Icons hell halten
@@ -150,7 +151,7 @@ fun NowPlayingSheet(
         }
     }
     CoverTheme(song, dark = true) {
-        NowPlayingSheetContent(song, isPlaying, shuffle, repeat, c, library, showAudioInfo, origin, motion, fingerDriven, onGoToAlbum, onAddToPlaylist, isFavorite, onToggleFavorite, onDismiss)
+        NowPlayingSheetContent(song, isPlaying, shuffle, repeat, c, library, showAudioInfo, origin, motion, fingerDriven, onGoToAlbum, onAddToPlaylist, isFavorite, onToggleFavorite, onQueueRemoved, onDismiss)
     }
 }
 
@@ -170,6 +171,7 @@ private fun NowPlayingSheetContent(
     onAddToPlaylist: () -> Unit,
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit,
+    onQueueRemoved: (Song) -> Unit,
     onDismiss: () -> Unit
 ) {
     // Farbe und Hintergrund von Vorgänger und Nachfolger vorab laden: der Wechsel startet dann ohne Wartezeit
@@ -817,7 +819,7 @@ private fun NowPlayingSheetContent(
             }
         }
         if (queueShown) {
-            QueuePanel(c, library, queueProgress, queueAnchor) { v -> closeQueue(v) }
+            QueuePanel(c, library, queueProgress, queueAnchor, onRemoved = onQueueRemoved) { v -> closeQueue(v) }
         }
     }
 }
