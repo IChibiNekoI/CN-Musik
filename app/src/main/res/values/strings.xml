@@ -167,4 +167,23 @@
     <string name="hidden_tracks_none">None</string>
     <string name="hidden_tracks_empty">No hidden tracks. In the Tracks tab, hide a track from its three-dot menu.</string>
     <string name="show_track">Show again</string>
+    <string name="backup_title">Backup</string>
+    <string name="backup_summary">Settings, hidden tracks, favorites and playlists</string>
+    <string name="backup_create">Create backup</string>
+    <string name="backup_create_sub">Saves everything to a file you choose</string>
+    <string name="backup_restore">Restore backup</string>
+    <string name="backup_restore_sub">Replaces the current settings with those from a backup file</string>
+    <string name="backup_done">Backup saved</string>
+    <string name="backup_failed">Backup failed</string>
+    <string name="backup_restored">Backup restored (%1$d of %2$d tracks found)</string>
+    <string name="backup_invalid">This is not a valid backup file</string>
+    <string name="tab_home">Home</string>
+    <string name="home_mix_title">Your Neko Mix</string>
+    <string name="home_mix_subtitle">Freshly mixed for you</string>
+    <string name="home_mix_reshuffle">Shuffle again</string>
+    <string name="home_recent_albums">Recently added albums</string>
+    <string name="home_recent_tracks">Recently played</string>
+    <string name="home_recent_empty">The tracks you listen to will show up here.</string>
+    <string name="home_setting_title">Home page</string>
+    <string name="home_setting_summary">Your Neko Mix, new albums and recently played as the first tab</string>
 </resources>
