@@ -41,6 +41,7 @@ fun HomeScreen(
     albumsRowState: LazyListState,   // Scrollstand der Albenreihe, bleibt beim Öffnen eines Albums erhalten
     bottomSpace: Dp,
     onPlay: (List<Song>, Int) -> Unit,
+    onPlayMix: (List<Song>) -> Unit,
     onOpenAlbum: (String) -> Unit,
     onReshuffle: () -> Unit,
     onAddToPlaylist: (Song) -> Unit,
@@ -67,7 +68,7 @@ fun HomeScreen(
                 )
             }
             item(key = "mixCard") {
-                MixCard(mix = mix, onPlay = { onPlay(mix, 0) }, onReshuffle = onReshuffle)
+                MixCard(mix = mix, onPlay = { onPlayMix(mix) }, onReshuffle = onReshuffle)
             }
         }
         if (recentAlbums.isNotEmpty()) {
