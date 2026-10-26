@@ -645,6 +645,8 @@ fun LibraryScreen(
     favorites: List<Long> = emptyList(),
     history: List<Long> = emptyList(),               // zuletzt gehörte Titel, neueste zuerst (Startseite)
     playLog: List<PlayEvent> = emptyList(),          // Hörprotokoll der letzten 30 Tage (Startseite: Dein Neko Mix)
+    mixExcluded: Set<Long> = emptySet(),             // aus der Warteschlange entfernt: bleiben vorerst aus dem Mix
+    onMixPlayed: (List<Song>) -> Unit = {},          // der Mix wurde gestartet (für das Merken von Entfernungen)
     onToggleFavorite: (Song) -> Unit = {},
     onHideSong: ((Song) -> Unit)? = null,
     hiddenIds: Set<Long> = emptySet(),   // nur im Titel-Tab ausgeblendet, überall sonst weiter sichtbar
@@ -727,8 +729,10 @@ fun LibraryScreen(
     LaunchedEffect(favorites.isEmpty()) { if (favorites.isEmpty() && tab == 3) tab = 0 }
     LaunchedEffect(showHome) { if (!showHome && tab == HOME_TAB) tab = 0 }
 
-    // Startseite: Dein Neko Mix bleibt stehen, bis neu gemischt wird
-    var mixSeed by remember { mutableLongStateOf(readMixSeed(ctx)) }
+    // Startseite: Die Auswahl des Mixes hängt nur von deinem Hören ab (fester Startwert). Der Würfel rechnet sie mit den
+    // aktuellen Daten neu und bringt die Titel in eine andere Reihenfolge.
+    val mixSeed = remember { readMixSeed(ctx) }
+    var mixOrderSeed by remember { mutableLongStateOf(readMixOrderSeed(ctx)) }
     // Album wurde von der Startseite aus geöffnet: Zurück geht dorthin statt in den Album-Tab
     var albumFromHome by remember { mutableStateOf(false) }
     fun closeAlbum() {
@@ -738,9 +742,12 @@ fun LibraryScreen(
     val homeState = rememberLazyListState()
     val homeAlbumsRowState = rememberLazyListState()
     // Ausgeblendete Titel sind komplett draußen: weder im Mix noch als Gewicht für Künstler
-    val mixPool = remember(songs, hiddenIds) { if (hiddenIds.isEmpty()) songs else songs.filter { it.id !in hiddenIds } }
-    val mix = remember(mixPool, mixSeed, showHome) {
-        if (!showHome) emptyList() else buildMix(mixPool, favorites.toSet(), playLog, mixSeed)
+    val mixPool = remember(songs, hiddenIds, mixExcluded) {
+        if (hiddenIds.isEmpty() && mixExcluded.isEmpty()) songs
+        else songs.filter { it.id !in hiddenIds && it.id !in mixExcluded }
+    }
+    val mix = remember(mixPool, mixOrderSeed, showHome) {
+        if (!showHome) emptyList() else buildMix(mixPool, favorites.toSet(), playLog, mixSeed, mixOrderSeed)
     }
 
     // Vom Player aus: zum Album springen
@@ -1110,8 +1117,9 @@ fun LibraryScreen(
                 albumsRowState = homeAlbumsRowState,
                 bottomSpace = bottomSpace,
                 onPlay = onPlay,
+                onPlayMix = { list -> onPlay(list, 0); onMixPlayed(list) },
                 onOpenAlbum = { name -> openPlaylist = null; openAlbum = name; albumFromHome = true; tab = 1 },
-                onReshuffle = { mixSeed = newMixSeed(ctx) },
+                onReshuffle = { mixOrderSeed = newMixOrderSeed(ctx) },
                 onAddToPlaylist = { addSong = it },
                 onToggleFavorite = onToggleFavorite,
                 modifier = Modifier.weight(1f)
