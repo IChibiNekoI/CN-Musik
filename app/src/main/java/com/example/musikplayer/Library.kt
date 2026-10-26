@@ -231,6 +231,87 @@ fun saveFavorites(ctx: Context, ids: List<Long>) {
     prefs(ctx).edit().putString("favorites", ids.joinToString(",")).apply()
 }
 
+/** Optionale Startseite (Mix, neue Alben, zuletzt gehört). Ohne eigene Wahl an. */
+fun readShowHome(ctx: Context): Boolean = prefs(ctx).getBoolean("show_home", true)
+
+fun saveShowHome(ctx: Context, on: Boolean) {
+    prefs(ctx).edit().putBoolean("show_home", on).apply()
+}
+
+/** Zuletzt gehörte Titel (Song-IDs), neueste zuerst. */
+const val HISTORY_MAX = 60
+
+fun readHistory(ctx: Context): List<Long> =
+    prefs(ctx).getString("history", null)?.split(',')?.mapNotNull { it.toLongOrNull() } ?: emptyList()
+
+/** Wie oft ein Titel gehört wurde (Song-ID -> Anzahl). Futter für den Mix. */
+fun readPlayCounts(ctx: Context): Map<Long, Int> {
+    val raw = prefs(ctx).getString("play_counts", null) ?: return emptyMap()
+    return try {
+        val o = JSONObject(raw)
+        buildMap { for (k in o.keys()) k.toLongOrNull()?.let { put(it, o.optInt(k, 0)) } }
+    } catch (e: Exception) {
+        emptyMap()
+    }
+}
+
+/** Trägt einen Titel sofort in den Verlauf ein (nach vorn, ohne Doppelte). Gibt den neuen Verlauf zurück. */
+fun recordHistory(ctx: Context, id: Long, history: List<Long>): List<Long> {
+    val newHistory = (listOf(id) + history.filter { it != id }).take(HISTORY_MAX)
+    prefs(ctx).edit().putString("history", newHistory.joinToString(",")).apply()
+    return newHistory
+}
+
+/** Zählt eine Wiedergabe für den Mix. Gibt die neuen Zähler zurück. */
+fun recordCount(ctx: Context, id: Long, counts: Map<Long, Int>): Map<Long, Int> {
+    val newCounts = counts + (id to ((counts[id] ?: 0) + 1))
+    val json = JSONObject()
+    for ((k, v) in newCounts) json.put(k.toString(), v)
+    prefs(ctx).edit().putString("play_counts", json.toString()).apply()
+    return newCounts
+}
+
+/**
+ * "Dein Mix": eine intelligente Playlist aus der eigenen Bibliothek. Favoriten, oft gehörte Titel und
+ * Künstler aus dem Verlauf bekommen mehr Gewicht, gerade erst gespielte Titel weniger. Gezogen wird
+ * gewichtet per Zufall; derselbe [seed] ergibt immer denselben Mix.
+ */
+fun buildMix(
+    songs: List<Song>,
+    favorites: Set<Long>,
+    counts: Map<Long, Int>,
+    history: List<Long>,
+    seed: Long,
+    size: Int = 30
+): List<Song> {
+    if (songs.isEmpty()) return emptyList()
+    val byId = songs.associateBy { it.id }
+    val artistScore = HashMap<String, Double>()
+    history.take(40).forEachIndexed { i, id ->
+        val artist = byId[id]?.artist?.takeIf { it.isNotBlank() } ?: return@forEachIndexed
+        artistScore[artist] = (artistScore[artist] ?: 0.0) + (1.0 - i / 80.0)
+    }
+    for (id in favorites) {
+        val artist = byId[id]?.artist?.takeIf { it.isNotBlank() } ?: continue
+        artistScore[artist] = (artistScore[artist] ?: 0.0) + 0.5
+    }
+    val recent = history.take(10).toSet()
+    val rnd = java.util.Random(seed)
+    return songs
+        .map { s ->
+            var w = 1.0
+            if (s.id in favorites) w += 3.0
+            w += minOf(counts[s.id] ?: 0, 10) * 0.4
+            w += minOf(artistScore[s.artist] ?: 0.0, 5.0) * 0.8
+            if (s.id in recent) w *= 0.3
+            // gewichtetes Ziehen ohne Zurücklegen (Efraimidis-Spirakis)
+            s to Math.pow(rnd.nextDouble().coerceAtLeast(1e-9), 1.0 / w)
+        }
+        .sortedByDescending { it.second }
+        .take(size)
+        .map { it.first }
+}
+
 fun readPlaylists(ctx: Context): List<Playlist> {
     val raw = prefs(ctx).getString("playlists", null) ?: return emptyList()
     return try {
