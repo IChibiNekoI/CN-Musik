@@ -162,7 +162,7 @@ private fun Modifier.playlistFx(appear: Boolean, removing: Boolean): Modifier {
  * (unter 60 Minuten nur Minuten, ab 60 Minuten Stunden und Minuten). Ohne bekannte Laufzeit nur die Titelzahl.
  * Gleich bei Alben (Tab und Suche) und Playlists.
  */
-private fun trackMeta(count: Int, totalMs: Long): String {
+internal fun trackMeta(count: Int, totalMs: Long): String {
     val tracks = plural(R.plurals.n_tracks, count)
     if (totalMs <= 0L) return tracks
     val minutes = maxOf(1, Math.round(totalMs / 60000.0).toInt())
@@ -170,7 +170,9 @@ private fun trackMeta(count: Int, totalMs: Long): String {
     return "$tracks • $duration"
 }
 
-private fun albumMeta(songs: List<Song>): String = trackMeta(songs.size, songs.sumOf { it.durationMs })
+internal fun trackMetaOf(songs: List<Song>): String = trackMeta(songs.size, songs.sumOf { it.durationMs })
+
+internal fun albumMeta(songs: List<Song>): String = trackMeta(songs.size, songs.sumOf { it.durationMs })
 
 /** Playlist: Titelzahl ist die Zahl der Einträge, die Laufzeit zählt nur Titel, die noch in der Bibliothek sind */
 private fun playlistMeta(songIds: List<Long>, byId: Map<Long, Song>): String =
@@ -232,7 +234,7 @@ private fun GridTile(
 
 /** Albumkarte der Suche: Cover mit Jahr oben rechts und Abspielen-Taste unten rechts, darunter Titel, Künstler, Titelzahl und Laufzeit */
 @Composable
-private fun SearchAlbumCard(
+internal fun SearchAlbumCard(
     songs: List<Song>,
     name: String,
     onOpen: () -> Unit,
@@ -311,7 +313,7 @@ private fun SearchAlbumCard(
 
 /** Überschrift eines Suchabschnitts: Symbol, Titel mit Anzahl und optional die Taste "Alle anzeigen" */
 @Composable
-private fun SearchSectionHeader(
+internal fun SearchSectionHeader(
     icon: @Composable () -> Unit,
     title: String,
     onShowAll: (() -> Unit)? = null,
@@ -641,6 +643,8 @@ fun LibraryScreen(
     onHeaderTap: () -> Unit = {},
     update: UpdateInfo? = null,
     favorites: List<Long> = emptyList(),
+    history: List<Long> = emptyList(),               // zuletzt gehörte Titel, neueste zuerst (Startseite)
+    playCounts: Map<Long, Int> = emptyMap(),         // wie oft gehört (Startseite: Dein Mix)
     onToggleFavorite: (Song) -> Unit = {},
     onHideSong: ((Song) -> Unit)? = null,
     hiddenIds: Set<Long> = emptySet(),   // nur im Titel-Tab ausgeblendet, überall sonst weiter sichtbar
@@ -654,7 +658,7 @@ fun LibraryScreen(
     onPlaylistRequestHandled: () -> Unit = {},
     bottomSpace: Dp = 0.dp   // Platz unten, damit die Listen unter dem Miniplayer durchscrollen und das Ende trotzdem erreichbar bleibt
 ) {
-    var tab by remember { mutableIntStateOf(0) }
+    var tab by remember { mutableIntStateOf(if (CornerSettings.showHome) HOME_TAB else 0) }
     var openAlbum by remember { mutableStateOf<String?>(null) }
     var openPlaylist by remember { mutableStateOf<String?>(null) }
     var addSong by remember { mutableStateOf<Song?>(null) }
@@ -714,8 +718,33 @@ fun LibraryScreen(
     val byId = remember(songs) { songs.associateBy { it.id } }
     val favSet = remember(favorites) { favorites.toSet() }
     // Der Favoriten-Tab gibt es nur, solange mindestens ein Titel favorisiert ist
-    val effTab = if (tab == 3 && favorites.isEmpty()) 0 else tab
+    val showHome = CornerSettings.showHome
+    val effTab = when {
+        tab == HOME_TAB && !showHome -> 0
+        tab == 3 && favorites.isEmpty() -> 0
+        else -> tab
+    }
     LaunchedEffect(favorites.isEmpty()) { if (favorites.isEmpty() && tab == 3) tab = 0 }
+    LaunchedEffect(showHome) { if (!showHome && tab == HOME_TAB) tab = 0 }
+
+    // Startseite: Dein Mix bleibt stehen, bis neu gemischt wird (oder ein neuer Tag beginnt)
+    var mixRound by remember { mutableIntStateOf(0) }
+    // Album wurde von der Startseite aus geöffnet: Zurück geht dorthin statt in den Album-Tab
+    var albumFromHome by remember { mutableStateOf(false) }
+    fun closeAlbum() {
+        openAlbum = null
+        if (albumFromHome) { albumFromHome = false; tab = HOME_TAB }
+    }
+    val homeState = rememberLazyListState()
+    val homeAlbumsRowState = rememberLazyListState()
+    // Ausgeblendete Titel sind komplett draußen: weder im Mix noch als Gewicht für Künstler
+    val mixPool = remember(songs, hiddenIds) { if (hiddenIds.isEmpty()) songs else songs.filter { it.id !in hiddenIds } }
+    val mix = remember(mixPool, mixRound, showHome) {
+        if (!showHome) emptyList() else buildMix(
+            mixPool, favorites.toSet(), playCounts, history,
+            seed = java.time.LocalDate.now().toEpochDay() * 1000L + mixRound
+        )
+    }
 
     // Vom Player aus: zum Album springen
     LaunchedEffect(albumRequest) {
@@ -725,6 +754,7 @@ fun LibraryScreen(
             query = ""
             openPlaylist = null
             tab = 1
+            albumFromHome = false
             openAlbum = name
         } else {
             Toast.makeText(ctx, str(R.string.toast_album_missing), Toast.LENGTH_SHORT).show()
@@ -739,8 +769,8 @@ fun LibraryScreen(
     }
 
     BackHandler(enabled = openAlbum != null || openPlaylist != null) {
-        openAlbum = null
         openPlaylist = null
+        closeAlbum()
     }
     BackHandler(enabled = searching) {
         searching = false
@@ -798,7 +828,7 @@ fun LibraryScreen(
                     value = query,
                     onValueChange = { query = it },
                     modifier = Modifier.weight(1f).padding(end = 8.dp).focusRequester(searchFocus),
-                    placeholder = { Text(str(R.string.search_hint)) },
+                    placeholder = { Text(str(R.string.search_hint), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     singleLine = true,
                     shape = RoundedCornerShape(28.dp),
                     leadingIcon = { SearchIcon(description = str(R.string.search)) },
@@ -1018,10 +1048,21 @@ fun LibraryScreen(
             Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val tabLabels = if (favorites.isNotEmpty()) listOf(str(R.string.tab_tracks), str(R.string.tab_albums), str(R.string.tab_playlists), str(R.string.tab_favorites))
-            else listOf(str(R.string.tab_tracks), str(R.string.tab_albums), str(R.string.tab_playlists))
+            // Start (nur Symbol), Titel, Album, Playlists und Favoriten (nur Herz, sobald es welche gibt)
+            val tabIds = buildList {
+                if (showHome) add(HOME_TAB)
+                add(0); add(1); add(2)
+                if (favorites.isNotEmpty()) add(3)
+            }
             val chipCtx = LocalContext.current
-            tabLabels.forEachIndexed { i, label ->
+            tabIds.forEach { i ->
+                val label = when (i) {
+                    HOME_TAB -> str(R.string.tab_home)
+                    0 -> str(R.string.tab_tracks)
+                    1 -> str(R.string.tab_albums)
+                    2 -> str(R.string.tab_playlists)
+                    else -> str(R.string.tab_favorites)
+                }
                 // Gedrückt: Der Chip drückt sich ein und federt beim Loslassen mit kleinem Überschwinger zurück
                 val chipSource = remember { MutableInteractionSource() }
                 val chipPress = rememberPressProgress(chipSource)
@@ -1035,11 +1076,12 @@ fun LibraryScreen(
                     selected = effTab == i,
                     onClick = {
                         Haptics.click(chipCtx)
-                        tab = i; openAlbum = null; openPlaylist = null
+                        tab = i; openAlbum = null; openPlaylist = null; albumFromHome = false
                     },
                     label = {
-                        // Der Favoriten-Tab zeigt nur ein Herz
+                        // Start und Favoriten zeigen nur ein Symbol
                         if (i == 3) HeartIcon(iconSize = 20.dp, description = label)
+                        else if (i == HOME_TAB) HomeIcon(iconSize = 20.dp, description = label)
                         else Text(label)
                     }
                 )
@@ -1061,6 +1103,22 @@ fun LibraryScreen(
         ) { t ->
         Column(Modifier.fillMaxSize()) {
         when (t) {
+            HOME_TAB -> HomeScreen(
+                songs = songs,
+                mix = mix,
+                history = history,
+                currentId = currentId,
+                favSet = favSet,
+                state = homeState,
+                albumsRowState = homeAlbumsRowState,
+                bottomSpace = bottomSpace,
+                onPlay = onPlay,
+                onOpenAlbum = { name -> openPlaylist = null; openAlbum = name; albumFromHome = true; tab = 1 },
+                onReshuffle = { mixRound++ },
+                onAddToPlaylist = { addSong = it },
+                onToggleFavorite = onToggleFavorite,
+                modifier = Modifier.weight(1f)
+            )
             0 -> {
                 // Beim Start ist die Liste kurz leer, weil die Bibliothek noch lädt: dann keine Fehlermeldung zeigen
                 if (loaded && titleList.isEmpty()) {
@@ -1136,7 +1194,7 @@ fun LibraryScreen(
                         (albums.firstOrNull { it.first == name }?.second ?: emptyList())
                             .sortedWith(compareBy<Song>({ it.track }, { it.title.lowercase() }))
                     }
-                    DetailHeader(name, onBack = { openAlbum = null })
+                    DetailHeader(name, onBack = { closeAlbum() })
                     HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
                         itemsIndexed(ordered, key = { _, s -> s.id }) { i, s ->
                             SongRow(
@@ -1452,7 +1510,7 @@ fun LibraryScreen(
                             value = filter,
                             onValueChange = { filter = it },
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                            placeholder = { Text(str(R.string.search_hint)) },
+                            placeholder = { Text(str(R.string.search_hint), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             leadingIcon = { SearchIcon() },
                             trailingIcon = {
                                 if (filter.isNotEmpty()) {
