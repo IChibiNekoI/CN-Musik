@@ -644,7 +644,7 @@ fun LibraryScreen(
     update: UpdateInfo? = null,
     favorites: List<Long> = emptyList(),
     history: List<Long> = emptyList(),               // zuletzt gehörte Titel, neueste zuerst (Startseite)
-    playCounts: Map<Long, Int> = emptyMap(),         // wie oft gehört (Startseite: Dein Mix)
+    playLog: List<PlayEvent> = emptyList(),          // Hörprotokoll der letzten 30 Tage (Startseite: Dein Neko Mix)
     onToggleFavorite: (Song) -> Unit = {},
     onHideSong: ((Song) -> Unit)? = null,
     hiddenIds: Set<Long> = emptySet(),   // nur im Titel-Tab ausgeblendet, überall sonst weiter sichtbar
@@ -727,8 +727,8 @@ fun LibraryScreen(
     LaunchedEffect(favorites.isEmpty()) { if (favorites.isEmpty() && tab == 3) tab = 0 }
     LaunchedEffect(showHome) { if (!showHome && tab == HOME_TAB) tab = 0 }
 
-    // Startseite: Dein Mix bleibt stehen, bis neu gemischt wird (oder ein neuer Tag beginnt)
-    var mixRound by remember { mutableIntStateOf(0) }
+    // Startseite: Dein Neko Mix bleibt stehen, bis neu gemischt wird
+    var mixSeed by remember { mutableLongStateOf(readMixSeed(ctx)) }
     // Album wurde von der Startseite aus geöffnet: Zurück geht dorthin statt in den Album-Tab
     var albumFromHome by remember { mutableStateOf(false) }
     fun closeAlbum() {
@@ -739,11 +739,8 @@ fun LibraryScreen(
     val homeAlbumsRowState = rememberLazyListState()
     // Ausgeblendete Titel sind komplett draußen: weder im Mix noch als Gewicht für Künstler
     val mixPool = remember(songs, hiddenIds) { if (hiddenIds.isEmpty()) songs else songs.filter { it.id !in hiddenIds } }
-    val mix = remember(mixPool, mixRound, showHome) {
-        if (!showHome) emptyList() else buildMix(
-            mixPool, favorites.toSet(), playCounts, history,
-            seed = java.time.LocalDate.now().toEpochDay() * 1000L + mixRound
-        )
+    val mix = remember(mixPool, mixSeed, showHome) {
+        if (!showHome) emptyList() else buildMix(mixPool, favorites.toSet(), playLog, mixSeed)
     }
 
     // Vom Player aus: zum Album springen
@@ -1114,7 +1111,7 @@ fun LibraryScreen(
                 bottomSpace = bottomSpace,
                 onPlay = onPlay,
                 onOpenAlbum = { name -> openPlaylist = null; openAlbum = name; albumFromHome = true; tab = 1 },
-                onReshuffle = { mixRound++ },
+                onReshuffle = { mixSeed = newMixSeed(ctx) },
                 onAddToPlaylist = { addSong = it },
                 onToggleFavorite = onToggleFavorite,
                 modifier = Modifier.weight(1f)
