@@ -285,16 +285,49 @@ fun recordPlay(ctx: Context, id: Long, log: List<PlayEvent>): List<PlayEvent> {
     return newLog
 }
 
-/** Startwert des Mixes: bleibt gespeichert, bis du neu mischst. Beim ersten Mal zufällig. */
+/** Titel, die aus der Warteschlange des Mixes entfernt wurden (Titel-ID -> Zeitpunkt in ms). Sie bleiben 30 Tage aus dem Mix. */
+fun readMixDislikes(ctx: Context): Map<Long, Long> {
+    val raw = prefs(ctx).getString("mix_dislikes", null) ?: return emptyMap()
+    val now = System.currentTimeMillis()
+    return buildMap {
+        for (part in raw.split(',')) {
+            val i = part.indexOf(':')
+            if (i < 0) continue
+            val id = part.substring(0, i).toLongOrNull() ?: continue
+            val t = (part.substring(i + 1).toLongOrNull() ?: continue) * 1000L
+            if (now - t in 0..MIX_WINDOW_MS) put(id, t)
+        }
+    }
+}
+
+fun addMixDislike(ctx: Context, id: Long, current: Map<Long, Long>): Map<Long, Long> {
+    val now = System.currentTimeMillis()
+    val newMap = current.filterValues { now - it in 0..MIX_WINDOW_MS } + (id to now)
+    prefs(ctx).edit()
+        .putString("mix_dislikes", newMap.entries.joinToString(",") { "${it.key}:${it.value / 1000L}" })
+        .apply()
+    return newMap
+}
+
+/** Startwert für die Auswahl des Mixes: Wird einmal erzeugt und bleibt, damit die Auswahl nur von deinem Hören abhängt. */
 fun readMixSeed(ctx: Context): Long {
     val p = prefs(ctx)
     if (p.contains("mix_seed")) return p.getLong("mix_seed", 0L)
-    return newMixSeed(ctx)
+    val seed = java.util.Random().nextLong()
+    p.edit().putLong("mix_seed", seed).apply()
+    return seed
 }
 
-fun newMixSeed(ctx: Context): Long {
+/** Startwert für die Reihenfolge des Mixes: Der Würfel erzeugt einen neuen, die Auswahl bleibt dabei gleich. */
+fun readMixOrderSeed(ctx: Context): Long {
+    val p = prefs(ctx)
+    if (p.contains("mix_order_seed")) return p.getLong("mix_order_seed", 0L)
+    return newMixOrderSeed(ctx)
+}
+
+fun newMixOrderSeed(ctx: Context): Long {
     val seed = java.util.Random().nextLong()
-    prefs(ctx).edit().putLong("mix_seed", seed).apply()
+    prefs(ctx).edit().putLong("mix_order_seed", seed).apply()
     return seed
 }
 
@@ -311,13 +344,14 @@ private fun unitFor(seed: Long, id: Long): Double {
  * "Dein Neko Mix": eine Playlist aus der eigenen Bibliothek. Gewertet werden Favoriten und die Wiedergaben der
  * letzten 30 Tage (Titel und Künstler). Jeder Titel bekommt aus Startwert und Titel-ID einen festen Zufallswert,
  * damit der Mix stabil bleibt: Er ändert sich nicht mit dem Tag, sondern nur beim Neu-Mischen oder wenn sich
- * Hörgewohnheiten oder Bibliothek spürbar ändern.
+ * Hörgewohnheiten oder Bibliothek spürbar ändern. Die Reihenfolge der gewählten Titel bestimmt der [orderSeed].
  */
 fun buildMix(
     songs: List<Song>,
     favorites: Set<Long>,
     playLog: List<PlayEvent>,
     seed: Long,
+    orderSeed: Long,
     size: Int = 30
 ): List<Song> {
     if (songs.isEmpty()) return emptyList()
@@ -349,6 +383,8 @@ fun buildMix(
         .sortedByDescending { it.second }
         .take(size)
         .map { it.first }
+        // Wer drin ist, steht an einer variablen Stelle: Die Reihenfolge hängt nur vom [orderSeed] ab, nicht von der Auswahl
+        .sortedBy { unitFor(orderSeed, it.id) }
 }
 
 fun readPlaylists(ctx: Context): List<Playlist> {
