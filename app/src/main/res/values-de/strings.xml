@@ -167,4 +167,23 @@
     <string name="hidden_tracks_none">Keine</string>
     <string name="hidden_tracks_empty">Keine ausgeblendeten Titel. Im Titel-Tab blendest du einen Titel über das Drei-Punkte-Menü aus.</string>
     <string name="show_track">Wieder einblenden</string>
+    <string name="backup_title">Backup</string>
+    <string name="backup_summary">Einstellungen, ausgeblendete Titel, Favoriten und Playlists</string>
+    <string name="backup_create">Backup erstellen</string>
+    <string name="backup_create_sub">Speichert alles in einer Datei deiner Wahl</string>
+    <string name="backup_restore">Backup wiederherstellen</string>
+    <string name="backup_restore_sub">Ersetzt die aktuellen Einstellungen durch die aus einer Backup-Datei</string>
+    <string name="backup_done">Backup gespeichert</string>
+    <string name="backup_failed">Backup fehlgeschlagen</string>
+    <string name="backup_restored">Backup wiederhergestellt (%1$d von %2$d Titeln gefunden)</string>
+    <string name="backup_invalid">Das ist keine gültige Backup-Datei</string>
+    <string name="tab_home">Start</string>
+    <string name="home_mix_title">Dein Neko Mix</string>
+    <string name="home_mix_subtitle">Frisch für dich gemischt</string>
+    <string name="home_mix_reshuffle">Neu mischen</string>
+    <string name="home_recent_albums">Zuletzt hinzugefügte Alben</string>
+    <string name="home_recent_tracks">Zuletzt gehörte Titel</string>
+    <string name="home_recent_empty">Hier erscheinen die Titel, die du zuletzt gehört hast.</string>
+    <string name="home_setting_title">Startseite</string>
+    <string name="home_setting_summary">Dein Neko Mix, neue Alben und zuletzt gehörte Titel als erster Tab</string>
 </resources>
