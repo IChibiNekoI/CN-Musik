@@ -59,27 +59,29 @@ fun HomeScreen(
     val byId = remember(songs) { songs.associateBy { it.id } }
     val recentTracks = remember(history, byId) { history.mapNotNull { byId[it] }.take(HOME_TRACKS) }
 
+    // Bewusst ohne Item-Schlüssel: Beim Start laden Bibliothek und Verlauf nach. Mit Schlüsseln hält die Liste den
+    // gerade sichtbaren Abschnitt fest, und Mix und Alben, die oberhalb dazukommen, schieben die Ansicht nach unten.
     HapticLazyColumn(modifier, contentPadding = PaddingValues(bottom = bottomSpace), state = state) {
         if (mix.isNotEmpty()) {
-            item(key = "mixHeader") {
+            item {
                 SearchSectionHeader(
                     icon = { SparkleIcon(iconSize = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                     title = str(R.string.home_mix_title)
                 )
             }
-            item(key = "mixCard") {
+            item {
                 MixCard(mix = mix, onPlay = { onPlayMix(mix) }, onReshuffle = onReshuffle)
             }
         }
         if (recentAlbums.isNotEmpty()) {
-            item(key = "albumsHeader") {
+            item {
                 SearchSectionHeader(
                     icon = { AlbumDiscIcon(iconSize = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                     title = str(R.string.home_recent_albums),
                     topPadding = 24.dp
                 )
             }
-            item(key = "albumsRow") {
+            item {
                 LazyRow(
                     state = albumsRowState,
                     contentPadding = PaddingValues(horizontal = 16.dp),
@@ -99,7 +101,7 @@ fun HomeScreen(
                 }
             }
         }
-        item(key = "tracksHeader") {
+        item {
             SearchSectionHeader(
                 icon = { MusicNoteIcon(iconSize = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                 title = str(R.string.home_recent_tracks),
@@ -107,7 +109,7 @@ fun HomeScreen(
             )
         }
         if (recentTracks.isEmpty()) {
-            item(key = "tracksEmpty") {
+            item {
                 Text(
                     str(R.string.home_recent_empty),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -115,7 +117,7 @@ fun HomeScreen(
                 )
             }
         } else {
-            itemsIndexed(recentTracks, key = { _, s -> "recent_${s.id}" }) { i, s ->
+            itemsIndexed(recentTracks) { i, s ->
                 SongRow(
                     s, s.id.toString() == currentId, { onPlay(recentTracks, i) }, { onAddToPlaylist(s) },
                     isFavorite = s.id in favSet,
