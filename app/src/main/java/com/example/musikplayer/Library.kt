@@ -244,17 +244,6 @@ const val HISTORY_MAX = 60
 fun readHistory(ctx: Context): List<Long> =
     prefs(ctx).getString("history", null)?.split(',')?.mapNotNull { it.toLongOrNull() } ?: emptyList()
 
-/** Wie oft ein Titel gehört wurde (Song-ID -> Anzahl). Futter für den Mix. */
-fun readPlayCounts(ctx: Context): Map<Long, Int> {
-    val raw = prefs(ctx).getString("play_counts", null) ?: return emptyMap()
-    return try {
-        val o = JSONObject(raw)
-        buildMap { for (k in o.keys()) k.toLongOrNull()?.let { put(it, o.optInt(k, 0)) } }
-    } catch (e: Exception) {
-        emptyMap()
-    }
-}
-
 /** Trägt einen Titel sofort in den Verlauf ein (nach vorn, ohne Doppelte). Gibt den neuen Verlauf zurück. */
 fun recordHistory(ctx: Context, id: Long, history: List<Long>): List<Long> {
     val newHistory = (listOf(id) + history.filter { it != id }).take(HISTORY_MAX)
@@ -262,50 +251,100 @@ fun recordHistory(ctx: Context, id: Long, history: List<Long>): List<Long> {
     return newHistory
 }
 
-/** Zählt eine Wiedergabe für den Mix. Gibt die neuen Zähler zurück. */
-fun recordCount(ctx: Context, id: Long, counts: Map<Long, Int>): Map<Long, Int> {
-    val newCounts = counts + (id to ((counts[id] ?: 0) + 1))
-    val json = JSONObject()
-    for ((k, v) in newCounts) json.put(k.toString(), v)
-    prefs(ctx).edit().putString("play_counts", json.toString()).apply()
-    return newCounts
+/** Eine gezählte Wiedergabe: Titel und Zeitpunkt (Millisekunden). */
+class PlayEvent(val id: Long, val time: Long)
+
+/** Der Mix wertet nur die Wiedergaben der letzten 30 Tage. */
+const val MIX_WINDOW_MS = 30L * 24 * 60 * 60 * 1000
+private const val PLAY_LOG_MAX = 3000
+
+private fun pruneLog(log: List<PlayEvent>, now: Long): List<PlayEvent> =
+    log.filter { now - it.time in 0..MIX_WINDOW_MS }.takeLast(PLAY_LOG_MAX)
+
+/** Hörprotokoll der letzten 30 Tage, gespeichert als "id:sekunden,id:sekunden,...". */
+fun readPlayLog(ctx: Context): List<PlayEvent> {
+    val raw = prefs(ctx).getString("play_log", null) ?: return emptyList()
+    val events = raw.split(',').mapNotNull { part ->
+        val i = part.indexOf(':')
+        if (i < 0) return@mapNotNull null
+        val id = part.substring(0, i).toLongOrNull() ?: return@mapNotNull null
+        val sec = part.substring(i + 1).toLongOrNull() ?: return@mapNotNull null
+        PlayEvent(id, sec * 1000L)
+    }
+    return pruneLog(events, System.currentTimeMillis())
+}
+
+/** Hängt eine Wiedergabe ans Protokoll, wirft Einträge über 30 Tage weg und speichert. */
+fun recordPlay(ctx: Context, id: Long, log: List<PlayEvent>): List<PlayEvent> {
+    val now = System.currentTimeMillis()
+    val newLog = pruneLog(log + PlayEvent(id, now), now)
+    prefs(ctx).edit()
+        .putString("play_log", newLog.joinToString(",") { "${it.id}:${it.time / 1000L}" })
+        .remove("play_counts")   // alter Gesamtzähler, ersetzt durch das 30-Tage-Protokoll
+        .apply()
+    return newLog
+}
+
+/** Startwert des Mixes: bleibt gespeichert, bis du neu mischst. Beim ersten Mal zufällig. */
+fun readMixSeed(ctx: Context): Long {
+    val p = prefs(ctx)
+    if (p.contains("mix_seed")) return p.getLong("mix_seed", 0L)
+    return newMixSeed(ctx)
+}
+
+fun newMixSeed(ctx: Context): Long {
+    val seed = java.util.Random().nextLong()
+    prefs(ctx).edit().putLong("mix_seed", seed).apply()
+    return seed
+}
+
+/** Fester Zufallswert zwischen 0 und 1 für einen Titel: Gleicher Startwert und gleicher Titel ergeben immer denselben Wert. */
+private fun unitFor(seed: Long, id: Long): Double {
+    var z = seed + id * -7046029254386353131L
+    z = (z xor (z ushr 30)) * -4658895280553007687L
+    z = (z xor (z ushr 27)) * -7723592293110705685L
+    z = z xor (z ushr 31)
+    return ((z ushr 11).toDouble() / (1L shl 53).toDouble()).coerceIn(1e-9, 1.0)
 }
 
 /**
- * "Dein Mix": eine intelligente Playlist aus der eigenen Bibliothek. Favoriten, oft gehörte Titel und
- * Künstler aus dem Verlauf bekommen mehr Gewicht, gerade erst gespielte Titel weniger. Gezogen wird
- * gewichtet per Zufall; derselbe [seed] ergibt immer denselben Mix.
+ * "Dein Neko Mix": eine Playlist aus der eigenen Bibliothek. Gewertet werden Favoriten und die Wiedergaben der
+ * letzten 30 Tage (Titel und Künstler). Jeder Titel bekommt aus Startwert und Titel-ID einen festen Zufallswert,
+ * damit der Mix stabil bleibt: Er ändert sich nicht mit dem Tag, sondern nur beim Neu-Mischen oder wenn sich
+ * Hörgewohnheiten oder Bibliothek spürbar ändern.
  */
 fun buildMix(
     songs: List<Song>,
     favorites: Set<Long>,
-    counts: Map<Long, Int>,
-    history: List<Long>,
+    playLog: List<PlayEvent>,
     seed: Long,
     size: Int = 30
 ): List<Song> {
     if (songs.isEmpty()) return emptyList()
+    val now = System.currentTimeMillis()
     val byId = songs.associateBy { it.id }
-    val artistScore = HashMap<String, Double>()
-    history.take(40).forEachIndexed { i, id ->
-        val artist = byId[id]?.artist?.takeIf { it.isNotBlank() } ?: return@forEachIndexed
-        artistScore[artist] = (artistScore[artist] ?: 0.0) + (1.0 - i / 80.0)
+    val songPlays = HashMap<Long, Int>()
+    val artistPlays = HashMap<String, Int>()
+    for (e in playLog) {
+        if (now - e.time !in 0..MIX_WINDOW_MS) continue
+        val s = byId[e.id] ?: continue   // ausgeblendete oder gelöschte Titel zählen nicht
+        songPlays[s.id] = (songPlays[s.id] ?: 0) + 1
+        if (s.artist.isNotBlank()) artistPlays[s.artist] = (artistPlays[s.artist] ?: 0) + 1
     }
+    val favArtists = HashMap<String, Int>()
     for (id in favorites) {
-        val artist = byId[id]?.artist?.takeIf { it.isNotBlank() } ?: continue
-        artistScore[artist] = (artistScore[artist] ?: 0.0) + 0.5
+        val a = byId[id]?.artist?.takeIf { it.isNotBlank() } ?: continue
+        favArtists[a] = (favArtists[a] ?: 0) + 1
     }
-    val recent = history.take(10).toSet()
-    val rnd = java.util.Random(seed)
     return songs
         .map { s ->
             var w = 1.0
             if (s.id in favorites) w += 3.0
-            w += minOf(counts[s.id] ?: 0, 10) * 0.4
-            w += minOf(artistScore[s.artist] ?: 0.0, 5.0) * 0.8
-            if (s.id in recent) w *= 0.3
-            // gewichtetes Ziehen ohne Zurücklegen (Efraimidis-Spirakis)
-            s to Math.pow(rnd.nextDouble().coerceAtLeast(1e-9), 1.0 / w)
+            w += minOf(songPlays[s.id] ?: 0, 10) * 0.4
+            val artistScore = (artistPlays[s.artist] ?: 0) * 0.5 + (favArtists[s.artist] ?: 0) * 0.5
+            w += minOf(artistScore, 5.0) * 0.8
+            // gewichtetes Ziehen ohne Zurücklegen (Efraimidis-Spirakis) mit festem Zufallswert je Titel
+            s to Math.pow(unitFor(seed, s.id), 1.0 / w)
         }
         .sortedByDescending { it.second }
         .take(size)
