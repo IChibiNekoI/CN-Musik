@@ -648,3 +648,17 @@ fun SparkleIcon(
         drawPath(star(18.2f, 5.8f, 2.8f), c, style = st)
     }
 }
+
+/** Playlist: Liste mit kleinem Abspiel-Dreieck */
+@Composable
+fun PlaylistIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        seg(c, st, k, 4f, 7f, 20f, 7f)
+        seg(c, st, k, 4f, 12f, 20f, 12f)
+        seg(c, st, k, 4f, 17f, 10f, 17f)
+        drawPath(polyPath(k, 13.8f, 14.4f, 19.8f, 17.2f, 13.8f, 20f, closed = true), c, style = st.rounded(1.2f * k))
+    }
+}
