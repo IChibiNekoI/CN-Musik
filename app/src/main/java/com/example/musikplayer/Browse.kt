@@ -63,6 +63,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -1048,11 +1049,14 @@ fun LibraryScreen(
             }
             }
         } else {
+        // Passen nicht alle Chips auf ein sehr schmales Display, lässt sich die Reihe seitlich wischen
         Row(
-            Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            Modifier
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Start (nur Symbol), Titel, Album, Playlists und Favoriten (nur Herz, sobald es welche gibt)
+            // Start, Titel, Album, Playlists und Favoriten (nur sobald es welche gibt): alle nur mit Symbol, alle gleich breit
             val tabIds = buildList {
                 if (showHome) add(HOME_TAB)
                 add(0); add(1); add(2)
@@ -1071,11 +1075,13 @@ fun LibraryScreen(
                 val chipSource = remember { MutableInteractionSource() }
                 val chipPress = rememberPressProgress(chipSource)
                 FilterChip(
-                    modifier = Modifier.graphicsLayer {
-                        val s = 1f - 0.1f * chipPress.value
-                        scaleX = s
-                        scaleY = s
-                    },
+                    modifier = Modifier
+                        .width(60.dp)
+                        .graphicsLayer {
+                            val s = 1f - 0.1f * chipPress.value
+                            scaleX = s
+                            scaleY = s
+                        },
                     interactionSource = chipSource,
                     selected = effTab == i,
                     onClick = {
@@ -1083,10 +1089,16 @@ fun LibraryScreen(
                         tab = i; openAlbum = null; openPlaylist = null; albumFromHome = false
                     },
                     label = {
-                        // Start und Favoriten zeigen nur ein Symbol
-                        if (i == 3) HeartIcon(iconSize = 20.dp, description = label)
-                        else if (i == HOME_TAB) HomeIcon(iconSize = 20.dp, description = label)
-                        else Text(label)
+                        // Nur Symbole, mittig im Chip; der Text steht als Beschreibung für Screenreader dabei
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            when (i) {
+                                HOME_TAB -> HomeIcon(iconSize = 20.dp, description = label)
+                                0 -> MusicNoteIcon(iconSize = 20.dp, description = label)
+                                1 -> AlbumDiscIcon(iconSize = 20.dp, description = label)
+                                2 -> PlaylistIcon(iconSize = 20.dp, description = label)
+                                else -> HeartIcon(iconSize = 20.dp, description = label)
+                            }
+                        }
                     }
                 )
             }
