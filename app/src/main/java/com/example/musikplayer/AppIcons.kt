@@ -550,3 +550,101 @@ fun GlobeIcon(
         seg(c, st, k, 3f, 12f, 21f, 12f)
     }
 }
+
+
+/** Ablage mit Pfeil nach unten (Backup) */
+@Composable
+fun BackupIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        seg(c, st, k, 12f, 3.5f, 12f, 15f)
+        seg(c, st, k, 7.5f, 10.5f, 12f, 15f)
+        seg(c, st, k, 16.5f, 10.5f, 12f, 15f)
+        seg(c, st, k, 4f, 15.5f, 4f, 20f)
+        seg(c, st, k, 4f, 20f, 20f, 20f)
+        seg(c, st, k, 20f, 20f, 20f, 15.5f)
+    }
+}
+
+/** Ablage mit Pfeil nach oben (Backup wiederherstellen) */
+@Composable
+fun RestoreIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        seg(c, st, k, 12f, 15f, 12f, 3.5f)
+        seg(c, st, k, 7.5f, 8f, 12f, 3.5f)
+        seg(c, st, k, 16.5f, 8f, 12f, 3.5f)
+        seg(c, st, k, 4f, 15.5f, 4f, 20f)
+        seg(c, st, k, 4f, 20f, 20f, 20f)
+        seg(c, st, k, 20f, 20f, 20f, 15.5f)
+    }
+}
+
+/** Haus (Startseite) */
+@Composable
+fun HomeIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        val p = Path().apply {
+            moveTo(4f * k, 11f * k)
+            lineTo(12f * k, 4.2f * k)
+            lineTo(20f * k, 11f * k)
+            lineTo(20f * k, 19f * k)
+            lineTo(14.5f * k, 19f * k)
+            lineTo(14.5f * k, 14f * k)
+            lineTo(9.5f * k, 14f * k)
+            lineTo(9.5f * k, 19f * k)
+            lineTo(4f * k, 19f * k)
+            close()
+        }
+        drawPath(p, c, style = st.rounded(1.6f * k))
+    }
+}
+
+/** Würfel (neu mischen): abgerundetes Quadrat mit fünf Augen */
+@Composable
+fun DiceIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        drawRoundRect(
+            c, topLeft = Offset(3.8f * k, 3.8f * k), size = Size(16.4f * k, 16.4f * k),
+            cornerRadius = CornerRadius(5f * k), style = st
+        )
+        dot(c, k, 8.6f, 8.6f, 1.25f)
+        dot(c, k, 15.4f, 8.6f, 1.25f)
+        dot(c, k, 12f, 12f, 1.25f)
+        dot(c, k, 8.6f, 15.4f, 1.25f)
+        dot(c, k, 15.4f, 15.4f, 1.25f)
+    }
+}
+
+/** Funkeln (Mix): großer vierzackiger Stern mit zwei kleinen Funken */
+@Composable
+fun SparkleIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        fun star(cx: Float, cy: Float, r: Float): Path {
+            val q = r * 0.22f
+            return Path().apply {
+                moveTo(cx * k, (cy - r) * k)
+                quadraticBezierTo((cx + q) * k, (cy - q) * k, (cx + r) * k, cy * k)
+                quadraticBezierTo((cx + q) * k, (cy + q) * k, cx * k, (cy + r) * k)
+                quadraticBezierTo((cx - q) * k, (cy + q) * k, (cx - r) * k, cy * k)
+                quadraticBezierTo((cx - q) * k, (cy - q) * k, cx * k, (cy - r) * k)
+                close()
+            }
+        }
+        drawPath(star(10.5f, 13.5f, 7.2f), c, style = st)
+        drawPath(star(18.2f, 5.8f, 2.8f), c, style = st)
+    }
+}
