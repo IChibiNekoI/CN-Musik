@@ -91,6 +91,10 @@ fun MusikApp(
     var favorites by remember { mutableStateOf(readFavorites(ctx)) }
     var history by remember { mutableStateOf(readHistory(ctx)) }
     var playLog by remember { mutableStateOf(readPlayLog(ctx)) }
+    // Titel, die aus der Warteschlange des Neko Mixes entfernt wurden, bleiben 30 Tage aus dem Mix
+    var mixDislikes by remember { mutableStateOf(readMixDislikes(ctx)) }
+    // Titel der Warteschlange, die vom Neko Mix gestartet wurde (leer, sobald etwas anderes gestartet wird)
+    var mixQueueIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     val toggleFavorite: (Song) -> Unit = { s ->
         favorites = if (s.id in favorites) favorites - s.id else listOf(s.id) + favorites
         saveFavorites(ctx, favorites)
@@ -250,7 +254,7 @@ fun MusikApp(
         onDispose { c.removeListener(l) }
     }
     // Zuletzt gehört: Sobald ein Titel läuft (egal von wo gestartet), steht er im Verlauf. Pause und Weiter
-    // beim selben Titel schiebt ihn nicht erneut nach vorn. Fürs Hörprotokoll des Mixes (30 Tage) zählt eine Wiedergabe erst nach 5 Sekunden,
+    // beim selben Titel schiebt ihn nicht erneut nach vorn. Fürs Hörprotokoll des Mixes (30 Tage) zählt eine Wiedergabe erst nach 10 Sekunden,
     // damit Durchskippen es nicht verfälscht.
     var lastHistoryId by remember { mutableStateOf<String?>(null) }
     var lastCountedId by remember { mutableStateOf<String?>(null) }
@@ -262,7 +266,7 @@ fun MusikApp(
             history = recordHistory(ctx, id, history)
         }
         if (currentId != lastCountedId) {
-            delay(5_000)
+            delay(10_000)
             lastCountedId = currentId
             playLog = recordPlay(ctx, id, playLog)
         }
@@ -382,12 +386,15 @@ fun MusikApp(
                     favorites = favorites,
                     history = history,
                     playLog = playLog,
+                    mixExcluded = mixDislikes.keys,
+                    onMixPlayed = { list -> mixQueueIds = list.map { it.id }.toSet() },
                     onToggleFavorite = toggleFavorite,
                     onHideSong = hideSong,
                     hiddenIds = hidden,
                     onReorderFavorites = { favorites = it; saveFavorites(ctx, it) },
                     onPlaylistsChange = { playlists = it; savePlaylists(ctx, it) },
                     onPlay = { list, index ->
+                        mixQueueIds = emptySet()
                         controller?.let { c ->
                             SkipDirection.dir = 1
                             c.setMediaItems(toMediaItems(list), index, 0L)
@@ -471,7 +478,10 @@ fun MusikApp(
                     albumRequest = current.album.ifBlank { str(R.string.unknown_album) }
                     showNow = false
                 },
-                onAddToPlaylist = { playlistRequest = current }
+                onAddToPlaylist = { playlistRequest = current },
+                onQueueRemoved = { s ->
+                    if (s.id in mixQueueIds) mixDislikes = addMixDislike(ctx, s.id, mixDislikes)
+                }
             ) {
                 // Landet der Player im Miniplayer (statt nur wegzurutschen), federt der Miniplayer weich nach
                 val landed = (liveOrigin ?: origin) != null
