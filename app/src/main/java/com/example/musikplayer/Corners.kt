@@ -31,6 +31,8 @@ object CornerSettings {
     var waveProgress by mutableStateOf(false)
     /** Name des Ausgabegeräts (Lautsprecher, Kopfhörer ...) im Player zwischen den Zeiten zeigen, optional */
     var showOutputDevice by mutableStateOf(false)
+    /** Startseite als erster Tab der Bibliothek, optional (standardmäßig an) */
+    var showHome by mutableStateOf(true)
     private var loaded = false
 
     /** Gespeicherte Wahl einmal beim Start laden (vor der ersten Anzeige) */
@@ -43,6 +45,7 @@ object CornerSettings {
             coverShadow = readCoverShadow(ctx)
             waveProgress = readWaveProgress(ctx)
             showOutputDevice = readShowOutputDevice(ctx)
+            showHome = readShowHome(ctx)
         }
     }
 }
