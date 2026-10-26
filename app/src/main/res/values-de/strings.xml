@@ -180,7 +180,7 @@
     <string name="tab_home">Start</string>
     <string name="home_mix_title">Dein Neko Mix</string>
     <string name="home_mix_subtitle">Frisch für dich gemischt</string>
-    <string name="home_mix_reshuffle">Neu mischen</string>
+    <string name="home_mix_reshuffle">Mix aktualisieren</string>
     <string name="home_recent_albums">Zuletzt hinzugefügte Alben</string>
     <string name="home_recent_tracks">Zuletzt gehörte Titel</string>
     <string name="home_recent_empty">Hier erscheinen die Titel, die du zuletzt gehört hast.</string>
