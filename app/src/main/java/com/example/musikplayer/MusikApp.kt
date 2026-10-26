@@ -89,6 +89,8 @@ fun MusikApp(
     var sort by remember { mutableStateOf(readSort(ctx)) }
     var playlists by remember { mutableStateOf(readPlaylists(ctx)) }
     var favorites by remember { mutableStateOf(readFavorites(ctx)) }
+    var history by remember { mutableStateOf(readHistory(ctx)) }
+    var playCounts by remember { mutableStateOf(readPlayCounts(ctx)) }
     val toggleFavorite: (Song) -> Unit = { s ->
         favorites = if (s.id in favorites) favorites - s.id else listOf(s.id) + favorites
         saveFavorites(ctx, favorites)
@@ -247,6 +249,24 @@ fun MusikApp(
         c.addListener(l)
         onDispose { c.removeListener(l) }
     }
+    // Zuletzt gehört: Sobald ein Titel läuft (egal von wo gestartet), steht er im Verlauf. Pause und Weiter
+    // beim selben Titel schiebt ihn nicht erneut nach vorn. Für den Mix zählt eine Wiedergabe erst nach 5 Sekunden,
+    // damit Durchskippen die Hörzähler nicht verfälscht.
+    var lastHistoryId by remember { mutableStateOf<String?>(null) }
+    var lastCountedId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(currentId, isPlaying) {
+        val id = currentId?.toLongOrNull() ?: return@LaunchedEffect
+        if (!isPlaying) return@LaunchedEffect
+        if (currentId != lastHistoryId) {
+            lastHistoryId = currentId
+            history = recordHistory(ctx, id, history)
+        }
+        if (currentId != lastCountedId) {
+            delay(5_000)
+            lastCountedId = currentId
+            playCounts = recordCount(ctx, id, playCounts)
+        }
+    }
     // Beim Abspielen alle 15 Sekunden die Position sichern (falls die App im Hintergrund beendet wird)
     LaunchedEffect(controller, isPlaying) {
         val c = controller ?: return@LaunchedEffect
@@ -360,6 +380,8 @@ fun MusikApp(
                     },
                     update = update,
                     favorites = favorites,
+                    history = history,
+                    playCounts = playCounts,
                     onToggleFavorite = toggleFavorite,
                     onHideSong = hideSong,
                     hiddenIds = hidden,
@@ -589,6 +611,45 @@ fun AppSettingsSheet(
     onDismiss: () -> Unit
 ) {
     var page by remember { mutableStateOf("main") }
+
+    // Backup: Datei zum Speichern bzw. Auswählen über das Android-Dateisystem-Fenster
+    val backupCtx = LocalContext.current
+    val backupSongs = remember(allSongs, hiddenSongs) { (allSongs + hiddenSongs).distinctBy { it.id } }
+    val createBackup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) {
+            val ok = try {
+                backupCtx.contentResolver.openOutputStream(uri, "wt")?.use {
+                    it.write(Backup.create(backupCtx, backupSongs).toByteArray(Charsets.UTF_8))
+                } != null
+            } catch (e: Exception) {
+                false
+            }
+            android.widget.Toast.makeText(
+                backupCtx, if (ok) str(R.string.backup_done) else str(R.string.backup_failed), android.widget.Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+    val restoreBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val text = try {
+                backupCtx.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+            } catch (e: Exception) {
+                null
+            }
+            val result = if (text != null) Backup.restore(backupCtx, text, backupSongs) else null
+            if (result != null && result.ok) {
+                android.widget.Toast.makeText(
+                    backupCtx, str(R.string.backup_restored, result.matched, result.total), android.widget.Toast.LENGTH_LONG
+                ).show()
+                // Activity neu aufbauen, damit alle Einstellungen und Listen frisch aus dem Backup geladen werden
+                var c: android.content.Context = backupCtx
+                while (c is android.content.ContextWrapper && c !is android.app.Activity) c = c.baseContext
+                (c as? android.app.Activity)?.recreate()
+            } else {
+                android.widget.Toast.makeText(backupCtx, str(R.string.backup_invalid), android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
     val counts = remember(allSongs) {
         allSongs.groupingBy { it.folder }.eachCount().toList().sortedBy { it.first.lowercase() }
     }
@@ -705,6 +766,22 @@ fun AppSettingsSheet(
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 4.dp)
+                )
+                val homeCtx = LocalContext.current
+                val homeOn = CornerSettings.showHome
+                ListItem(
+                    headlineContent = { Text(str(R.string.home_setting_title)) },
+                    supportingContent = { Text(str(R.string.home_setting_summary)) },
+                    leadingContent = { HomeIcon() },
+                    trailingContent = {
+                        Switch(checked = homeOn, onCheckedChange = null)
+                    },
+                    colors = clear,
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f) {
+                        val on = !homeOn
+                        CornerSettings.showHome = on
+                        saveShowHome(homeCtx, on)
+                    }
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.album_view)) },
@@ -830,6 +907,14 @@ fun AppSettingsSheet(
                     colors = clear,
                     modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "language" }
                 )
+                ListItem(
+                    headlineContent = { Text(str(R.string.backup_title)) },
+                    supportingContent = { Text(str(R.string.backup_summary)) },
+                    leadingContent = { BackupIcon() },
+                    trailingContent = { ChevronRightIcon() },
+                    colors = clear,
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "backup" }
+                )
                 Spacer(Modifier.height(32.dp + bottomExtra))
                 }
             }
@@ -906,6 +991,29 @@ fun AppSettingsSheet(
                 SortOption(str(R.string.sort_name), str(R.string.sort_name_sub), sort == SortMode.NAME) {
                     onSort(SortMode.NAME)
                 }
+                Spacer(Modifier.height(32.dp + bottomExtra))
+            }
+            "backup" -> {
+                SheetHeader(str(R.string.backup_title)) { page = "main" }
+                ListItem(
+                    headlineContent = { Text(str(R.string.backup_create)) },
+                    supportingContent = { Text(str(R.string.backup_create_sub)) },
+                    leadingContent = { BackupIcon() },
+                    colors = clear,
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f) {
+                        val day = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+                        createBackup.launch("CN-Musik-Backup-$day.json")
+                    }
+                )
+                ListItem(
+                    headlineContent = { Text(str(R.string.backup_restore)) },
+                    supportingContent = { Text(str(R.string.backup_restore_sub)) },
+                    leadingContent = { RestoreIcon() },
+                    colors = clear,
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f) {
+                        restoreBackup.launch(arrayOf("application/json", "*/*"))
+                    }
+                )
                 Spacer(Modifier.height(32.dp + bottomExtra))
             }
             "language" -> {
