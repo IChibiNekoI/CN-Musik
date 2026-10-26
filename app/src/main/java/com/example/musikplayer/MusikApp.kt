@@ -90,7 +90,7 @@ fun MusikApp(
     var playlists by remember { mutableStateOf(readPlaylists(ctx)) }
     var favorites by remember { mutableStateOf(readFavorites(ctx)) }
     var history by remember { mutableStateOf(readHistory(ctx)) }
-    var playCounts by remember { mutableStateOf(readPlayCounts(ctx)) }
+    var playLog by remember { mutableStateOf(readPlayLog(ctx)) }
     val toggleFavorite: (Song) -> Unit = { s ->
         favorites = if (s.id in favorites) favorites - s.id else listOf(s.id) + favorites
         saveFavorites(ctx, favorites)
@@ -250,8 +250,8 @@ fun MusikApp(
         onDispose { c.removeListener(l) }
     }
     // Zuletzt gehört: Sobald ein Titel läuft (egal von wo gestartet), steht er im Verlauf. Pause und Weiter
-    // beim selben Titel schiebt ihn nicht erneut nach vorn. Für den Mix zählt eine Wiedergabe erst nach 5 Sekunden,
-    // damit Durchskippen die Hörzähler nicht verfälscht.
+    // beim selben Titel schiebt ihn nicht erneut nach vorn. Fürs Hörprotokoll des Mixes (30 Tage) zählt eine Wiedergabe erst nach 5 Sekunden,
+    // damit Durchskippen es nicht verfälscht.
     var lastHistoryId by remember { mutableStateOf<String?>(null) }
     var lastCountedId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(currentId, isPlaying) {
@@ -264,7 +264,7 @@ fun MusikApp(
         if (currentId != lastCountedId) {
             delay(5_000)
             lastCountedId = currentId
-            playCounts = recordCount(ctx, id, playCounts)
+            playLog = recordPlay(ctx, id, playLog)
         }
     }
     // Beim Abspielen alle 15 Sekunden die Position sichern (falls die App im Hintergrund beendet wird)
@@ -381,7 +381,7 @@ fun MusikApp(
                     update = update,
                     favorites = favorites,
                     history = history,
-                    playCounts = playCounts,
+                    playLog = playLog,
                     onToggleFavorite = toggleFavorite,
                     onHideSong = hideSong,
                     hiddenIds = hidden,
