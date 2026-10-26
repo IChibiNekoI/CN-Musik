@@ -123,6 +123,7 @@ fun QueuePanel(
     library: List<Song>,
     progress: Animatable<Float, AnimationVector1D>,
     anchor: QueueAnchor,
+    onRemoved: (Song) -> Unit = {},   // Titel wurde per X aus der Warteschlange entfernt
     onClose: (velocity: Float) -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -290,7 +291,7 @@ fun QueuePanel(
                         leadingContent = { Cover(song, 48.dp) },
                         trailingContent = {
                             if (!isCurrent) {
-                                BounceIconButton(onClick = { c.removeMediaItem(qi) }) {
+                                BounceIconButton(onClick = { onRemoved(song); c.removeMediaItem(qi) }) {
                                     CloseIcon(description = str(R.string.queue_remove))
                                 }
                             }
