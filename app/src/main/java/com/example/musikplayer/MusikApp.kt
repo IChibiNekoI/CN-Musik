@@ -95,6 +95,8 @@ fun MusikApp(
     var mixDislikes by remember { mutableStateOf(readMixDislikes(ctx)) }
     // Titel der Warteschlange, die vom Neko Mix gestartet wurde (leer, sobald etwas anderes gestartet wird)
     var mixQueueIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    // Der Neko Mix hat eigene Repeat- und Shuffle-Einstellungen, unabhängig vom restlichen Player
+    var mixActive by remember { mutableStateOf(readMixActive(ctx)) }
     val toggleFavorite: (Song) -> Unit = { s ->
         favorites = if (s.id in favorites) favorites - s.id else listOf(s.id) + favorites
         saveFavorites(ctx, favorites)
@@ -173,6 +175,19 @@ fun MusikApp(
 
     val controller = rememberController()
     val controllerNow by rememberUpdatedState(controller)
+    // Zwischen normalem Profil und Mix-Profil umschalten. Erst das aktive Profil setzen, dann die Werte anwenden:
+    // Die Player-Listener speichern Änderungen immer ins aktive Profil und schreiben dabei nur dessen eigene Werte zurück.
+    fun switchProfile(toMix: Boolean) {
+        if (mixActive == toMix) return
+        mixActive = toMix
+        saveMixActive(ctx, toMix)
+        controller?.let { c ->
+            val r = if (toMix) readMixRepeat(ctx) else readRepeat(ctx)
+            val sh = if (toMix) readMixShuffle(ctx) else readShuffle(ctx)
+            if (c.repeatMode != r) c.repeatMode = r
+            if (c.shuffleModeEnabled != sh) c.shuffleModeEnabled = sh
+        }
+    }
     // Beim Verlassen der App Titel und Position merken
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -232,11 +247,13 @@ fun MusikApp(
         if (c == null) return@DisposableEffect onDispose {}
         isPlaying = c.isPlaying
         currentId = c.currentMediaItem?.mediaId
-        shuffle = c.shuffleModeEnabled
-        // gespeicherten Wiederholmodus wiederherstellen
-        val savedRepeat = readRepeat(ctx)
+        // gespeicherte Einstellungen des aktiven Profils (normal oder Neko Mix) wiederherstellen
+        val savedRepeat = if (mixActive) readMixRepeat(ctx) else readRepeat(ctx)
+        val savedShuffle = if (mixActive) readMixShuffle(ctx) else readShuffle(ctx)
         if (c.repeatMode != savedRepeat) c.repeatMode = savedRepeat
+        if (c.shuffleModeEnabled != savedShuffle) c.shuffleModeEnabled = savedShuffle
         repeat = savedRepeat
+        shuffle = savedShuffle
         val l = object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying = playing
@@ -247,8 +264,14 @@ fun MusikApp(
                 // ganze Warteschlange nur speichern, wenn sie neu ist; sonst reicht die Position
                 saveQueueState(ctx, c, full = reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED)
             }
-            override fun onShuffleModeEnabledChanged(enabled: Boolean) { shuffle = enabled }
-            override fun onRepeatModeChanged(mode: Int) { repeat = mode; saveRepeat(ctx, mode) }
+            override fun onShuffleModeEnabledChanged(enabled: Boolean) {
+                shuffle = enabled
+                if (mixActive) saveMixShuffle(ctx, enabled) else saveShuffle(ctx, enabled)
+            }
+            override fun onRepeatModeChanged(mode: Int) {
+                repeat = mode
+                if (mixActive) saveMixRepeat(ctx, mode) else saveRepeat(ctx, mode)
+            }
         }
         c.addListener(l)
         onDispose { c.removeListener(l) }
@@ -294,6 +317,8 @@ fun MusikApp(
         val song = resolveExternalSong(ctx, uri, allSongs)
         if (allSongs.none { it.id == song.id }) externalSong = song
         SkipDirection.dir = 1
+        mixQueueIds = emptySet()
+        switchProfile(false)
         c.setMediaItems(toMediaItems(listOf(song)), 0, 0L)
         c.prepare()
         c.play()
@@ -387,14 +412,24 @@ fun MusikApp(
                     history = history,
                     playLog = playLog,
                     mixExcluded = mixDislikes.keys,
-                    onMixPlayed = { list -> mixQueueIds = list.map { it.id }.toSet() },
+                    onMixPlayed = { list ->
+                        mixQueueIds = list.map { it.id }.toSet()
+                        switchProfile(true)
+                    },
                     onToggleFavorite = toggleFavorite,
                     onHideSong = hideSong,
                     hiddenIds = hidden,
                     onReorderFavorites = { favorites = it; saveFavorites(ctx, it) },
                     onPlaylistsChange = { playlists = it; savePlaylists(ctx, it) },
                     onPlay = { list, index ->
-                        mixQueueIds = emptySet()
+                        // Startet der Neko Mix (wurde kurz vorher als Mix markiert), bleibt sein Profil aktiv;
+                        // alles andere schaltet auf das normale Profil zurück
+                        val isMixStart = mixQueueIds.isNotEmpty() &&
+                            list.size == mixQueueIds.size && list.all { it.id in mixQueueIds }
+                        if (!isMixStart) {
+                            mixQueueIds = emptySet()
+                            switchProfile(false)
+                        }
                         controller?.let { c ->
                             SkipDirection.dir = 1
                             c.setMediaItems(toMediaItems(list), index, 0L)
