@@ -1129,7 +1129,7 @@ fun LibraryScreen(
                 albumsRowState = homeAlbumsRowState,
                 bottomSpace = bottomSpace,
                 onPlay = onPlay,
-                onPlayMix = { list -> onPlay(list, 0); onMixPlayed(list) },
+                onPlayMix = { list -> onMixPlayed(list); onPlay(list, 0) },   // erst als Mix markieren, dann starten
                 onOpenAlbum = { name -> openPlaylist = null; openAlbum = name; albumFromHome = true; tab = 1 },
                 onReshuffle = { mixOrderSeed = newMixOrderSeed(ctx) },
                 onAddToPlaylist = { addSong = it },
