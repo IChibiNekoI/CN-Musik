@@ -1265,68 +1265,80 @@ fun LibraryScreen(
                     )
                 }
                 if (pl == null && playlistStyle.grid) {
-                    HapticLazyGrid(
+                    // Playlist 1 s gedrückt halten und ziehen, um sie zu verschieben (wie Titel in einer Playlist)
+                    ReorderableGrid(
+                        items = playlists,
+                        itemKey = { it.id },
+                        onReorder = { onPlaylistsChange(it) },
                         columns = GridCells.Fixed(playlistStyle.cols),
                         modifier = Modifier.weight(1f),
-                        state = playlistsGridState,
+                        gridState = playlistsGridState,
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp + bottomSpace),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        gridItems(playlists, key = { it.id }) { p ->
-                            val covers = remember(p.songIds, byId) {
-                                p.songIds.asSequence().mapNotNull { byId[it] }.take(4).toList()
-                            }
-                            GridTile(
-                                title = p.name,
-                                subtitle = playlistMeta(p.songIds, byId),
-                                onClick = { openPlaylist = p.id },
-                                onDelete = { deleteTarget = p },
-                                modifier = Modifier
-                                    .animateItem(
-                                        fadeInSpec = null, fadeOutSpec = null,
-                                        placementSpec = spring(
-                                            dampingRatio = 0.75f, stiffness = 400f,
-                                            visibilityThreshold = IntOffset.VisibilityThreshold
-                                        )
-                                    )
-                                    .playlistFx(appear = p.id !in knownPlaylistIds, removing = p.id in removingIds),
-                                cover = { w -> PlaylistCover(covers, w) }
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        plainItemModifier = {
+                            Modifier.animateItem(
+                                fadeInSpec = null, fadeOutSpec = null,
+                                placementSpec = spring(
+                                    dampingRatio = 0.75f, stiffness = 400f,
+                                    visibilityThreshold = IntOffset.VisibilityThreshold
+                                )
                             )
                         }
+                    ) { _, p, itemMod ->
+                        val covers = remember(p.songIds, byId) {
+                            p.songIds.asSequence().mapNotNull { byId[it] }.take(4).toList()
+                        }
+                        GridTile(
+                            title = p.name,
+                            subtitle = playlistMeta(p.songIds, byId),
+                            onClick = { openPlaylist = p.id },
+                            onDelete = { deleteTarget = p },
+                            modifier = itemMod
+                                .playlistFx(appear = p.id !in knownPlaylistIds, removing = p.id in removingIds),
+                            cover = { w -> PlaylistCover(covers, w) }
+                        )
                     }
                 } else if (pl == null) {
-                    HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace), state = playlistsListState) {
-                        items(playlists, key = { it.id }) { p ->
-                            ListItem(
-                                headlineContent = {
-                                    Text(p.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                },
-                                supportingContent = { Text(playlistMeta(p.songIds, byId)) },
-                                leadingContent = {
-                                    val covers = remember(p.songIds, byId) {
-                                        p.songIds.asSequence().mapNotNull { byId[it] }.take(4).toList()
-                                    }
-                                    PlaylistCover(covers, 56.dp)
-                                },
-                                trailingContent = {
-                                    BounceIconButton(onClick = { deleteTarget = p }) {
-                                        TrashIcon(description = str(R.string.delete))
-                                    }
-                                },
-                                colors = clearColors(),
-                                modifier = Modifier
-                                    .animateItem(
-                                        fadeInSpec = null, fadeOutSpec = null,
-                                        placementSpec = spring(
-                                            dampingRatio = 0.75f, stiffness = 400f,
-                                            visibilityThreshold = IntOffset.VisibilityThreshold
-                                        )
-                                    )
-                                    .playlistFx(appear = p.id !in knownPlaylistIds, removing = p.id in removingIds)
-                                    .bounceClick(pressedScale = 0.97f, haptic = false) { openPlaylist = p.id }
+                    // Playlist 1 s gedrückt halten und ziehen, um sie zu verschieben (wie Titel in einer Playlist)
+                    ReorderableList(
+                        items = playlists,
+                        itemKey = { it.id },
+                        onReorder = { onPlaylistsChange(it) },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(bottom = bottomSpace),
+                        listState = playlistsListState,
+                        plainItemModifier = {
+                            Modifier.animateItem(
+                                fadeInSpec = null, fadeOutSpec = null,
+                                placementSpec = spring(
+                                    dampingRatio = 0.75f, stiffness = 400f,
+                                    visibilityThreshold = IntOffset.VisibilityThreshold
+                                )
                             )
                         }
+                    ) { _, p, itemMod ->
+                        ListItem(
+                            headlineContent = {
+                                Text(p.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            },
+                            supportingContent = { Text(playlistMeta(p.songIds, byId)) },
+                            leadingContent = {
+                                val covers = remember(p.songIds, byId) {
+                                    p.songIds.asSequence().mapNotNull { byId[it] }.take(4).toList()
+                                }
+                                PlaylistCover(covers, 56.dp)
+                            },
+                            trailingContent = {
+                                BounceIconButton(onClick = { deleteTarget = p }) {
+                                    TrashIcon(description = str(R.string.delete))
+                                }
+                            },
+                            colors = clearColors(),
+                            modifier = itemMod
+                                .playlistFx(appear = p.id !in knownPlaylistIds, removing = p.id in removingIds)
+                                .bounceClick(pressedScale = 0.97f, haptic = false) { openPlaylist = p.id }
+                        )
                     }
                 } else {
                     val list = pl.songIds.mapNotNull { byId[it] }
