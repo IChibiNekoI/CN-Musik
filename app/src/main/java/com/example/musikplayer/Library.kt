@@ -171,6 +171,34 @@ fun saveRepeat(ctx: Context, mode: Int) {
     prefs(ctx).edit().putInt("repeat", mode).apply()
 }
 
+/** Shuffle im normalen Profil (alles außer dem Neko Mix). */
+fun readShuffle(ctx: Context): Boolean = prefs(ctx).getBoolean("shuffle", false)
+
+fun saveShuffle(ctx: Context, on: Boolean) {
+    prefs(ctx).edit().putBoolean("shuffle", on).apply()
+}
+
+/** Eigene Einstellungen für den Neko Mix: Er läuft standardmäßig endlos (Repeat alle) und ohne Shuffle. */
+fun readMixRepeat(ctx: Context): Int =
+    prefs(ctx).getInt("mix_repeat", androidx.media3.common.Player.REPEAT_MODE_ALL)
+
+fun saveMixRepeat(ctx: Context, mode: Int) {
+    prefs(ctx).edit().putInt("mix_repeat", mode).apply()
+}
+
+fun readMixShuffle(ctx: Context): Boolean = prefs(ctx).getBoolean("mix_shuffle", false)
+
+fun saveMixShuffle(ctx: Context, on: Boolean) {
+    prefs(ctx).edit().putBoolean("mix_shuffle", on).apply()
+}
+
+/** Läuft gerade die Warteschlange des Neko Mixes? Dann gelten Repeat und Shuffle des Mixes (überlebt einen Neustart). */
+fun readMixActive(ctx: Context): Boolean = prefs(ctx).getBoolean("mix_active", false)
+
+fun saveMixActive(ctx: Context, on: Boolean) {
+    prefs(ctx).edit().putBoolean("mix_active", on).apply()
+}
+
 /** Zuletzt gespielte Warteschlange mit aktuellem Titel und Position. */
 class SavedQueue(val ids: List<Long>, val index: Int, val positionMs: Long)
 
