@@ -7,8 +7,17 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridItemScope
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
@@ -36,12 +45,7 @@ const val REORDER_HOLD_MS = 1000L
 
 /**
  * Liste mit Titeln, die sich per langem Drücken (siehe REORDER_HOLD_MS) und Ziehen umsortieren lässt.
- * Normales Tippen und Scrollen bleiben unverändert. Nach dem Loslassen wird die neue Reihenfolge über [onReorder] gemeldet.
- * [row] zeichnet eine Zeile und muss den übergebenen Modifier an die Zeile weitergeben.
- *
- * Funktionsweise: Die Geste wird einmal für die ganze Liste ausgewertet. Während des Ziehens zählt nur die
- * absolute Fingerposition in der Liste. Die Zeile wird immer genau so weit verschoben, dass sie am Finger hängt,
- * egal ob die Liste gescrollt wurde oder sich die Reihenfolge geändert hat. Dadurch kann sie nicht wegdriften.
+ * Dünner Mantel um [ReorderableList] für Titel.
  */
 @Composable
 fun ReorderableSongList(
@@ -52,14 +56,47 @@ fun ReorderableSongList(
     enabled: Boolean = true,          // false: Liste ohne Umsortieren (z. B. bei Zufallswiedergabe)
     initialIndex: Int = 0,            // Eintrag, bei dem die Liste beginnt
     row: @Composable (index: Int, song: Song, itemModifier: Modifier) -> Unit
+) = ReorderableList(
+    items = songs,
+    itemKey = { it.id },
+    onReorder = onReorder,
+    modifier = modifier,
+    contentPadding = contentPadding,
+    enabled = enabled,
+    initialIndex = initialIndex,
+    row = row
+)
+
+/**
+ * Liste beliebiger Einträge (Titel, Playlists, ...), die sich per langem Drücken (siehe REORDER_HOLD_MS) und Ziehen
+ * umsortieren lässt. [itemKey] liefert einen eindeutigen Schlüssel je Eintrag.
+ * Normales Tippen und Scrollen bleiben unverändert. Nach dem Loslassen wird die neue Reihenfolge über [onReorder] gemeldet.
+ * [row] zeichnet eine Zeile und muss den übergebenen Modifier an die Zeile weitergeben.
+ * [plainItemModifier] bestimmt, wie sich nicht gezogene Zeilen beim Umsortieren, Einfügen und Entfernen bewegen.
+ *
+ * Funktionsweise: Die Geste wird einmal für die ganze Liste ausgewertet. Während des Ziehens zählt nur die
+ * absolute Fingerposition in der Liste. Die Zeile wird immer genau so weit verschoben, dass sie am Finger hängt,
+ * egal ob die Liste gescrollt wurde oder sich die Reihenfolge geändert hat. Dadurch kann sie nicht wegdriften.
+ */
+@Composable
+fun <T> ReorderableList(
+    items: List<T>,
+    itemKey: (T) -> Any,
+    onReorder: (List<T>) -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
+    enabled: Boolean = true,          // false: Liste ohne Umsortieren (z. B. bei Zufallswiedergabe)
+    initialIndex: Int = 0,            // Eintrag, bei dem die Liste beginnt
+    listState: LazyListState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex),
+    plainItemModifier: LazyItemScope.() -> Modifier = { Modifier.animateItem() },
+    row: @Composable (index: Int, item: T, itemModifier: Modifier) -> Unit
 ) {
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
     val currentEnabled by rememberUpdatedState(enabled)
     val density = LocalDensity.current
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    var order by remember(songs) { mutableStateOf(songs) }
-    var dragKey by remember { mutableStateOf<Long?>(null) }
+    var order by remember(items) { mutableStateOf(items) }
+    var dragKey by remember { mutableStateOf<Any?>(null) }
     // Fingerposition in der Liste (Pixel von der Oberkante der Liste) und Abstand des Fingers zur Oberkante der Zeile
     var fingerY by remember { mutableFloatStateOf(0f) }
     var grabY by remember { mutableFloatStateOf(0f) }
@@ -72,9 +109,9 @@ fun ReorderableSongList(
     val currentOnReorder by rememberUpdatedState(onReorder)
     val cardColor = MaterialTheme.colorScheme.surfaceContainerHigh
     val uniformStyle = LocalCornerStyle.current == CornerStyle.UNIFORM
-    val currentSongs by rememberUpdatedState(songs)
+    val currentItems by rememberUpdatedState(items)
 
-    fun itemInfo(key: Long) = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == key }
+    fun itemInfo(key: Any) = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == key }
 
     /** Setzt den gezogenen Titel um, sobald seine Mitte die Mitte eines Nachbarn überschritten hat. */
     fun checkSwap() {
@@ -82,7 +119,7 @@ fun ReorderableSongList(
         if (settleJob?.isActive == true) return
         val infos = listState.layoutInfo.visibleItemsInfo
         val dragged = infos.firstOrNull { it.key == key } ?: return
-        val from = order.indexOfFirst { it.id == key }
+        val from = order.indexOfFirst { itemKey(it) == key }
         // Layout noch nicht aktuell (gerade erst umgesetzt): beim nächsten Durchlauf prüfen
         if (from < 0 || dragged.index != from) return
         val center = fingerY - grabY + dragged.size / 2f
@@ -102,7 +139,7 @@ fun ReorderableSongList(
         order = order.toMutableList().apply { add(to, removeAt(from)) }
     }
 
-    fun startDrag(key: Long, y: Float): Boolean {
+    fun startDrag(key: Any, y: Float): Boolean {
         if (dragKey != null && settleJob?.isActive != true) return false
         settleJob?.cancel()
         val info = itemInfo(key) ?: return false
@@ -137,7 +174,7 @@ fun ReorderableSongList(
             lift = 0f
             dragKey = null
         }
-        if (result.map { it.id } != currentSongs.map { it.id }) currentOnReorder(result)
+        if (result.map { itemKey(it) } != currentItems.map { itemKey(it) }) currentOnReorder(result)
     }
 
     // Am oberen/unteren Rand scrollt die Liste weiter, solange der Finger dort liegt.
@@ -189,7 +226,7 @@ fun ReorderableSongList(
                 val startItem = listState.layoutInfo.visibleItemsInfo
                     .firstOrNull { down.position.y >= it.offset && down.position.y < it.offset + it.size }
                     ?: return@awaitEachGesture
-                val key = startItem.key as? Long ?: return@awaitEachGesture
+                val key = startItem.key
                 var last = down.position
                 var cancelled = false
                 val timedOut = withTimeoutOrNull(REORDER_HOLD_MS) {
@@ -225,13 +262,13 @@ fun ReorderableSongList(
         state = listState,
         contentPadding = contentPadding
     ) {
-        itemsIndexed(order, key = { _, s -> s.id }) { i, s ->
-            val itemModifier = if (dragKey == s.id) {
+        itemsIndexed(order, key = { _, s -> itemKey(s) }) { i, s ->
+            val itemModifier = if (dragKey == itemKey(s)) {
                 Modifier
                     .zIndex(1f)
                     .graphicsLayer {
                         // Zeile genau so weit verschieben, dass sie am Finger hängt
-                        val layoutOffset = itemInfo(s.id)?.offset ?: 0
+                        val layoutOffset = itemInfo(itemKey(s))?.offset ?: 0
                         translationY = (fingerY - grabY - layoutOffset) * follow
                         // Beim Aufnehmen leicht größer
                         val l = lift.coerceIn(0f, 1f)
@@ -265,10 +302,249 @@ fun ReorderableSongList(
                         )
                     }
             } else {
-                Modifier.animateItem()
+                plainItemModifier()
             }
             row(i, s, itemModifier)
         }
     }
+    }
+}
+
+
+/**
+ * Raster (z. B. Playlist-Kacheln), dessen Einträge sich per langem Drücken (siehe REORDER_HOLD_MS) und Ziehen
+ * umsortieren lassen, genau wie in [ReorderableList]. Ein gezogener Eintrag tauscht den Platz mit dem Eintrag,
+ * über dessen Fläche seine Mitte liegt. [row] muss den übergebenen Modifier an den Eintrag weitergeben.
+ */
+@Composable
+fun <T> ReorderableGrid(
+    items: List<T>,
+    itemKey: (T) -> Any,
+    onReorder: (List<T>) -> Unit,
+    columns: GridCells,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
+    horizontalArrangement: Arrangement.Horizontal = Arrangement.Start,
+    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
+    enabled: Boolean = true,
+    gridState: LazyGridState = rememberLazyGridState(),
+    plainItemModifier: LazyGridItemScope.() -> Modifier = { Modifier.animateItem() },
+    row: @Composable (index: Int, item: T, itemModifier: Modifier) -> Unit
+) {
+    val currentEnabled by rememberUpdatedState(enabled)
+    val density = LocalDensity.current
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var order by remember(items) { mutableStateOf(items) }
+    var dragKey by remember { mutableStateOf<Any?>(null) }
+    // Fingerposition im Raster (Pixel von der oberen linken Ecke) und Abstand des Fingers zur Ecke der Kachel
+    var fingerX by remember { mutableFloatStateOf(0f) }
+    var fingerY by remember { mutableFloatStateOf(0f) }
+    var grabX by remember { mutableFloatStateOf(0f) }
+    var grabY by remember { mutableFloatStateOf(0f) }
+    var follow by remember { mutableFloatStateOf(0f) }
+    var lift by remember { mutableFloatStateOf(0f) }
+    var liftJob by remember { mutableStateOf<Job?>(null) }
+    var settleJob by remember { mutableStateOf<Job?>(null) }
+    val currentOnReorder by rememberUpdatedState(onReorder)
+    val cardColor = MaterialTheme.colorScheme.surfaceContainerHigh
+    val currentItems by rememberUpdatedState(items)
+
+    fun itemInfo(key: Any) = gridState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == key }
+
+    /** Setzt die gezogene Kachel um, sobald ihre Mitte über der Fläche einer anderen Kachel liegt. */
+    fun checkSwap() {
+        val key = dragKey ?: return
+        if (settleJob?.isActive == true) return
+        val infos = gridState.layoutInfo.visibleItemsInfo
+        val dragged = infos.firstOrNull { it.key == key } ?: return
+        val from = order.indexOfFirst { itemKey(it) == key }
+        // Layout noch nicht aktuell (gerade erst umgesetzt): beim nächsten Durchlauf prüfen
+        if (from < 0 || dragged.index != from) return
+        val cx = fingerX - grabX + dragged.size.width / 2f
+        val cy = fingerY - grabY + dragged.size.height / 2f
+        val target = infos.firstOrNull {
+            it.index != from &&
+                cx >= it.offset.x && cx < it.offset.x + it.size.width &&
+                cy >= it.offset.y && cy < it.offset.y + it.size.height
+        } ?: return
+        val to = target.index
+        if (to == from || to !in order.indices) return
+        // Wie in der Liste: Scrollposition festhalten, falls die erste sichtbare Kachel mitwandert
+        val firstIndex = gridState.firstVisibleItemIndex
+        val firstOffset = gridState.firstVisibleItemScrollOffset
+        if (firstIndex in minOf(from, to)..maxOf(from, to)) {
+            gridState.requestScrollToItem(firstIndex, firstOffset)
+        }
+        Haptics.tick(ctx)
+        order = order.toMutableList().apply { add(to, removeAt(from)) }
+    }
+
+    fun startDrag(key: Any, x: Float, y: Float): Boolean {
+        if (dragKey != null && settleJob?.isActive != true) return false
+        settleJob?.cancel()
+        val info = itemInfo(key) ?: return false
+        fingerX = x
+        fingerY = y
+        grabX = x - info.offset.x
+        grabY = y - info.offset.y
+        follow = 1f
+        dragKey = key
+        Haptics.snap(ctx)
+        liftJob?.cancel()
+        liftJob = scope.launch {
+            animate(lift, 1f, animationSpec = tween(260, easing = FastOutSlowInEasing)) { v, _ -> lift = v }
+        }
+        return true
+    }
+
+    fun endDrag() {
+        if (dragKey == null || settleJob?.isActive == true) return
+        val result = order
+        Haptics.click(ctx)
+        liftJob?.cancel()
+        settleJob = scope.launch {
+            val startLift = lift
+            animate(
+                1f, 0f,
+                animationSpec = spring(dampingRatio = 0.72f, stiffness = 420f)
+            ) { v, _ ->
+                follow = v
+                lift = startLift * v.coerceAtLeast(0f)
+            }
+            follow = 0f
+            lift = 0f
+            dragKey = null
+        }
+        if (result.map { itemKey(it) } != currentItems.map { itemKey(it) }) currentOnReorder(result)
+    }
+
+    // Am oberen/unteren Rand scrollt das Raster weiter, solange der Finger dort liegt (wie in der Liste)
+    LaunchedEffect(dragKey) {
+        if (dragKey == null) return@LaunchedEffect
+        val zone = with(density) { 96.dp.toPx() }
+        val maxSpeed = with(density) { 2200.dp.toPx() }
+        val maxStep = with(density) { 56.dp.toPx() }
+        var edgeSince = 0L
+        var lastNanos = withFrameNanos { it }
+        while (isActive) {
+            if (dragKey == null) break
+            val now = withFrameNanos { it }
+            val dt = ((now - lastNanos) / 1_000_000_000f).coerceIn(0f, 0.05f)
+            lastNanos = now
+            if (settleJob?.isActive != true) {
+                val info = gridState.layoutInfo
+                val top = info.beforeContentPadding.toFloat()
+                val bottom = (info.viewportSize.height - info.afterContentPadding).toFloat()
+                val intensity = when {
+                    fingerY < top + zone -> -((top + zone - fingerY) / zone).coerceIn(0f, 1f)
+                    fingerY > bottom - zone -> ((fingerY - (bottom - zone)) / zone).coerceIn(0f, 1f)
+                    else -> 0f
+                }
+                if (intensity != 0f) {
+                    if (edgeSince == 0L) edgeSince = now
+                    val held = (now - edgeSince) / 1_000_000_000f
+                    val ramp = (0.3f + 0.7f * held / 1.0f).coerceAtMost(1f)
+                    val step = (intensity * maxSpeed * ramp * dt).coerceIn(-maxStep, maxStep)
+                    if (step != 0f) gridState.scrollBy(step)
+                } else {
+                    edgeSince = 0L
+                }
+                checkSwap()
+            }
+        }
+    }
+
+    EdgeHaptics(gridState)
+    NoSystemOverscroll {
+        LazyVerticalGrid(
+            columns = columns,
+            modifier = modifier.bounceOverscroll().topEdgeFade(gridState).pointerInput(Unit) {
+                awaitEachGesture {
+                    // Bis zum langen Drücken wird nur beobachtet: Tippen und Scrollen laufen normal
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    if (!currentEnabled) return@awaitEachGesture
+                    val slop = viewConfiguration.touchSlop
+                    val startItem = gridState.layoutInfo.visibleItemsInfo.firstOrNull {
+                        down.position.x >= it.offset.x && down.position.x < it.offset.x + it.size.width &&
+                            down.position.y >= it.offset.y && down.position.y < it.offset.y + it.size.height
+                    } ?: return@awaitEachGesture
+                    val key = startItem.key
+                    var last = down.position
+                    var cancelled = false
+                    val timedOut = withTimeoutOrNull(REORDER_HOLD_MS) {
+                        while (!cancelled) {
+                            val ev = awaitPointerEvent(PointerEventPass.Initial)
+                            val c = ev.changes.firstOrNull { it.id == down.id }
+                            if (c == null || !c.pressed || (c.position - down.position).getDistance() > slop) {
+                                cancelled = true
+                            } else {
+                                last = c.position
+                            }
+                        }
+                    }
+                    if (timedOut != null) return@awaitEachGesture
+                    if (!startDrag(key, last.x, last.y)) return@awaitEachGesture
+
+                    try {
+                        while (true) {
+                            val ev = awaitPointerEvent(PointerEventPass.Initial)
+                            val c = ev.changes.firstOrNull { it.id == down.id } ?: break
+                            // Ab jetzt gehört die Geste der Sortierung: kein Klick, kein Scrollen
+                            c.consume()
+                            if (!c.pressed) break
+                            fingerX = c.position.x
+                            fingerY = c.position.y
+                            checkSwap()
+                        }
+                    } finally {
+                        endDrag()
+                    }
+                }
+            },
+            state = gridState,
+            contentPadding = contentPadding,
+            horizontalArrangement = horizontalArrangement,
+            verticalArrangement = verticalArrangement
+        ) {
+            gridItemsIndexed(order, key = { _, s -> itemKey(s) }) { i, s ->
+                val itemModifier = if (dragKey == itemKey(s)) {
+                    Modifier
+                        .zIndex(1f)
+                        .graphicsLayer {
+                            // Kachel genau so weit verschieben, dass sie am Finger hängt
+                            val info = itemInfo(itemKey(s))
+                            translationX = (fingerX - grabX - (info?.offset?.x ?: 0)) * follow
+                            translationY = (fingerY - grabY - (info?.offset?.y ?: 0)) * follow
+                            val l = lift.coerceIn(0f, 1f)
+                            scaleX = 1f + 0.04f * l
+                            scaleY = 1f + 0.04f * l
+                            clip = false
+                        }
+                        .drawBehind {
+                            // Weicher Schatten und Karte hinter der Kachel, wie bei den Zeilen der Liste
+                            val l = lift.coerceIn(0f, 1f)
+                            val radius = 16.dp.toPx()
+                            for (n in 6 downTo 1) {
+                                val grow = n * 1.6.dp.toPx()
+                                drawRoundRect(
+                                    color = Color.Black.copy(alpha = 0.05f * l * (7 - n) / 6f),
+                                    topLeft = Offset(-grow, -grow + 3.dp.toPx()),
+                                    size = Size(size.width + 2 * grow, size.height + 2 * grow),
+                                    cornerRadius = CornerRadius(radius + grow)
+                                )
+                            }
+                            drawRoundRect(
+                                color = cardColor.copy(alpha = cardColor.alpha * l),
+                                size = size,
+                                cornerRadius = CornerRadius(radius)
+                            )
+                        }
+                } else {
+                    plainItemModifier()
+                }
+                row(i, s, itemModifier)
+            }
+        }
     }
 }
