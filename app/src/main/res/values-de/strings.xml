@@ -186,4 +186,6 @@
     <string name="home_recent_empty">Hier erscheinen die Titel, die du zuletzt gehört hast.</string>
     <string name="home_setting_title">Startseite</string>
     <string name="home_setting_summary">Dein Neko Mix, neue Alben und zuletzt gehörte Titel als erster Tab</string>
+    <string name="auto_gain">Auto-Gain</string>
+    <string name="auto_gain_summary">Gleicht die Lautstärke zwischen Titeln an, damit laute und leise Titel ähnlich klingen</string>
 </resources>
