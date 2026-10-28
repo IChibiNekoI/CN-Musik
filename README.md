@@ -87,8 +87,6 @@ ChibiNeko Music is designed for listening to music stored on your device.
 - **No tracking.**
 - Audio-library access is used to find and play music stored on your device.
 
-The app declares internet access in its Android manifest. This README does not claim that the application makes no network requests in every build or configuration.
-
 ### Requirements
 
 - Android Studio with Android SDK support
