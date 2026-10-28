@@ -186,4 +186,6 @@
     <string name="home_recent_empty">The tracks you listen to will show up here.</string>
     <string name="home_setting_title">Home page</string>
     <string name="home_setting_summary">Your Neko Mix, new albums and recently played as the first tab</string>
+    <string name="auto_gain">Auto gain</string>
+    <string name="auto_gain_summary">Evens out the volume between tracks so loud and quiet songs sound alike</string>
 </resources>
