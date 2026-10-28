@@ -36,6 +36,16 @@ data class Playlist(val id: String, val name: String, val songIds: List<Long>)
 private fun prefs(ctx: Context) =
     ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
+/** Die Einstellungen der App, auch für Listener (z. B. im Player-Dienst). */
+fun appPrefs(ctx: Context): android.content.SharedPreferences = prefs(ctx)
+
+/** Auto-Gain: gleicht die Lautstärke zwischen Titeln an. Ohne eigene Wahl an. */
+fun readAutoGain(ctx: Context): Boolean = prefs(ctx).getBoolean("auto_gain", true)
+
+fun saveAutoGain(ctx: Context, on: Boolean) {
+    prefs(ctx).edit().putBoolean("auto_gain", on).apply()
+}
+
 fun readSort(ctx: Context): SortMode =
     when (prefs(ctx).getString("sort", "date")) {
         "name" -> SortMode.NAME
