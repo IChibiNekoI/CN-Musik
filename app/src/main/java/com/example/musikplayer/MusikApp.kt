@@ -276,6 +276,15 @@ fun MusikApp(
         c.addListener(l)
         onDispose { c.removeListener(l) }
     }
+    // Auto-Gain: Titel ohne Messwert im Hintergrund nachmessen (schon gemessene werden übersprungen)
+    val autoGainOn = CornerSettings.autoGain
+    LaunchedEffect(songs.size, autoGainOn) {
+        if (autoGainOn && songs.isNotEmpty()) {
+            LoudnessScanner.start(ctx, songs.map { it.id to it.uri })
+        } else {
+            LoudnessScanner.stop()
+        }
+    }
     // Zuletzt gehört: Sobald ein Titel läuft (egal von wo gestartet), steht er im Verlauf. Pause und Weiter
     // beim selben Titel schiebt ihn nicht erneut nach vorn. Fürs Hörprotokoll des Mixes (30 Tage) zählt eine Wiedergabe erst nach 10 Sekunden,
     // damit Durchskippen es nicht verfälscht.
