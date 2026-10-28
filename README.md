@@ -106,4 +106,4 @@ ChibiNeko Music is designed for listening to music stored on your device.
 
 ChibiNeko Music is free and open-source software licensed under **GNU General Public License v3.0 or later**. See [LICENSE](LICENSE) for the full license text.
 
-Copyright © 2026 IChibiNekoI
+Copyright © 2026 IChibiNekoI.
