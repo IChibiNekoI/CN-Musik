@@ -33,6 +33,8 @@ object CornerSettings {
     var showOutputDevice by mutableStateOf(false)
     /** Startseite als erster Tab der Bibliothek, optional (standardmäßig an) */
     var showHome by mutableStateOf(true)
+    /** Auto-Gain (angeglichene Lautstärke), standardmäßig an */
+    var autoGain by mutableStateOf(true)
     private var loaded = false
 
     /** Gespeicherte Wahl einmal beim Start laden (vor der ersten Anzeige) */
@@ -46,6 +48,7 @@ object CornerSettings {
             waveProgress = readWaveProgress(ctx)
             showOutputDevice = readShowOutputDevice(ctx)
             showHome = readShowHome(ctx)
+            autoGain = readAutoGain(ctx)
         }
     }
 }
