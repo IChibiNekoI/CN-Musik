@@ -8,6 +8,7 @@ import android.media.MediaFormat
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.os.Process
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -22,6 +23,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.exp
@@ -125,9 +127,21 @@ class GainAudioProcessor : BaseAudioProcessor() {
     }
 }
 
-/** Gespeicherte Messwerte je Titel: Lautheit in LUFS und Spitzenpegel (linear, -1 = unbekannt). */
+/**
+ * Gespeicherte Messwerte je Titel: Lautheit in LUFS und Spitzenpegel (linear, -1 = unbekannt).
+ * Ist eine Messung gescheitert (Datei nicht lesbar, Format unbekannt), steht NaN als Lautheit drin, damit der Titel
+ * nicht bei jedem Start erneut versucht wird. Solche Titel laufen ohne Anpassung.
+ */
 object LoudnessCache {
-    class Entry(val lufs: Float, val peak: Float)
+    class Entry(val lufs: Float, val peak: Float) {
+        val failed: Boolean get() = lufs.isNaN()
+    }
+
+    val FAILED = Entry(Float.NaN, -1f)
+
+    /** Wird nach jedem neuen Messwert aufgerufen (vom Player-Controller genutzt, um die Verstärkung neu zu setzen). */
+    @Volatile
+    var onChange: (() -> Unit)? = null
 
     private val map = ConcurrentHashMap<Long, Entry>()
     private var loaded = false
@@ -167,6 +181,63 @@ object LoudnessCache {
             file?.appendText("$id,${entry.lufs},${entry.peak}\n")
         } catch (e: Exception) {
             // Speichern ist optional: ohne Datei wird beim nächsten Start neu gemessen
+        }
+        onChange?.invoke()
+    }
+}
+
+/**
+ * Misst im Hintergrund alle Titel der Bibliothek, die noch keinen Wert haben. Bereits gemessene Titel (auch
+ * gescheiterte) werden übersprungen, beim Start wird also nur Neues gemessen. Läuft sehr langsam und mit niedriger
+ * Priorität, wartet auf Messungen für den laufenden Titel und pausiert im Energiesparmodus.
+ */
+object LoudnessScanner {
+    /** Titel, die gerade gemessen werden (geteilt mit dem Controller, damit nichts doppelt gemessen wird). */
+    val inFlight: MutableSet<Long> = ConcurrentHashMap.newKeySet()
+
+    /** Anzahl dringender Messungen (laufender und nächste Titel): Solange eine läuft, pausiert der Hintergrundlauf. */
+    val urgent = AtomicInteger(0)
+
+    @Volatile private var generation = 0
+
+    fun stop() {
+        generation++
+    }
+
+    fun start(ctx: Context, items: List<Pair<Long, Uri>>) {
+        val app = ctx.applicationContext
+        val gen = ++generation
+        if (items.isEmpty()) return
+        Thread {
+            Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND)
+            val pm = app.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            fun cancelled() = gen != generation
+            fun nap(ms: Long): Boolean {
+                try { Thread.sleep(ms) } catch (e: InterruptedException) { return false }
+                return true
+            }
+            // Erst die App in Ruhe starten lassen
+            if (!nap(8_000)) return@Thread
+            for ((id, uri) in items) {
+                if (cancelled()) return@Thread
+                if (LoudnessCache.get(app, id) != null) continue
+                while (!cancelled() && (urgent.get() > 0 || pm?.isPowerSaveMode == true)) {
+                    if (!nap(2_000)) return@Thread
+                }
+                if (cancelled()) return@Thread
+                if (!inFlight.add(id)) continue
+                try {
+                    val entry = try { LoudnessAnalyzer.analyze(app, uri, 0L) } catch (e: Exception) { null }
+                    LoudnessCache.put(app, id, entry ?: LoudnessCache.FAILED)
+                } finally {
+                    inFlight.remove(id)
+                }
+                if (!nap(30)) return@Thread
+            }
+        }.apply {
+            name = "LoudnessScan"
+            isDaemon = true
+            start()
         }
     }
 }
@@ -379,7 +450,6 @@ class AutoGainController(
             r.run()
         }
     }
-    private val pending = ConcurrentHashMap.newKeySet<Long>()
     private var player: ExoPlayer? = null
 
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -394,12 +464,15 @@ class AutoGainController(
         player = p
         p.addListener(playerListener)
         appPrefs(ctx).registerOnSharedPreferenceChangeListener(prefsListener)
+        // Neue Messwerte (auch aus dem Hintergrundlauf) sofort übernehmen
+        LoudnessCache.onChange = { main.post { refresh() } }
         refresh()
     }
 
     fun release() {
         player?.removeListener(playerListener)
         appPrefs(ctx).unregisterOnSharedPreferenceChangeListener(prefsListener)
+        LoudnessCache.onChange = null
         player = null
         worker.shutdownNow()
     }
@@ -417,7 +490,8 @@ class AutoGainController(
         } else {
             val e = LoudnessCache.get(ctx, id)
             if (e != null) {
-                processor.setGainDb(autoGainDb(e.lufs, e.peak))
+                // gescheiterte Messung: unverändert abspielen
+                processor.setGainDb(if (e.failed) 0f else autoGainDb(e.lufs, e.peak))
             } else {
                 processor.setGainDb(0f)   // bis zur Messung unverändert, dann weich angepasst
                 request(current)
@@ -439,16 +513,21 @@ class AutoGainController(
         val id = item?.mediaId?.toLongOrNull() ?: return
         val uri = item.localConfiguration?.uri ?: return
         if (LoudnessCache.get(ctx, id) != null) return
-        if (!pending.add(id)) return
+        if (!LoudnessScanner.inFlight.add(id)) return   // wird schon gemessen
+        LoudnessScanner.urgent.incrementAndGet()
         try {
             worker.execute {
-                val entry = try { LoudnessAnalyzer.analyze(ctx, uri, 0L) } catch (e: Exception) { null }
-                if (entry != null) LoudnessCache.put(ctx, id, entry)
-                pending.remove(id)
-                if (entry != null) main.post { refresh() }
+                try {
+                    val entry = try { LoudnessAnalyzer.analyze(ctx, uri, 0L) } catch (e: Exception) { null }
+                    LoudnessCache.put(ctx, id, entry ?: LoudnessCache.FAILED)   // löst über onChange ein refresh() aus
+                } finally {
+                    LoudnessScanner.inFlight.remove(id)
+                    LoudnessScanner.urgent.decrementAndGet()
+                }
             }
         } catch (e: Exception) {
-            pending.remove(id)
+            LoudnessScanner.inFlight.remove(id)
+            LoudnessScanner.urgent.decrementAndGet()
         }
     }
 }
