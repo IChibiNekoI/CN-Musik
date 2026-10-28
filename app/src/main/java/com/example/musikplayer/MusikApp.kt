@@ -911,6 +911,22 @@ fun AppSettingsSheet(
                     colors = clear,
                     modifier = Modifier.bounceClick(pressedScale = 0.97f) { onHaptics(!haptics) }
                 )
+                val gainCtx = LocalContext.current
+                val gainOn = CornerSettings.autoGain
+                ListItem(
+                    headlineContent = { Text(str(R.string.auto_gain)) },
+                    supportingContent = { Text(str(R.string.auto_gain_summary)) },
+                    leadingContent = { WaveBarsIcon() },
+                    trailingContent = {
+                        Switch(checked = gainOn, onCheckedChange = null)
+                    },
+                    colors = clear,
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f) {
+                        val on = !gainOn
+                        CornerSettings.autoGain = on
+                        saveAutoGain(gainCtx, on)
+                    }
+                )
                 val outputCtx = LocalContext.current
                 val outputOn = CornerSettings.showOutputDevice
                 ListItem(
