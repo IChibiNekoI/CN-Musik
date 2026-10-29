@@ -65,7 +65,7 @@
     <string name="root_folder">Hauptverzeichnis</string>
     <string name="language">Sprache</string>
     <string name="language_system">Automatisch (Gerät)</string>
-    <string name="language_system_sub">Deutsch, sonst Englisch</string>
+    <string name="language_system_sub">Deutsch oder Spanisch, sonst Englisch</string>
     <string name="remove_from_playlist">Aus Playlist entfernen</string>
     <string name="add_to_playlist">Zur Playlist hinzufügen</string>
     <string name="track_info">Titel-Infos</string>
