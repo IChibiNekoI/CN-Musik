@@ -970,6 +970,7 @@ fun AppSettingsSheet(
                                 AppLang.SYSTEM -> str(R.string.language_system)
                                 AppLang.DE -> "Deutsch"
                                 AppLang.EN -> "English"
+                                AppLang.ES -> "Español"
                             }
                         )
                     },
@@ -1096,6 +1097,7 @@ fun AppSettingsSheet(
                 }
                 SortOption("Deutsch", null, language == AppLang.DE) { onLanguage(AppLang.DE) }
                 SortOption("English", null, language == AppLang.EN) { onLanguage(AppLang.EN) }
+                SortOption("Español", null, language == AppLang.ES) { onLanguage(AppLang.ES) }
                 Spacer(Modifier.height(32.dp + bottomExtra))
             }
             "progressStyle" -> {
