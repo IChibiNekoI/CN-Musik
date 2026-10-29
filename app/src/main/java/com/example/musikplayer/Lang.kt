@@ -9,8 +9,8 @@ import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import java.util.Locale
 
-/** Sprache der App: automatisch (Deutsch, wenn das Gerät auf Deutsch steht, sonst Englisch) oder fest gewählt. */
-enum class AppLang(val key: String) { SYSTEM("system"), DE("de"), EN("en") }
+/** Sprache der App: automatisch (Deutsch oder Spanisch, wenn das Gerät so eingestellt ist, sonst Englisch) oder fest gewählt. */
+enum class AppLang(val key: String) { SYSTEM("system"), DE("de"), EN("en"), ES("es") }
 
 object Lang {
     private fun prefs(ctx: Context) = ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -24,13 +24,17 @@ object Lang {
         prefs(ctx).edit().putString("language", lang.key).apply()
     }
 
-    /** Sprachcode, der tatsächlich verwendet wird: "de" oder "en". */
+    /** Sprachcode, der tatsächlich verwendet wird: "de", "es" oder "en". */
     fun effectiveCode(ctx: Context): String = when (load(ctx)) {
         AppLang.DE -> "de"
         AppLang.EN -> "en"
-        // Nur die erste Sprache des Geräts zählt: Deutsch -> Deutsch, alles andere -> Englisch
-        AppLang.SYSTEM ->
-            if (Resources.getSystem().configuration.locales[0].language == "de") "de" else "en"
+        AppLang.ES -> "es"
+        // Nur die erste Sprache des Geräts zählt: Deutsch -> Deutsch, Spanisch -> Spanisch, alles andere -> Englisch
+        AppLang.SYSTEM -> when (Resources.getSystem().configuration.locales[0].language) {
+            "de" -> "de"
+            "es" -> "es"
+            else -> "en"
+        }
     }
 
     /** Verpackt den Context so, dass alle Texte in der gewählten Sprache geladen werden. */
