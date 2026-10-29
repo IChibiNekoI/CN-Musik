@@ -378,7 +378,10 @@ fun MusikApp(
         LibraryBackdrop()
         Scaffold(
             containerColor = if (MenuBackdrop.active) androidx.compose.ui.graphics.Color.Transparent
-            else MaterialTheme.colorScheme.background
+            else MaterialTheme.colorScheme.background,
+            // Ausdrücklich setzen: Bei durchsichtigem Hintergrund wüsste Scaffold sonst keine Textfarbe und fiele auf
+            // Schwarz zurück (Titel, Symbole, Überschriften und Namen blieben schwarz)
+            contentColor = MaterialTheme.colorScheme.onBackground
         ) { pad ->
             val layoutDir = androidx.compose.ui.platform.LocalLayoutDirection.current
             // Nur oben Abstand lassen: unten laufen die Listen hinter Miniplayer und Navigationsleiste durch
