@@ -65,7 +65,7 @@
     <string name="root_folder">Root folder</string>
     <string name="language">Language</string>
     <string name="language_system">Automatic (device)</string>
-    <string name="language_system_sub">German, otherwise English</string>
+    <string name="language_system_sub">German or Spanish, otherwise English</string>
     <string name="remove_from_playlist">Remove from playlist</string>
     <string name="add_to_playlist">Add to playlist</string>
     <string name="track_info">Track info</string>
