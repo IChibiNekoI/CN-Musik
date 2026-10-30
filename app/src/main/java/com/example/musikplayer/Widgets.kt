@@ -257,7 +257,7 @@ class WidgetUpdater(private val ctx: Context, private val player: Player) {
 object WidgetRenderer {
     private class Assets(
         val songId: Long, val version: Int,
-        val cover: Bitmap?, val blurred: Bitmap?, val palette: WidgetPalette
+        val cover: Bitmap?, val art: Bitmap?, val palette: WidgetPalette
     )
 
     @Volatile private var assets: Assets? = null
@@ -269,7 +269,7 @@ object WidgetRenderer {
         return providers.any { mgr.getAppWidgetIds(ComponentName(ctx, it)).isNotEmpty() }
     }
 
-    /** Cover, verschwommenes Cover und Farben für den Titel; bleibt für den zuletzt gezeigten Titel im Speicher. */
+    /** Cover (klein für die Kachel, groß als Hintergrund) und Farben für den Titel; bleibt für den zuletzt gezeigten Titel im Speicher. */
     private fun assetsFor(ctx: Context, snap: WidgetSnapshot): Assets {
         val id = snap.songId
         val uri = snap.uri
@@ -280,8 +280,8 @@ object WidgetRenderer {
         val song = Song(id = id, title = snap.title, artist = snap.artist, uri = uri, folder = "")
         val cover = runBlocking { loadCoverBitmap(ctx, song, ver, 256) }
         val small = runBlocking { loadCoverBitmap(ctx, song, ver, 96) }
-        val blurred = runBlocking { loadBlurredBackdrop(ctx, song) }
-        val a = Assets(id, ver, cover, blurred, widgetPaletteFor(small ?: cover))
+        val art = runBlocking { loadCoverBitmap(ctx, song, ver, 512) }
+        val a = Assets(id, ver, cover, art, widgetPaletteFor(small ?: cover))
         assets = a
         return a
     }
@@ -362,9 +362,10 @@ object WidgetRenderer {
 
         // Hintergrund
         if (wide) {
-            rv.setImageViewBitmap(R.id.bg, a.blurred)
-            // Der Schleier über dem Cover macht Schrift und Tasten lesbar, wie im Player
-            rv.setInt(R.id.scrim, "setBackgroundColor", Color.argb(if (a.blurred != null) 0x99 else 0xFF, Color.red(p.surface), Color.green(p.surface), Color.blue(p.surface)))
+            // Das Cover füllt das ganze Widget, der Verlauf darüber (widget_scrim) hält Schrift und Tasten lesbar.
+            // Ohne Cover steht die Kartenfarbe dahinter.
+            rv.setInt(R.id.bg, "setBackgroundColor", p.card)
+            rv.setImageViewBitmap(R.id.bg, a.art)
         } else {
             rv.setInt(R.id.card, "setBackgroundColor", p.card)
             rv.setImageViewBitmap(R.id.cover, a.cover)
