@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
 import androidx.core.graphics.ColorUtils
@@ -162,10 +163,11 @@ private fun tonesFromSeed(seed: CoverSeed, dark: Boolean): Tones {
         Tones(
             listOf(
                 hsl(h, sb, 0.96f), hsl(h, sm, 0.10f), hsl(h, sm, 0.30f), hsl(h, sb, 0.88f),
-                hsl(h, sb, 0.995f), hsl(h, sb, 0.95f), hsl(h, sb, 0.93f),
-                hsl(h, sb, 0.91f), hsl(h, sb, 0.89f),
+                // Farbige Flächen (Karten, Kacheln, aktive Zeile) etwas dunkler als der Hintergrund, damit sie sich besser abheben
+                hsl(h, sb, 0.995f), hsl(h, sb, 0.93f), hsl(h, sb, 0.905f),
+                hsl(h, sb, 0.875f), hsl(h, sb, 0.855f),
                 hsl(h, sp, 0.38f), hsl(h, sp, 0.98f), hsl(h, sp, 0.88f), hsl(h, sm, 0.15f),
-                hsl(h, sm, 0.35f), hsl(h, sm, 0.98f), hsl(h, sm, 0.86f), hsl(h, sm, 0.15f),
+                hsl(h, sm, 0.35f), hsl(h, sm, 0.98f), hsl(h, sm, 0.83f), hsl(h, sm, 0.15f),
                 hsl(h, sm, 0.45f), hsl(h, sm, 0.80f)
             )
         )
@@ -229,5 +231,19 @@ fun CoverTheme(song: Song?, dark: Boolean, content: @Composable () -> Unit) {
         typography = MaterialTheme.typography,
         shapes = MaterialTheme.shapes,
         content = content
+    )
+}
+
+
+/** Farben für Widgets (ARGB): dunkel wie der Player und passend zum Cover. */
+class WidgetPalette(val surface: Int, val onSurface: Int, val onSurfaceVariant: Int, val primary: Int, val card: Int)
+
+/** Berechnet die Widget-Farben aus einem Cover. Ohne Cover (oder bei grauem Cover) neutral. */
+fun widgetPaletteFor(cover: Bitmap?): WidgetPalette {
+    val seed = cover?.let { seedFromBitmap(it) } ?: CoverSeed(0f, 0f, true)
+    val t = tonesFromSeed(seed, true)
+    return WidgetPalette(
+        surface = t.v[0].toArgb(), onSurface = t.v[1].toArgb(), onSurfaceVariant = t.v[2].toArgb(),
+        primary = t.v[9].toArgb(), card = t.v[7].toArgb()
     )
 }
