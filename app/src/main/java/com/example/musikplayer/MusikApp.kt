@@ -89,6 +89,18 @@ fun MusikApp(
     var sort by remember { mutableStateOf(readSort(ctx)) }
     var playlists by remember { mutableStateOf(readPlaylists(ctx)) }
     var favorites by remember { mutableStateOf(readFavorites(ctx)) }
+    // Das Widget kann Favoriten ändern: Änderungen in den gespeicherten Einstellungen hier übernehmen
+    DisposableEffect(Unit) {
+        val prefs = appPrefs(ctx)
+        val l = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "favorites") {
+                val f = readFavorites(ctx)
+                if (f != favorites) favorites = f
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(l)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(l) }
+    }
     var history by remember { mutableStateOf(readHistory(ctx)) }
     var playLog by remember { mutableStateOf(readPlayLog(ctx)) }
     // Titel, die aus der Warteschlange des Neko Mixes entfernt wurden, bleiben 30 Tage aus dem Mix
