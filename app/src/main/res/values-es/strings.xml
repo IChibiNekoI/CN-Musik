@@ -191,4 +191,10 @@
     <string name="home_setting_summary">Tu Neko Mix, álbumes nuevos y escuchadas recientemente como primera pestaña</string>
     <string name="auto_gain">Ganancia automática</string>
     <string name="auto_gain_summary">Iguala el volumen entre canciones para que las fuertes y las suaves suenen parecido</string>
+     <string name="widget_wide_label">Reproductor con portada de fondo</string>
+    <string name="widget_wide_desc">Portada desenfocada de fondo, forma de onda y controles</string>
+    <string name="widget_compact_label">Reproductor compacto</string>
+    <string name="widget_compact_desc">Portada pequeña, título, controles y barra de progreso</string>
+    <string name="widget_idle_title">Nada en reproducción</string>
+    <string name="widget_idle_hint">Toca para abrir la app</string>
 </resources>
