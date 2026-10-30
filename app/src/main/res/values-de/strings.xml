@@ -188,4 +188,10 @@
     <string name="home_setting_summary">Dein Neko Mix, neue Alben und zuletzt gehörte Titel als erster Tab</string>
     <string name="auto_gain">Konstante Lautstärke</string>
     <string name="auto_gain_summary">Gleicht die Lautstärke zwischen Titeln an</string>
+    <string name="widget_wide_label">Player mit Cover-Hintergrund</string>
+    <string name="widget_wide_desc">Verschwommenes Cover als Hintergrund, Wellenform und Steuerung</string>
+    <string name="widget_compact_label">Player kompakt</string>
+    <string name="widget_compact_desc">Kleines Cover, Titel, Steuerung und Fortschrittsbalken</string>
+    <string name="widget_idle_title">Nichts läuft</string>
+    <string name="widget_idle_hint">Tippen, um die App zu öffnen</string>
 </resources>
