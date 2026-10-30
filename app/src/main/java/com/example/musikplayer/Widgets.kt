@@ -79,13 +79,34 @@ object WidgetHub {
 
 abstract class BaseWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        WidgetHub.requestRefresh(context)
+        refreshNow(context)
     }
 
     override fun onAppWidgetOptionsChanged(
         context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int, newOptions: android.os.Bundle
     ) {
-        WidgetHub.requestRefresh(context)
+        refreshNow(context)
+    }
+
+    /** Läuft der Player-Dienst, aktualisiert er die Widgets. Sonst wird der Ruhezustand gezeichnet, und zwar so, dass
+     *  das System den Prozess bis zum Ende am Leben hält (goAsync). */
+    private fun refreshNow(context: Context) {
+        val u = WidgetHub.updater
+        if (u != null) {
+            u.refresh(true)
+            return
+        }
+        val pending = goAsync()
+        val app = context.applicationContext
+        Thread {
+            try {
+                WidgetRenderer.update(app, WidgetSnapshot.IDLE, true)
+            } catch (e: Exception) {
+                // Das Widget bleibt dann beim Startlayout
+            } finally {
+                pending.finish()
+            }
+        }.start()
     }
 }
 
