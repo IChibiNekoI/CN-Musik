@@ -18,6 +18,7 @@ class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private val gainProcessor = GainAudioProcessor()
     private var autoGain: AutoGainController? = null
+    private var widgets: WidgetUpdater? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -42,6 +43,9 @@ class PlaybackService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true)
             .build()
         autoGain = AutoGainController(this, gainProcessor).also { it.attach(player) }
+        // Widgets auf dem Startbildschirm: bekommen Zustand und Tasten vom Player
+        WidgetHub.player = player
+        widgets = WidgetUpdater(this, player).also { WidgetHub.updater = it }
         // Tipp auf die Benachrichtigung / das Sperrbildschirm-Widget öffnet den Player
         val openIntent = Intent(this, MainActivity::class.java).apply {
             putExtra(MainActivity.EXTRA_OPEN_PLAYER, true)
@@ -61,6 +65,10 @@ class PlaybackService : MediaSessionService() {
     override fun onDestroy() {
         autoGain?.release()
         autoGain = null
+        WidgetHub.player = null
+        WidgetHub.updater = null
+        widgets?.release()
+        widgets = null
         session?.run {
             player.release()
             release()
