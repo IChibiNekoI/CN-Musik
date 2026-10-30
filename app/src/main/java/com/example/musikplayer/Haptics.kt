@@ -7,6 +7,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
@@ -71,7 +72,7 @@ object Haptics {
         try {
             val amp = if (vibrator.hasAmplitudeControl()) amplitude else VibrationEffect.DEFAULT_AMPLITUDE
             vibrate(vibrator, VibrationEffect.createOneShot(durationMs, amp))
-        } catch (_: Exception) {
+        } catch (e: Exception) {
         }
     }
 
@@ -119,6 +120,29 @@ class ScrubHaptics(private val ctx: Context) {
         if (step == lastStep) return
         lastStep = step
         if (fraction <= 0f || fraction >= 1f) Haptics.snap(ctx) else Haptics.tick(ctx)
+    }
+}
+
+/**
+ * Leichtes Ticken, wenn man beim Scrollen oben oder unten in einer Liste ankommt.
+ * Gilt nur, wenn man selbst scrollt oder gerade losgelassen hat (Fling), nicht wenn sich die Liste von selbst ändert.
+ * Läuft über den Haptik-Schalter in den Einstellungen.
+ */
+@Composable
+fun EdgeHaptics(state: ScrollableState) {
+    val ctx = LocalContext.current
+    LaunchedEffect(state) {
+        var lastBack = state.canScrollBackward
+        var lastForward = state.canScrollForward
+        var wasScrolling = false
+        snapshotFlow { Triple(state.canScrollBackward, state.canScrollForward, state.isScrollInProgress) }
+            .collect { (back, forward, scrolling) ->
+                val arrived = (lastBack && !back) || (lastForward && !forward)
+                if (arrived && (scrolling || wasScrolling)) Haptics.tick(ctx)
+                lastBack = back
+                lastForward = forward
+                wasScrolling = scrolling
+            }
     }
 }
 
