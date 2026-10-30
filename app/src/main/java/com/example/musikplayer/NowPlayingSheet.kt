@@ -134,15 +134,16 @@ fun NowPlayingSheet(
     onQueueRemoved: (Song) -> Unit = {},
     onDismiss: () -> Unit
 ) {
-    // Der Player ist immer dunkel -> Statusleisten-Icons hell halten
+    // Der Player folgt dem hellen oder dunklen Modus der App; die Icons der Statusleiste passen sich an
+    val dark = androidx.compose.foundation.isSystemInDarkTheme()
     val view = androidx.compose.ui.platform.LocalView.current
-    DisposableEffect(view) {
+    DisposableEffect(view, dark) {
         val window = (view.context as? android.app.Activity)?.window
         val ctrl = window?.let { WindowCompat.getInsetsController(it, view) }
         val prevStatus = ctrl?.isAppearanceLightStatusBars
         val prevNav = ctrl?.isAppearanceLightNavigationBars
-        ctrl?.isAppearanceLightStatusBars = false
-        ctrl?.isAppearanceLightNavigationBars = false
+        ctrl?.isAppearanceLightStatusBars = !dark
+        ctrl?.isAppearanceLightNavigationBars = !dark
         onDispose {
             if (ctrl != null) {
                 if (prevStatus != null) ctrl.isAppearanceLightStatusBars = prevStatus
@@ -150,7 +151,7 @@ fun NowPlayingSheet(
             }
         }
     }
-    CoverTheme(song, dark = true) {
+    CoverTheme(song, dark = dark) {
         NowPlayingSheetContent(song, isPlaying, shuffle, repeat, c, library, showAudioInfo, origin, motion, fingerDriven, onGoToAlbum, onAddToPlaylist, isFavorite, onToggleFavorite, onQueueRemoved, onDismiss)
     }
 }
