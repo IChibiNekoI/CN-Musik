@@ -188,4 +188,10 @@
     <string name="home_setting_summary">Your Neko Mix, new albums and recently played as the first tab</string>
     <string name="auto_gain">Auto gain</string>
     <string name="auto_gain_summary">Evens out the volume between tracks so loud and quiet songs sound alike</string>
+    <string name="widget_wide_label">Player with cover background</string>
+    <string name="widget_wide_desc">Blurred cover as background, waveform and controls</string>
+    <string name="widget_compact_label">Compact player</string>
+    <string name="widget_compact_desc">Small cover, title, controls and progress bar</string>
+    <string name="widget_idle_title">Nothing playing</string>
+    <string name="widget_idle_hint">Tap to open the app</string>
 </resources>
