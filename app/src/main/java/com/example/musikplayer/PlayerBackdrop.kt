@@ -96,7 +96,7 @@ fun SoftCoverImage(bitmap: Bitmap?, modifier: Modifier = Modifier) {
                     alpha = if (top != null) 1f else 1f - a.value
                 },
                 contentScale = ContentScale.Crop,
-                filterQuality = FilterQuality.High
+                filterQuality = FilterQuality.Low
             )
         }
         top?.let { t ->
@@ -108,7 +108,7 @@ fun SoftCoverImage(bitmap: Bitmap?, modifier: Modifier = Modifier) {
                     scaleX = sc; scaleY = sc
                 },
                 contentScale = ContentScale.Crop,
-                filterQuality = FilterQuality.High
+                filterQuality = FilterQuality.Low
             )
         }
     }
