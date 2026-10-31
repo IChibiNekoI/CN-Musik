@@ -258,17 +258,15 @@ fun BounceSheet(
         )
     ) {
         DialogSystemBars()
+        // Abdunkelung über das Fenster selbst: deckt den ganzen Bildschirm inkl. Statusleiste, ohne Doppel-Abdunkelung
+        val away = if (sheetH > 0f) (drag / sheetH).coerceIn(0f, 1f) else 0f
+        DialogDim(SHEET_DIM * progress.value.coerceIn(0f, 1f) * (1f - away))
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val maxSheetH = maxHeight * 0.9f
-            // Abdunkelung hinter dem Menü, Tipp darauf schließt
+            // Tipp neben das Menü schließt es
             Box(
                 Modifier
                     .fillMaxSize()
-                    .graphicsLayer {
-                        val away = if (sheetH > 0f) (drag / sheetH).coerceIn(0f, 1f) else 0f
-                        alpha = progress.value.coerceIn(0f, 1f) * (1f - away)
-                    }
-                    .background(scrimColor)
                     .clickable(interactionSource = noRipple, indication = null) { closeSimple() }
             )
             Surface(
@@ -305,3 +303,6 @@ fun BounceSheet(
         }
     }
 }
+
+/** Stärke der Abdunkelung hinter dem Menü (entspricht dem bisherigen Aussehen). */
+private const val SHEET_DIM = 0.7f
