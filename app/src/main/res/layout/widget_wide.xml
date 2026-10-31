@@ -4,9 +4,17 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@drawable/widget_round"
-    android:clipToOutline="true">
+    android:layout_height="match_parent">
+
+    <!-- Die Karte sitzt mit etwas Abstand von oben: Der Launcher gibt dem Widget unten mehr Platz als oben,
+         so sind die Abstände oben und unten gleich (Wert bei Bedarf anpassen) -->
+    <FrameLayout
+        android:id="@+id/frame"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="14dp"
+        android:background="@drawable/widget_round"
+        android:clipToOutline="true">
 
     <ImageView
         android:id="@+id/bg"
@@ -24,7 +32,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:padding="12dp">
+        android:padding="10dp">
 
         <TextView
             android:id="@+id/title"
@@ -115,4 +123,5 @@
                     android:scaleType="fitCenter" />
             </LinearLayout>
     </LinearLayout>
+    </FrameLayout>
 </FrameLayout>
