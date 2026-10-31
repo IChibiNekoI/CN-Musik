@@ -10,6 +10,7 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.ForwardingAudioSink
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 
@@ -32,11 +33,21 @@ class PlaybackService : MediaSessionService() {
                 context: Context,
                 enableFloatOutput: Boolean,
                 enableAudioTrackPlaybackParams: Boolean
-            ): AudioSink = DefaultAudioSink.Builder(context)
-                .setEnableFloatOutput(enableFloatOutput)
-                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                .setAudioProcessors(arrayOf(gainProcessor))
-                .build()
+            ): AudioSink {
+                val sink = DefaultAudioSink.Builder(context)
+                    .setEnableFloatOutput(enableFloatOutput)
+                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                    .setAudioProcessors(arrayOf(gainProcessor))
+                    .build()
+                // Der Player meldet hier, dass das Audio eines neuen Titels beginnt: Die Auto-Gain-Verstärkung
+                // wechselt dann genau an dieser Stelle, schon für das erste Sample des neuen Titels
+                return object : ForwardingAudioSink(sink) {
+                    override fun handleDiscontinuity() {
+                        gainProcessor.onStreamBoundary()
+                        super.handleDiscontinuity()
+                    }
+                }
+            }
         }
         val player = ExoPlayer.Builder(this, renderers)
             .setAudioAttributes(attrs, true)
