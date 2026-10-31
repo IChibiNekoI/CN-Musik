@@ -568,13 +568,16 @@ private fun NowPlayingSheetContent(
                             contentKey = { it.id },
                             transitionSpec = {
                                 val dir = SkipDirection.dir
+                                // Nur ein kurzes Stück gleiten (weniger als der Seitenrand von 24 dp): Das Cover bleibt
+                                // ganz auf dem Bildschirm. Sonst wird es am Bildschirmrand abgeschnitten und wirkt dort eckig.
+                                val slidePx = with(dens) { 18.dp.roundToPx() }
                                 (slideInHorizontally(
                                     animationSpec = tween(Motion.MEDIUM, easing = Motion.Ease),
-                                    initialOffsetX = { w -> dir * w / 4 }
+                                    initialOffsetX = { dir * slidePx }
                                 ) + fadeIn(tween(Motion.MEDIUM - 40))) togetherWith
                                     (slideOutHorizontally(
                                         animationSpec = tween(Motion.MEDIUM, easing = Motion.Ease),
-                                        targetOffsetX = { w -> -dir * w / 4 }
+                                        targetOffsetX = { -dir * slidePx }
                                     ) + fadeOut(tween(Motion.FAST))) using SizeTransform(clip = false)
                             },
                             label = "cover"
