@@ -63,6 +63,15 @@ object WidgetHub {
     @Volatile var player: Player? = null
     @Volatile var updater: WidgetUpdater? = null
 
+    /** Ist die App gerade sichtbar? Dann sind die Widgets verdeckt, und der Sekundentakt kann pausieren. */
+    @Volatile var appVisible: Boolean = false
+        private set
+
+    fun setAppVisible(visible: Boolean) {
+        appVisible = visible
+        updater?.onAppVisibilityChanged()
+    }
+
     /** Zeichnet alle Widgets neu: mit dem Player, falls der Dienst läuft, sonst im Ruhezustand. */
     fun requestRefresh(ctx: Context) {
         val u = updater
@@ -161,7 +170,10 @@ class WidgetUpdater(private val ctx: Context, private val player: Player) {
     private val tick = object : Runnable {
         override fun run() {
             if (!player.isPlaying) return
-            if (power.isInteractive) refresh(false)
+            // Bildschirm aus oder App im Vordergrund: Die Widgets sieht gerade niemand, der Takt pausiert.
+            // Er startet wieder, wenn der Bildschirm angeht (screenReceiver) oder die App in den Hintergrund geht.
+            if (WidgetHub.appVisible || !power.isInteractive) return
+            refresh(false)
             main.postDelayed(this, 1000L)
         }
     }
@@ -201,6 +213,17 @@ class WidgetUpdater(private val ctx: Context, private val player: Player) {
         appPrefs(ctx).registerOnSharedPreferenceChangeListener(prefsListener)
         refresh(true)
         if (player.isPlaying) main.postDelayed(tick, 1000L)
+    }
+
+    /** Die App wurde sichtbar oder verdeckt: Takt anhalten bzw. mit sofortiger Aktualisierung neu starten. */
+    fun onAppVisibilityChanged() {
+        main.post {
+            main.removeCallbacks(tick)
+            if (!WidgetHub.appVisible && player.isPlaying && power.isInteractive) {
+                refresh(false)
+                main.postDelayed(tick, 1000L)
+            }
+        }
     }
 
     fun release() {
