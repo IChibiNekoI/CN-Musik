@@ -95,6 +95,7 @@ fun SongInfoDialog(song: Song, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text(str(R.string.track_info)) },
         text = {
+            DialogSystemBars()
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 rows.forEachIndexed { i, (label, value) ->
                     if (i > 0) Spacer(Modifier.height(12.dp))
