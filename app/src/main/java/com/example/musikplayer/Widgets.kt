@@ -120,8 +120,8 @@ class WidgetActionReceiver : BroadcastReceiver() {
         val p = WidgetHub.player ?: return
         when (intent.action) {
             ACTION_PLAY_PAUSE -> if (p.isPlaying) p.pause() else p.play()
-            ACTION_NEXT -> if (p.hasNextMediaItem()) { p.seekToNextMediaItem(); p.play() }
-            ACTION_PREV -> if (p.hasPreviousMediaItem()) { p.seekToPreviousMediaItem(); p.play() }
+            ACTION_NEXT -> skipNext(p)
+            ACTION_PREV -> skipPrev(p)
             ACTION_SHUFFLE -> {
                 val on = !p.shuffleModeEnabled
                 p.shuffleModeEnabled = on
