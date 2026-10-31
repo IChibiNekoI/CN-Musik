@@ -86,16 +86,12 @@ fun BounceAlertDialog(
         )
     ) {
         DialogSystemBars()
-        // Eigene Abdunkelung und Animation statt der des Systems (sonst blendet das Fenster doppelt aus)
-        val window = (LocalView.current.parent as? DialogWindowProvider)?.window
-        SideEffect {
-            window?.setDimAmount(0f)
-            window?.setWindowAnimations(-1)
-        }
+        // Abdunkelung über das Fenster selbst (animiert): Sie deckt den ganzen Bildschirm, auch die Statusleiste.
+        // Eine eigene Fläche im Fenster würde die Statusleiste auslassen und dort einen hellen Streifen lassen.
+        DialogDim(0.5f * progress.value.coerceIn(0f, 1f))
         Box(
             Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.5f * progress.value.coerceIn(0f, 1f)))
                 .clickable(interactionSource = noRipple, indication = null, enabled = visible) { onDismissRequest() },
             contentAlignment = Alignment.Center
         ) {
@@ -169,5 +165,21 @@ fun DialogSystemBars() {
             to.isAppearanceLightStatusBars = from.isAppearanceLightStatusBars
             to.isAppearanceLightNavigationBars = from.isAppearanceLightNavigationBars
         }
+    }
+}
+
+/**
+ * Dunkelt alles hinter dem Dialog-Fenster ab, über die Fensterabdunkelung des Systems (ganzer Bildschirm,
+ * auch Statusleiste). [amount] 0 = keine, 1 = schwarz. Die eigene Fenster-Animation des Systems ist aus, die
+ * Animation steuert der Aufrufer über [amount].
+ */
+@Composable
+fun DialogDim(amount: Float) {
+    val view = LocalView.current
+    SideEffect {
+        val window = (view.parent as? DialogWindowProvider)?.window ?: return@SideEffect
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        window.setDimAmount(amount.coerceIn(0f, 1f))
+        window.setWindowAnimations(-1)
     }
 }
