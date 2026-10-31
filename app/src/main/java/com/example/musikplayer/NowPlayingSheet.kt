@@ -564,6 +564,18 @@ private fun NowPlayingSheetContent(
                                 )
                             }
                     ) {
+                        // Der Schatten liegt fest hinter dem Wechsel. Im ein- und ausblendenden Cover würde er zusammen mit
+                        // diesem in eine Ebene gezeichnet und dabei am Rechteck des Covers abgeschnitten: kurz eckige Ecken.
+                        if (CornerSettings.coverShadow) {
+                            Box(
+                                Modifier
+                                    .size(coverSize)
+                                    .layeredShadow(
+                                        COVER_SHADOW,
+                                        RoundedCornerShape(coverRadius(LocalCoverStyle.current, coverSize, 20.dp))
+                                    )
+                            )
+                        }
                         // Beim Titelwechsel gleitet das alte Cover heraus und das neue herein
                         // (vorwärts von rechts, zurück von links). Ändern sich nur die Tags, bleibt das Cover ruhig.
                         AnimatedContent(
@@ -586,8 +598,7 @@ private fun NowPlayingSheetContent(
                             label = "cover"
                         ) { s ->
                             Cover(
-                                s, coverSize, corner = 20.dp,
-                                shadow = if (CornerSettings.coverShadow) COVER_SHADOW else 0.dp
+                                s, coverSize, corner = 20.dp
                             )
                         }
                     }
