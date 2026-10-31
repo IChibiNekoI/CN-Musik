@@ -6,6 +6,7 @@ import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
+import android.os.BatteryManager
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
@@ -297,7 +298,12 @@ object LoudnessScanner {
         Thread {
             Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND)
             val pm = app.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            val bm = app.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
             fun cancelled() = gen != generation
+            // Die Vorab-Messung der ganzen Bibliothek ist reine Vorarbeit (der laufende und die nächsten Titel werden
+            // ohnehin sofort gemessen). Sie läuft deshalb nur am Ladegerät, nicht im Energiesparmodus und nicht,
+            // solange eine dringende Messung läuft.
+            fun mayScan() = urgent.get() == 0 && pm?.isPowerSaveMode != true && (bm?.isCharging ?: true)
             fun nap(ms: Long): Boolean {
                 try { Thread.sleep(ms) } catch (e: InterruptedException) { return false }
                 return true
@@ -307,8 +313,8 @@ object LoudnessScanner {
             for ((id, uri) in items) {
                 if (cancelled()) return@Thread
                 if (LoudnessCache.get(app, id) != null) continue
-                while (!cancelled() && (urgent.get() > 0 || pm?.isPowerSaveMode == true)) {
-                    if (!nap(2_000)) return@Thread
+                while (!cancelled() && !mayScan()) {
+                    if (!nap(5_000)) return@Thread
                 }
                 if (cancelled()) return@Thread
                 if (!inFlight.add(id)) continue
@@ -318,7 +324,7 @@ object LoudnessScanner {
                 } finally {
                     inFlight.remove(id)
                 }
-                if (!nap(30)) return@Thread
+                if (!nap(250)) return@Thread   // Pause zwischen den Titeln: der Prozessor wird nicht dauerhaft ausgelastet
             }
         }.apply {
             name = "LoudnessScan"
