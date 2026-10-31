@@ -265,6 +265,7 @@ fun TagEditDialog(song: Song, onDismiss: () -> Unit) {
         onDismissRequest = { if (!saving) onDismiss() },
         title = { Text(str(R.string.edit_tags)) },
         text = {
+            DialogSystemBars()
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 when {
                     failedToLoad -> Text(str(R.string.tag_read_failed))
