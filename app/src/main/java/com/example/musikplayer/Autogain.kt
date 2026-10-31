@@ -10,6 +10,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.os.Process
+import android.os.SystemClock
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -66,7 +67,11 @@ fun autoGainDb(lufs: Float, peak: Float): Float {
     return g
 }
 
-/** Multipliziert das Signal mit einer Verstärkung, die sich weich ändert. Sanfter Begrenzer gegen Übersteuern. */
+/**
+ * Multipliziert das Signal mit einer Verstärkung. Änderungen im laufenden Titel (z. B. Auto-Gain an/aus) blendet er weich
+ * ein. An der Titelgrenze springt die Verstärkung dagegen ohne Übergang auf den Wert des neuen Titels, und zwar schon
+ * bei seinem ersten Sample (siehe [onStreamBoundary]). Ein sanfter Begrenzer fängt Spitzen ab.
+ */
 @androidx.annotation.OptIn(UnstableApi::class)
 class GainAudioProcessor : BaseAudioProcessor() {
     @Volatile private var targetGain = 1f
@@ -74,9 +79,85 @@ class GainAudioProcessor : BaseAudioProcessor() {
     private var smoothing = 0.0005f
     private var isFloat = false
 
-    /** Gewünschte Verstärkung in dB (0 = unverändert). Darf von jedem Thread gesetzt werden. */
+    // Verstärkung des laufenden und des nächsten Titels, vom Controller gesetzt (linear)
+    @Volatile private var curGain = 1f
+    @Volatile private var nextGain = 1f
+
+    // Titelgrenze schon überschritten, die Wechsel-Meldung des Players steht noch aus: Der Wert des neuen Titels bleibt
+    @Volatile private var held = false
+    @Volatile private var heldAt = 0L
+
+    // Zeitpunkt des letzten Sprungs oder Neustarts: Der nächste Anfang gehört dann zum laufenden Titel, nicht zum nächsten
+    @Volatile private var skipAt = -100_000L
+
+    // Position des laufenden Titels, um unpassende Meldungen mitten im Titel zu erkennen
+    @Volatile private var anchorPos = 0L
+    @Volatile private var anchorDur = 0L
+    @Volatile private var anchorAt = 0L
+    @Volatile private var anchorPlaying = false
+
+    private fun lin(db: Float) = 10f.pow(db / 20f)
+
+    /** Setzt die Verstärkung sofort und fest (z. B. Auto-Gain aus), jeder Wartezustand endet. Darf von jedem Thread kommen. */
     fun setGainDb(db: Float) {
-        targetGain = 10f.pow(db / 20f)
+        val g = lin(db)
+        curGain = g
+        nextGain = g
+        held = false
+        targetGain = g
+    }
+
+    /** Verstärkung (dB) des laufenden und des nächsten Titels. Wirkt im laufenden Titel weich. */
+    fun setGains(curDb: Float, nextDb: Float) {
+        curGain = lin(curDb)
+        nextGain = lin(nextDb)
+        if (!held) targetGain = curGain
+    }
+
+    /** Ein Titelwechsel (automatisch) wurde gemeldet: Der Wert des neuen Titels gilt jetzt auch für den Controller. */
+    fun itemChanged() {
+        held = false
+    }
+
+    /** Der Nutzer hat gesprungen oder eine neue Warteschlange gestartet: Der nächste Anfang gehört zum laufenden Titel. */
+    fun markSkip() {
+        skipAt = SystemClock.elapsedRealtime()
+        held = false
+    }
+
+    fun setPlayback(positionMs: Long, durationMs: Long, playing: Boolean) {
+        anchorPos = positionMs
+        anchorDur = durationMs
+        anchorAt = SystemClock.elapsedRealtime()
+        anchorPlaying = playing
+    }
+
+    /**
+     * Wird vom Wiedergabe-Thread aufgerufen, kurz bevor das erste Audio eines neuen Titels in diese Kette gelangt.
+     * Die Wechsel-Meldung des Players kommt erst, wenn man den Titel hört, also später, weil der Player vorausrechnet.
+     * Deshalb setzt diese Stelle die Verstärkung schon für das allererste Sample, ohne Übergang.
+     */
+    fun onStreamBoundary() {
+        val now = SystemClock.elapsedRealtime()
+        when {
+            // Sprung oder Start: Der neue Anfang gehört zum Titel, der gerade als laufend gilt
+            now - skipAt < 2_000L -> { targetGain = curGain; held = false }
+            // Fortlaufender Wechsel: nur, wenn der laufende Titel fast zu Ende ist, sonst ist die Meldung unpassend
+            plausibleEnd(now) -> { targetGain = nextGain; held = true; heldAt = now }
+            else -> return
+        }
+        currentGain = targetGain
+    }
+
+    private fun plausibleEnd(now: Long): Boolean {
+        if (anchorDur <= 0L) return true
+        val pos = anchorPos + if (anchorPlaying) now - anchorAt else 0L
+        return anchorDur - pos < 12_000L
+    }
+
+    override fun onFlush() {
+        // Nach Sprung oder Neustart sofort auf dem Zielwert beginnen, nicht von einem alten Wert aus
+        currentGain = targetGain
     }
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
@@ -97,6 +178,11 @@ class GainAudioProcessor : BaseAudioProcessor() {
         if (size == 0) return
         val out = replaceOutputBuffer(size).order(ByteOrder.nativeOrder())
         val channels = inputAudioFormat.channelCount.coerceAtLeast(1)
+        // Kam die Wechsel-Meldung des Players nie (sollte nicht vorkommen), den Wartezustand nach einer Weile beenden
+        if (held && SystemClock.elapsedRealtime() - heldAt > 6_000L) {
+            held = false
+            targetGain = curGain
+        }
         val target = targetGain
         val bytesPerSample = if (isFloat) 4 else 2
         val frames = size / (bytesPerSample * channels)
@@ -456,8 +542,20 @@ class AutoGainController(
         if (key == "auto_gain") main.post { refresh() }
     }
     private val playerListener = object : Player.Listener {
-        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) { refresh() }
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            // Sprung oder neue Warteschlange: Der nächste Audio-Anfang gehört zum laufenden Titel. Sonst ein fortlaufender Wechsel.
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK ||
+                reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED
+            ) processor.markSkip() else processor.itemChanged()
+            refresh()
+        }
         override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) { refresh() }
+        override fun onPositionDiscontinuity(
+            oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int
+        ) { refresh() }
+        override fun onIsPlayingChanged(isPlaying: Boolean) { refresh() }
+        override fun onRepeatModeChanged(repeatMode: Int) { refresh() }
+        override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) { refresh() }
     }
 
     fun attach(p: ExoPlayer) {
@@ -477,6 +575,13 @@ class AutoGainController(
         worker.shutdownNow()
     }
 
+    /** Verstärkung (dB) für einen Titel aus dem Speicher; null = noch nicht gemessen. */
+    private fun gainDbOf(item: MediaItem?): Float? {
+        val id = item?.mediaId?.toLongOrNull() ?: return null
+        val e = LoudnessCache.get(ctx, id) ?: return null
+        return if (e.failed) 0f else autoGainDb(e.lufs, e.peak)   // gescheiterte Messung: unverändert abspielen
+    }
+
     private fun refresh() {
         val p = player ?: return
         if (!readAutoGain(ctx)) {
@@ -484,29 +589,30 @@ class AutoGainController(
             return
         }
         val current = p.currentMediaItem
-        val id = current?.mediaId?.toLongOrNull()
-        if (id == null) {
+        if (current?.mediaId?.toLongOrNull() == null) {
             processor.setGainDb(0f)
-        } else {
-            val e = LoudnessCache.get(ctx, id)
-            if (e != null) {
-                // gescheiterte Messung: unverändert abspielen
-                processor.setGainDb(if (e.failed) 0f else autoGainDb(e.lufs, e.peak))
-            } else {
-                processor.setGainDb(0f)   // bis zur Messung unverändert, dann weich angepasst
-                request(current)
-            }
+            return
         }
-        // Die nächsten zwei Titel vorab messen, damit ihre Verstärkung beim Wechsel schon feststeht
-        var idx = p.currentMediaItemIndex
+        val curDb = gainDbOf(current) ?: run {
+            request(current)
+            0f   // bis zur Messung unverändert, dann weich angepasst
+        }
+        // Der Titel danach: Seine Verstärkung steht schon bereit, wenn er beginnt. Die nächsten zwei werden vorab gemessen.
+        var nextDb: Float? = null
         val tl = p.currentTimeline
         if (!tl.isEmpty) {
-            repeat(2) {
+            var idx = p.currentMediaItemIndex
+            for (step in 0 until 2) {
                 idx = tl.getNextWindowIndex(idx, p.repeatMode, p.shuffleModeEnabled)
-                if (idx == C.INDEX_UNSET) return
-                if (idx in 0 until p.mediaItemCount) request(p.getMediaItemAt(idx))
+                if (idx == C.INDEX_UNSET || idx !in 0 until p.mediaItemCount) break
+                val item = p.getMediaItemAt(idx)
+                if (step == 0) nextDb = gainDbOf(item) ?: 0f
+                request(item)
             }
         }
+        processor.setGains(curDb, nextDb ?: curDb)
+        val dur = p.duration.let { if (it == C.TIME_UNSET || it < 0L) 0L else it }
+        processor.setPlayback(p.currentPosition.coerceAtLeast(0L), dur, p.isPlaying)
     }
 
     private fun request(item: MediaItem?) {
