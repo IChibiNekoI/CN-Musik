@@ -127,7 +127,8 @@ class ScrubHaptics(private val ctx: Context) {
 }
 
 /**
- * Leichtes Ticken, wenn man beim Scrollen oben oder unten in einer Liste ankommt.
+ * Vibration, wenn man beim Scrollen oben oder unten in einer Liste ankommt, dieselbe wie beim Ziehen am Fortschrittsbalken
+ * und beim Einrasten des Players ([Haptics.snap]).
  * Gilt nur, wenn man selbst scrollt oder gerade losgelassen hat (Fling), nicht wenn sich die Liste von selbst ändert.
  * Läuft über den Haptik-Schalter in den Einstellungen.
  */
@@ -141,7 +142,7 @@ fun EdgeHaptics(state: ScrollableState) {
         snapshotFlow { Triple(state.canScrollBackward, state.canScrollForward, state.isScrollInProgress) }
             .collect { (back, forward, scrolling) ->
                 val arrived = (lastBack && !back) || (lastForward && !forward)
-                if (arrived && (scrolling || wasScrolling)) Haptics.tick(ctx)
+                if (arrived && (scrolling || wasScrolling)) Haptics.snap(ctx)
                 lastBack = back
                 lastForward = forward
                 wasScrolling = scrolling
@@ -149,7 +150,7 @@ fun EdgeHaptics(state: ScrollableState) {
     }
 }
 
-/** Liste: tickt nur, wenn man oben oder unten ankommt, nicht während des Scrollens ([EdgeHaptics]). */
+/** Liste: vibriert nur, wenn man oben oder unten ankommt, nicht während des Scrollens ([EdgeHaptics]). */
 @Composable
 fun HapticLazyColumn(
     modifier: Modifier = Modifier,
@@ -161,7 +162,7 @@ fun HapticLazyColumn(
     LazyColumn(modifier = modifier, state = state, contentPadding = contentPadding, content = content)
 }
 
-/** Raster: tickt nur, wenn man oben oder unten ankommt, nicht während des Scrollens ([EdgeHaptics]). */
+/** Raster: vibriert nur, wenn man oben oder unten ankommt, nicht während des Scrollens ([EdgeHaptics]). */
 @Composable
 fun HapticLazyGrid(
     columns: GridCells,
