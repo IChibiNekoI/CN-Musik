@@ -146,7 +146,7 @@ fun EdgeHaptics(state: ScrollableState) {
     }
 }
 
-/** Liste mit leichtem Tick, wenn beim Scrollen ein neuer Eintrag den oberen Rand erreicht. */
+/** Liste ohne Vibration beim Scrollen (Name bleibt, damit alle Aufrufe unverändert funktionieren). */
 @Composable
 fun HapticLazyColumn(
     modifier: Modifier = Modifier,
@@ -154,18 +154,10 @@ fun HapticLazyColumn(
     contentPadding: PaddingValues = PaddingValues(),
     content: LazyListScope.() -> Unit
 ) {
-    val ctx = LocalContext.current
-    LaunchedEffect(state) {
-        var last = state.firstVisibleItemIndex
-        snapshotFlow { state.firstVisibleItemIndex to state.isScrollInProgress }.collect { (idx, scrolling) ->
-            if (scrolling && idx != last) Haptics.tick(ctx)
-            last = idx
-        }
-    }
     LazyColumn(modifier = modifier, state = state, contentPadding = contentPadding, content = content)
 }
 
-/** Raster mit leichtem Tick, wenn beim Scrollen eine neue Zeile den oberen Rand erreicht. */
+/** Raster ohne Vibration beim Scrollen (Name bleibt, damit alle Aufrufe unverändert funktionieren). */
 @Composable
 fun HapticLazyGrid(
     columns: GridCells,
@@ -176,14 +168,6 @@ fun HapticLazyGrid(
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
     content: LazyGridScope.() -> Unit
 ) {
-    val ctx = LocalContext.current
-    LaunchedEffect(state) {
-        var last = state.firstVisibleItemIndex
-        snapshotFlow { state.firstVisibleItemIndex to state.isScrollInProgress }.collect { (idx, scrolling) ->
-            if (scrolling && idx != last) Haptics.tick(ctx)
-            last = idx
-        }
-    }
     LazyVerticalGrid(
         columns = columns,
         modifier = modifier,
