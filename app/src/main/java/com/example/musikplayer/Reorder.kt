@@ -455,7 +455,6 @@ fun <T> ReorderableGrid(
         }
     }
 
-    EdgeHaptics(gridState)
     NoSystemOverscroll {
         LazyVerticalGrid(
             columns = columns,
