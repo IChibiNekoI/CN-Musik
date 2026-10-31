@@ -37,6 +37,16 @@ class MainActivity : ComponentActivity() {
         setContent { AppTheme { MusikApp(openPlayerSignal, viewUri) { viewUri = null } } }
     }
 
+    override fun onStart() {
+        super.onStart()
+        WidgetHub.setAppVisible(true)
+    }
+
+    override fun onStop() {
+        WidgetHub.setAppVisible(false)
+        super.onStop()
+    }
+
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
