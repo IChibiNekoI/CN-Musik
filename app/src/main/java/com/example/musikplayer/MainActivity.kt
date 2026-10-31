@@ -39,11 +39,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        WidgetHub.setAppVisible(true)
+        WidgetHub.notifyAppVisible(true)
     }
 
     override fun onStop() {
-        WidgetHub.setAppVisible(false)
+        WidgetHub.notifyAppVisible(false)
         super.onStop()
     }
 
