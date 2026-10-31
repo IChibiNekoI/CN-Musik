@@ -67,7 +67,7 @@ object WidgetHub {
     @Volatile var appVisible: Boolean = false
         private set
 
-    fun setAppVisible(visible: Boolean) {
+    fun notifyAppVisible(visible: Boolean) {
         appVisible = visible
         updater?.onAppVisibilityChanged()
     }
