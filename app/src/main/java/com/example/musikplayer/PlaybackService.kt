@@ -66,7 +66,9 @@ class PlaybackService : MediaSessionService() {
             this, 0, openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        session = MediaSession.Builder(this, player)
+        // Die Mediensitzung bekommt den Player mit dem Rand-Verhalten für "einen Titel wiederholen";
+        // Auto-Gain, Widgets und die Wiedergabe selbst nutzen weiter den eigentlichen Player
+        session = MediaSession.Builder(this, RepeatOneWrapPlayer(player))
             .setSessionActivity(openPending)
             .build()
     }
