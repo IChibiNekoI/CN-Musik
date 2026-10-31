@@ -103,7 +103,10 @@ object Haptics {
     fun snap(context: Context) = high(context)
 }
 
-/** Haptik für den Fortschrittsbalken: Raster beim Ziehen, Einrasten an Anfang und Ende. */
+/**
+ * Haptik für den Fortschrittsbalken: Beim Ziehen gibt es in jedem Raster-Schritt exakt dieselbe Vibration wie beim Einrasten
+ * des Players ([Haptics.snap]).
+ */
 class ScrubHaptics(private val ctx: Context) {
     private var lastStep = -1
     private val steps = 40   // Rasterweite beim Ziehen
@@ -112,14 +115,14 @@ class ScrubHaptics(private val ctx: Context) {
 
     fun start(fraction: Float) {
         lastStep = (fraction * steps).toInt()
-        Haptics.tick(ctx)
+        Haptics.snap(ctx)
     }
 
     fun move(fraction: Float) {
         val step = (fraction * steps).toInt()
         if (step == lastStep) return
         lastStep = step
-        if (fraction <= 0f || fraction >= 1f) Haptics.snap(ctx) else Haptics.tick(ctx)
+        Haptics.snap(ctx)
     }
 }
 
@@ -146,7 +149,7 @@ fun EdgeHaptics(state: ScrollableState) {
     }
 }
 
-/** Liste ohne Vibration beim Scrollen (Name bleibt, damit alle Aufrufe unverändert funktionieren). */
+/** Liste: tickt nur, wenn man oben oder unten ankommt, nicht während des Scrollens ([EdgeHaptics]). */
 @Composable
 fun HapticLazyColumn(
     modifier: Modifier = Modifier,
@@ -154,10 +157,11 @@ fun HapticLazyColumn(
     contentPadding: PaddingValues = PaddingValues(),
     content: LazyListScope.() -> Unit
 ) {
+    EdgeHaptics(state)
     LazyColumn(modifier = modifier, state = state, contentPadding = contentPadding, content = content)
 }
 
-/** Raster ohne Vibration beim Scrollen (Name bleibt, damit alle Aufrufe unverändert funktionieren). */
+/** Raster: tickt nur, wenn man oben oder unten ankommt, nicht während des Scrollens ([EdgeHaptics]). */
 @Composable
 fun HapticLazyGrid(
     columns: GridCells,
@@ -168,6 +172,7 @@ fun HapticLazyGrid(
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
     content: LazyGridScope.() -> Unit
 ) {
+    EdgeHaptics(state)
     LazyVerticalGrid(
         columns = columns,
         modifier = modifier,
