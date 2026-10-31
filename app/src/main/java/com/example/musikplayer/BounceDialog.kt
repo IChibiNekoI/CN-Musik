@@ -154,6 +154,14 @@ fun DialogSystemBars() {
             window.navigationBarColor = android.graphics.Color.TRANSPARENT
         }
         if (android.os.Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
+        // Das Fenster soll den ganzen Bildschirm decken, auch hinter Statusleiste und Display-Ausschnitt (Kamera-Loch).
+        // Sonst bleibt dort ein Streifen, den weder die Abdunkelung noch der Dialog erreicht.
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+        val lp = window.attributes
+        if (lp.layoutInDisplayCutoutMode != android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS) {
+            lp.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            window.attributes = lp
+        }
         val activityWindow = activity?.window
         if (activityWindow != null) {
             val from = androidx.core.view.WindowCompat.getInsetsController(activityWindow, activityWindow.decorView)
