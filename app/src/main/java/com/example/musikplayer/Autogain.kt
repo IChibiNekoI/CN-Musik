@@ -79,11 +79,6 @@ class GainAudioProcessor : BaseAudioProcessor() {
     private var smoothing = 0.0005f
     private var isFloat = false
 
-    // Kurzes Einblenden nach jedem Flush (Sprung, Titelwechsel per Tasten, Neustart): Das erste Sample eines neuen
-    // Anfangs setzt sonst hart ein und knackt. Nur der Wiedergabe-Thread berührt diese Werte.
-    private var rampTotal = 0
-    private var rampLeft = 0
-
     // Verstärkung des laufenden und des nächsten Titels, vom Controller gesetzt (linear)
     @Volatile private var curGain = 1f
     @Volatile private var nextGain = 1f
@@ -163,8 +158,6 @@ class GainAudioProcessor : BaseAudioProcessor() {
     override fun onFlush() {
         // Nach Sprung oder Neustart sofort auf dem Zielwert beginnen, nicht von einem alten Wert aus
         currentGain = targetGain
-        // ... aber mit kurzer Einblendung von Stille aus
-        rampLeft = rampTotal
     }
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
@@ -173,7 +166,6 @@ class GainAudioProcessor : BaseAudioProcessor() {
                 isFloat = inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT
                 // Zeitkonstante etwa 80 ms: Änderungen klingen weich statt als Sprung
                 smoothing = (1.0 - exp(-1.0 / (inputAudioFormat.sampleRate * 0.08))).toFloat()
-                rampTotal = (inputAudioFormat.sampleRate * 0.012).toInt()   // 12 ms Einblendung
                 inputAudioFormat
             }
             // Andere Formate (z. B. 24 Bit) laufen unverändert durch
@@ -198,13 +190,11 @@ class GainAudioProcessor : BaseAudioProcessor() {
         var g = currentGain
         for (f in 0 until frames) {
             g += (target - g) * smoothing
-            val fade = if (rampLeft > 0) 1f - rampLeft-- / rampTotal.toFloat() else 1f
-            val gf = g * fade
             for (c in 0 until channels) {
                 if (isFloat) {
-                    out.putFloat(limit(src.getFloat() * gf))
+                    out.putFloat(limit(src.getFloat() * g))
                 } else {
-                    val v = limit(src.getShort() / 32768f * gf)
+                    val v = limit(src.getShort() / 32768f * g)
                     out.putShort((v * 32767f).toInt().coerceIn(-32768, 32767).toShort())
                 }
             }
