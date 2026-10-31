@@ -159,7 +159,7 @@ fun HapticLazyColumn(
     content: LazyListScope.() -> Unit
 ) {
     EdgeHaptics(state)
-    LazyColumn(modifier = modifier, state = state, contentPadding = contentPadding, content = content)
+    LazyColumn(modifier = modifier.topEdgeFade(state), state = state, contentPadding = contentPadding, content = content)
 }
 
 /** Raster: vibriert nur, wenn man oben oder unten ankommt, nicht während des Scrollens ([EdgeHaptics]). */
@@ -176,7 +176,7 @@ fun HapticLazyGrid(
     EdgeHaptics(state)
     LazyVerticalGrid(
         columns = columns,
-        modifier = modifier,
+        modifier = modifier.topEdgeFade(state),
         state = state,
         contentPadding = contentPadding,
         horizontalArrangement = horizontalArrangement,
