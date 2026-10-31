@@ -257,6 +257,7 @@ fun BounceSheet(
             decorFitsSystemWindows = false
         )
     ) {
+        DialogSystemBars()
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val maxSheetH = maxHeight * 0.9f
             // Abdunkelung hinter dem Menü, Tipp darauf schließt
