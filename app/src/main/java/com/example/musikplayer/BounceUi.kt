@@ -73,13 +73,14 @@ fun BounceIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     rotate: Float = 0f,
+    haptic: Boolean = true,   // kurzer Klick beim Antippen (Suche, Einstellungen, Zurück, Plus, ...)
     content: @Composable () -> Unit
 ) {
     Box(
         modifier = modifier
             .minimumInteractiveComponentSize()
             .size(40.dp)
-            .bounceClick(pressedScale = 0.8f, haptic = false, rotate = rotate, onClick = onClick),
+            .bounceClick(pressedScale = 0.8f, haptic = haptic, rotate = rotate, onClick = onClick),
         contentAlignment = Alignment.Center
     ) { content() }
 }
