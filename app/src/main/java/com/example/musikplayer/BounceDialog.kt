@@ -81,9 +81,11 @@ fun BounceAlertDialog(
         properties = DialogProperties(
             dismissOnBackPress = visible,
             dismissOnClickOutside = false,
-            usePlatformDefaultWidth = false
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
         )
     ) {
+        DialogSystemBars()
         // Eigene Abdunkelung und Animation statt der des Systems (sonst blendet das Fenster doppelt aus)
         val window = (LocalView.current.parent as? DialogWindowProvider)?.window
         SideEffect {
@@ -131,6 +133,33 @@ fun BounceAlertDialog(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Macht die System-Leisten im Dialog- oder Menü-Fenster durchsichtig und übernimmt die Symbolfarbe der Activity.
+ * Ohne das zeigt ein Dialog-Fenster die Farbe aus dem System-Theme: Die Statusleiste hebt sich dann farblich ab.
+ * Muss innerhalb des Dialog-Inhalts aufgerufen werden.
+ */
+@Composable
+fun DialogSystemBars() {
+    val view = androidx.compose.ui.platform.LocalView.current
+    val activity = androidx.compose.ui.platform.LocalContext.current.findActivity()
+    SideEffect {
+        val window = (view.parent as? DialogWindowProvider)?.window ?: return@SideEffect
+        @Suppress("DEPRECATION")
+        run {
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
+        val activityWindow = activity?.window
+        if (activityWindow != null) {
+            val from = androidx.core.view.WindowCompat.getInsetsController(activityWindow, activityWindow.decorView)
+            val to = androidx.core.view.WindowCompat.getInsetsController(window, view)
+            to.isAppearanceLightStatusBars = from.isAppearanceLightStatusBars
+            to.isAppearanceLightNavigationBars = from.isAppearanceLightNavigationBars
         }
     }
 }
