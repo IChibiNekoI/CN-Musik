@@ -317,7 +317,7 @@ object WidgetRenderer {
         return WSize(if (w > 0) w else 320, if (h > 0) h else if (wide) 160 else 150)
     }
 
-    private const val PAD_DP = 12
+    private const val PAD_DP = 10
 
     /* ---------- RemoteViews ---------- */
 
