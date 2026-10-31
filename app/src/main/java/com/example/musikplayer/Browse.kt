@@ -1422,7 +1422,7 @@ fun LibraryScreen(
         AlertDialog(
             onDismissRequest = { showUpdate = false },
             title = { Text(str(R.string.update_available)) },
-            text = { Text(str(R.string.update_text, update.version)) },
+            text = { DialogSystemBars(); Text(str(R.string.update_text, update.version)) },
             confirmButton = {
                 TextButton(onClick = {
                     showUpdate = false
@@ -1457,6 +1457,7 @@ fun LibraryScreen(
                 onDismissRequest = { pickFor = null },
                 properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
             ) {
+                DialogSystemBars()
                 // Abstand zum Rand (links/rechts so groß wie unten) und Ecken, die zum Gerät passen:
                 // Display-Rundung minus Abstand ergibt gleichmäßig verlaufende (konzentrische) Ecken
                 val sideGap = 10.dp
