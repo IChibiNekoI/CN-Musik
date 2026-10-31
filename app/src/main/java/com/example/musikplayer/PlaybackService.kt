@@ -16,6 +16,11 @@ import androidx.media3.session.MediaSessionService
 
 @androidx.annotation.OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
+    private companion object {
+        const val FADE_STEPS = 10
+        const val FADE_STEP_MS = 3L
+    }
+
     private var session: MediaSession? = null
     private val gainProcessor = GainAudioProcessor()
     private var autoGain: AutoGainController? = null
@@ -42,9 +47,50 @@ class PlaybackService : MediaSessionService() {
                 // Der Player meldet hier, dass das Audio eines neuen Titels beginnt: Die Auto-Gain-Verstärkung
                 // wechselt dann genau an dieser Stelle, schon für das erste Sample des neuen Titels
                 return object : ForwardingAudioSink(sink) {
+                    // Lautstärke, die der Player eingestellt hat (Nutzer-Lautstärke mal Audiofokus), und Wiedergabezustand
+                    private var userVolume = 1f
+                    private var playing = false
+
                     override fun handleDiscontinuity() {
                         gainProcessor.onStreamBoundary()
                         super.handleDiscontinuity()
+                    }
+
+                    override fun setVolume(volume: Float) {
+                        userVolume = volume
+                        super.setVolume(volume)
+                    }
+
+                    override fun play() {
+                        playing = true
+                        super.play()
+                    }
+
+                    override fun pause() {
+                        playing = false
+                        super.pause()
+                    }
+
+                    /**
+                     * Sprung oder Titelwechsel per Taste: Der Player verwirft den Rest im AudioTrack sofort, die Welle
+                     * wird mitten in der Schwingung abgeschnitten, und das knackt. Deshalb wird der Ton hier, auf dem
+                     * Wiedergabe-Thread, in etwa 30 ms auf null gezogen, bevor geleert wird. Das hängt weder von der
+                     * Oberfläche noch vom Puffer ab. Beim Pausieren oder ohne Daten im Puffer passiert nichts.
+                     */
+                    override fun flush() {
+                        val faded = playing && hasPendingData()
+                        if (faded) {
+                            try {
+                                for (i in 1..FADE_STEPS) {
+                                    super.setVolume(userVolume * (1f - i / FADE_STEPS.toFloat()))
+                                    Thread.sleep(FADE_STEP_MS)
+                                }
+                            } catch (e: InterruptedException) {
+                                Thread.currentThread().interrupt()
+                            }
+                        }
+                        super.flush()
+                        if (faded) super.setVolume(userVolume)
                     }
                 }
             }
@@ -55,9 +101,7 @@ class PlaybackService : MediaSessionService() {
             .build()
         autoGain = AutoGainController(this, gainProcessor).also { it.attach(player) }
         // Widgets auf dem Startbildschirm: bekommen Zustand und Tasten vom Player
-        // Mediensitzung und Widget-Tasten teilen sich den Player mit Rand-Verhalten und Ausblendung beim Springen
-        val sessionPlayer = RepeatOneWrapPlayer(player)
-        WidgetHub.player = sessionPlayer
+        WidgetHub.player = player
         widgets = WidgetUpdater(this, player).also { WidgetHub.updater = it }
         // Tipp auf die Benachrichtigung / das Sperrbildschirm-Widget öffnet den Player
         val openIntent = Intent(this, MainActivity::class.java).apply {
@@ -70,7 +114,7 @@ class PlaybackService : MediaSessionService() {
         )
         // Die Mediensitzung bekommt den Player mit dem Rand-Verhalten für "einen Titel wiederholen";
         // Auto-Gain, Widgets und die Wiedergabe selbst nutzen weiter den eigentlichen Player
-        session = MediaSession.Builder(this, sessionPlayer)
+        session = MediaSession.Builder(this, RepeatOneWrapPlayer(player))
             .setSessionActivity(openPending)
             .build()
     }
