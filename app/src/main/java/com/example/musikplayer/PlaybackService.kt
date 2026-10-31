@@ -55,7 +55,9 @@ class PlaybackService : MediaSessionService() {
             .build()
         autoGain = AutoGainController(this, gainProcessor).also { it.attach(player) }
         // Widgets auf dem Startbildschirm: bekommen Zustand und Tasten vom Player
-        WidgetHub.player = player
+        // Mediensitzung und Widget-Tasten teilen sich den Player mit Rand-Verhalten und Ausblendung beim Springen
+        val sessionPlayer = RepeatOneWrapPlayer(player)
+        WidgetHub.player = sessionPlayer
         widgets = WidgetUpdater(this, player).also { WidgetHub.updater = it }
         // Tipp auf die Benachrichtigung / das Sperrbildschirm-Widget öffnet den Player
         val openIntent = Intent(this, MainActivity::class.java).apply {
@@ -68,7 +70,7 @@ class PlaybackService : MediaSessionService() {
         )
         // Die Mediensitzung bekommt den Player mit dem Rand-Verhalten für "einen Titel wiederholen";
         // Auto-Gain, Widgets und die Wiedergabe selbst nutzen weiter den eigentlichen Player
-        session = MediaSession.Builder(this, RepeatOneWrapPlayer(player))
+        session = MediaSession.Builder(this, sessionPlayer)
             .setSessionActivity(openPending)
             .build()
     }
