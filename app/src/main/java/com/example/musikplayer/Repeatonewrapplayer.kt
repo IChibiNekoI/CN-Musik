@@ -1,5 +1,6 @@
 package com.example.musikplayer
 
+import android.os.Handler
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.Player
 
@@ -12,6 +13,49 @@ import androidx.media3.common.Player
  * Außerhalb dieses Modus verhält sich alles unverändert.
  */
 class RepeatOneWrapPlayer(private val inner: Player) : ForwardingPlayer(inner) {
+
+    // Kurzes Ausblenden vor dem Titelwechsel per Taste: Sonst schneidet der Player den Ton mitten in der Welle ab (Knacken)
+    private val handler = Handler(inner.applicationLooper)
+    private var muted = false
+    private var savedVolume = 1f
+    private val restoreVolume = Runnable {
+        inner.volume = savedVolume
+        muted = false
+    }
+
+    /** Zieht den Ton in etwa 25 ms auf null, führt dann [action] aus und blendet kurz danach wieder ein. */
+    private fun fadeThen(action: () -> Unit) {
+        if (muted) {
+            // Ton ist schon (fast) aus, z. B. bei schnellem Weiterdrücken: gleich springen
+            action()
+            handler.removeCallbacks(restoreVolume)
+            handler.postDelayed(restoreVolume, RESTORE_MS)
+            return
+        }
+        if (!inner.isPlaying) { action(); return }   // Pause oder Puffern: nichts zu hören
+        muted = true
+        savedVolume = inner.volume
+        val base = savedVolume
+        FADE_STEPS.forEachIndexed { i, f -> handler.postDelayed({ inner.volume = base * f }, i * STEP_MS) }
+        handler.postDelayed({
+            action()
+            handler.removeCallbacks(restoreVolume)
+            handler.postDelayed(restoreVolume, RESTORE_MS)
+        }, FADE_STEPS.size * STEP_MS)
+    }
+
+    override fun release() {
+        handler.removeCallbacksAndMessages(null)
+        if (muted) inner.volume = savedVolume
+        muted = false
+        super.release()
+    }
+
+    private companion object {
+        val FADE_STEPS = floatArrayOf(0.5f, 0.15f, 0f)
+        const val STEP_MS = 8L
+        const val RESTORE_MS = 60L
+    }
 
     private fun wraps(): Boolean =
         inner.repeatMode == Player.REPEAT_MODE_ONE && !inner.currentTimeline.isEmpty
@@ -33,19 +77,19 @@ class RepeatOneWrapPlayer(private val inner: Player) : ForwardingPlayer(inner) {
 
     override fun hasPreviousMediaItem(): Boolean = inner.hasPreviousMediaItem() || wraps()
 
-    override fun seekToNextMediaItem() {
+    override fun seekToNextMediaItem() = fadeThen {
         if (!inner.hasNextMediaItem() && wraps()) wrapToFirst() else inner.seekToNextMediaItem()
     }
 
-    override fun seekToNext() {
+    override fun seekToNext() = fadeThen {
         if (!inner.hasNextMediaItem() && wraps()) wrapToFirst() else inner.seekToNext()
     }
 
-    override fun seekToPreviousMediaItem() {
+    override fun seekToPreviousMediaItem() = fadeThen {
         if (!inner.hasPreviousMediaItem() && wraps()) wrapToLast() else inner.seekToPreviousMediaItem()
     }
 
-    override fun seekToPrevious() {
+    override fun seekToPrevious() = fadeThen {
         // Wie beim Player selbst: Nach den ersten Sekunden springt "Zurück" erst an den Anfang des Titels
         if (!inner.hasPreviousMediaItem() && wraps() && inner.currentPosition <= inner.maxSeekToPreviousPosition) {
             wrapToLast()
