@@ -77,6 +77,8 @@ fun Modifier.bounceClick(
     rotate: Float = 0f,
     // false = kein Ticken (für Listenzeilen und Kacheln)
     haptic: Boolean = true,
+    // true = dieselbe Vibration wie beim Einrasten des Players und beim Ziehen des Fortschrittsbalkens (gilt dann statt des kurzen Klicks)
+    hapticSnap: Boolean = false,
     onClick: () -> Unit
 ): Modifier = composed {
     val source = remember { MutableInteractionSource() }
@@ -99,7 +101,8 @@ fun Modifier.bounceClick(
             enabled = enabled,
             role = role,
             onClick = {
-                if (haptic) Haptics.click(ctx)   // kurzer Klick (nur wenn in den Einstellungen eingeschaltet)
+                // Vibration nur, wenn in den Einstellungen eingeschaltet
+                if (hapticSnap) Haptics.snap(ctx) else if (haptic) Haptics.click(ctx)
                 onClick()
             }
         )
