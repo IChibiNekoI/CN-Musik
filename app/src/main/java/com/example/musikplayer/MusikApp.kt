@@ -85,7 +85,7 @@ fun MusikApp(
     }
 
     var allSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
-    var selected by remember { mutableStateOf(readFolderSet(ctx)) }
+    var folderRules by remember { mutableStateOf(readFolderRules(ctx)) }
     var sort by remember { mutableStateOf(readSort(ctx)) }
     var playlists by remember { mutableStateOf(readPlaylists(ctx)) }
     var favorites by remember { mutableStateOf(readFavorites(ctx)) }
@@ -105,6 +105,8 @@ fun MusikApp(
     var playLog by remember { mutableStateOf(readPlayLog(ctx)) }
     // Titel, die aus der Warteschlange des Neko Mixes entfernt wurden, bleiben 30 Tage aus dem Mix
     var mixDislikes by remember { mutableStateOf(readMixDislikes(ctx)) }
+    // Skips im Neko Mix (nur dort gezählt): übersprungene Titel werden seltener gewählt
+    var mixSkips by remember { mutableStateOf(readMixSkips(ctx)) }
     // Titel der Warteschlange, die vom Neko Mix gestartet wurde (leer, sobald etwas anderes gestartet wird)
     var mixQueueIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     // Der Neko Mix hat eigene Repeat- und Shuffle-Einstellungen, unabhängig vom restlichen Player
@@ -177,9 +179,7 @@ fun MusikApp(
             showWithFileTags(base)
         }
     }
-    val songs = remember(allSongs, selected) {
-        selected?.let { sel -> allSongs.filter { it.folder in sel } } ?: allSongs
-    }
+    val songs = remember(allSongs, folderRules) { folderRules.filter(allSongs) }
     // Ausgeblendete Titel fehlen nur im Titel-Tab, sie stehen unter Einstellungen > Ausgeblendete Titel
     val hiddenSongs = remember(allSongs, hidden) {
         allSongs.filter { it.id in hidden }.sortedBy { it.title.lowercase() }
@@ -276,6 +276,22 @@ fun MusikApp(
                 // ganze Warteschlange nur speichern, wenn sie neu ist; sonst reicht die Position
                 saveQueueState(ctx, c, full = reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED)
             }
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int
+            ) {
+                // Skip im Neko Mix: Nur Weiterschalten per Hand zählt (kein automatisches Ende, kein Entfernen aus der Warteschlange),
+                // nur nach vorn, nur für Titel, die der Mix gestartet hat, und nur, wenn der Titel noch nicht lange lief.
+                if (reason != Player.DISCONTINUITY_REASON_SEEK) return
+                if (oldPosition.mediaItemIndex == newPosition.mediaItemIndex) return
+                if (!c.shuffleModeEnabled && newPosition.mediaItemIndex < oldPosition.mediaItemIndex) return
+                val oldId = oldPosition.mediaItem?.mediaId?.toLongOrNull() ?: return
+                if (oldId !in mixQueueIds) return
+                val at = oldPosition.positionMs
+                if (at >= 30_000L) return
+                mixSkips = addMixSkip(ctx, oldId, if (at < 10_000L) 2 else 1, mixSkips)
+            }
             override fun onShuffleModeEnabledChanged(enabled: Boolean) {
                 shuffle = enabled
                 if (mixActive) saveMixShuffle(ctx, enabled) else saveShuffle(ctx, enabled)
@@ -288,10 +304,10 @@ fun MusikApp(
         c.addListener(l)
         onDispose { c.removeListener(l) }
     }
-    // Auto-Gain: Titel ohne Messwert im Hintergrund nachmessen (schon gemessene werden übersprungen)
-    val autoGainOn = CornerSettings.autoGain
-    LaunchedEffect(songs.size, autoGainOn) {
-        if (autoGainOn && songs.isNotEmpty()) {
+    // Titel ohne Messwert im Hintergrund nachmessen (schon gemessene werden übersprungen), nur am Ladegerät:
+    // Lautheit (Auto-Gain) und Klangmerkmale (Neko Mix) entstehen im selben Durchlauf
+    LaunchedEffect(songs.size) {
+        if (songs.isNotEmpty()) {
             LoudnessScanner.start(ctx, songs.map { it.id to it.uri })
         } else {
             LoudnessScanner.stop()
@@ -435,6 +451,7 @@ fun MusikApp(
                     favorites = favorites,
                     history = history,
                     playLog = playLog,
+                    mixSkips = mixSkips,
                     mixExcluded = mixDislikes.keys,
                     onMixPlayed = { list ->
                         mixQueueIds = list.map { it.id }.toSet()
@@ -566,9 +583,9 @@ fun MusikApp(
                 allSongs = allSongs,
                 hiddenSongs = hiddenSongs,
                 onUnhide = unhideSong,
-                selected = selected,
+                folderRules = folderRules,
                 sort = sort,
-                onFolders = { selected = it; saveFolderSet(ctx, it) },
+                onFolderRules = { folderRules = it; saveFolderRules(ctx, it) },
                 onSort = { sort = it; saveSort(ctx, it) },
                 showAudioInfo = showInfo,
                 onShowAudioInfo = { showInfo = it; saveShowAudioInfo(ctx, it) },
@@ -613,12 +630,17 @@ fun MusikApp(
 }
 
 @Composable
-private fun SheetHeader(title: String, onBack: () -> Unit) {
-    Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun SheetHeader(title: String, trailing: (@Composable () -> Unit)? = null, onBack: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         BounceIconButton(onClick = onBack) {
             BackIcon(description = str(R.string.back))
         }
         Text(title, style = MaterialTheme.typography.titleLarge)
+        if (trailing != null) {
+            Spacer(Modifier.weight(1f))
+            // 8 dp mehr Abstand zum Rand: so steht der Knopf genau über den Symbolen der Listenzeilen darunter (z. B. dem Auge)
+            Box(Modifier.padding(end = 8.dp)) { trailing() }
+        }
     }
 }
 
@@ -652,9 +674,9 @@ fun AppSettingsSheet(
     allSongs: List<Song>,
     hiddenSongs: List<Song>,
     onUnhide: (Song) -> Unit,
-    selected: Set<String>?,
+    folderRules: FolderRules,
     sort: SortMode,
-    onFolders: (Set<String>) -> Unit,
+    onFolderRules: (FolderRules) -> Unit,
     onSort: (SortMode) -> Unit,
     showAudioInfo: Boolean,
     onShowAudioInfo: (Boolean) -> Unit,
@@ -719,12 +741,36 @@ fun AppSettingsSheet(
             }
         }
     }
-    val counts = remember(allSongs) {
-        allSongs.groupingBy { it.folder }.eachCount().toList().sortedBy { it.first.lowercase() }
-    }
-    val all = counts.map { it.first }.toSet()
-    val current = selected ?: all
     val clear = ListItemDefaults.colors(containerColor = Color.Transparent)
+
+    // Ordner: Ordnerliste und ausgeschlossene Ordner, Ordner-Browser, Bestätigung von Änderungen
+    val folderTree = remember(allSongs) { lazy { FolderTree(allSongs) } }   // erst beim ersten Blättern aufgebaut
+    var browseExclude by remember { mutableStateOf(false) }
+    var browsePath by remember { mutableStateOf("") }
+    var includeOpen by remember { mutableStateOf(true) }
+    var excludeOpen by remember { mutableStateOf(false) }
+    var pendingChange by remember { mutableStateOf<FolderChange?>(null) }
+    // Aus dem Ordner-Browser zurück zum Index, die passende Liste klappt auf
+    val leaveBrowser = {
+        if (browseExclude) excludeOpen = true else includeOpen = true
+        browsePath = ""
+        page = "index"
+    }
+    // Ändert sich dadurch etwas an der Bibliothek, fragt ein Dialog nach; sonst wird still übernommen
+    val requestRules: (FolderRules) -> Unit = { next ->
+        val (added, removed) = countFolderChange(allSongs, folderRules, next)
+        if (added == 0 && removed == 0) {
+            if (next.include != folderRules.include || next.exclude != folderRules.exclude) onFolderRules(next)
+            Toast.makeText(backupCtx, str(R.string.changes_none), Toast.LENGTH_SHORT).show()
+            if (page == "browse") leaveBrowser()
+        } else {
+            pendingChange = FolderChange(next, added, removed)
+        }
+    }
+    // Zurück-Taste im Ordner-Browser: erst eine Ebene hoch, dann zum Index
+    androidx.activity.compose.BackHandler(enabled = page == "browse") {
+        if (browsePath.isNotEmpty()) browsePath = parentFolder(browsePath) else page = "index"
+    }
 
     // Stark gerundete Geräteecken (ab 40 dp): ganz unten eine leere Zeile, damit nichts in der Ecke abgeschnitten wirkt
     val cornerView = androidx.compose.ui.platform.LocalView.current
@@ -748,7 +794,7 @@ fun AppSettingsSheet(
             targetState = page,
             transitionSpec = {
                 val ease = Motion.Ease
-                if (targetState == "main" || (targetState == "index" && initialState == "folders")) {
+                if (targetState == "main" || (targetState == "index" && initialState == "browse")) {
                     // zurück: neue Seite kommt von links
                     (slideInHorizontally(tween(Motion.MEDIUM, easing = ease)) { w -> -w / 5 } +
                         fadeIn(tween(Motion.MEDIUM - 60, delayMillis = 60))) togetherWith
@@ -1006,37 +1052,70 @@ fun AppSettingsSheet(
             }
             "index" -> {
                 SheetHeader(str(R.string.index)) { page = "main" }
-                ListItem(
-                    headlineContent = { Text(str(R.string.music_folders)) },
-                    supportingContent = {
-                        Text(
-                            if (selected == null) str(R.string.all_folders)
-                            else str(R.string.folders_count, all.count { it in current }, all.size)
-                        )
-                    },
-                    leadingContent = { FolderIcon() },
-                    trailingContent = {
-                        ChevronRightIcon()
-                    },
-                    colors = clear,
-                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "folders" }
-                )
-                ListItem(
-                    headlineContent = { Text(str(R.string.rescan)) },
-                    supportingContent = {
-                        Text(if (rescanning) str(R.string.rescan_busy) else str(R.string.rescan_summary))
-                    },
-                    leadingContent = { RefreshIcon() },
-                    trailingContent = {
-                        if (rescanning) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-                    },
-                    colors = clear,
-                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { onRescan() }
-                )
-                Spacer(Modifier.height(32.dp + bottomExtra))
+                // Die Ordnerlisten können lang werden: Der Inhalt scrollt, die Überschrift bleibt stehen
+                Column(
+                    Modifier
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    FolderListSection(
+                        title = str(R.string.folder_list),
+                        summary = if (folderRules.include.isEmpty()) str(R.string.folder_list_all)
+                        else plural(R.plurals.n_folders, folderRules.include.size),
+                        paths = folderRules.include,
+                        expanded = includeOpen,
+                        onExpanded = { includeOpen = it },
+                        emptyHint = str(R.string.folder_list_hint),
+                        onAdd = { browseExclude = false; browsePath = ""; page = "browse" },
+                        onRemove = { requestRules(folderRules.withoutInclude(it)) }
+                    )
+                    FolderListSection(
+                        title = str(R.string.folder_excluded),
+                        summary = if (folderRules.exclude.isEmpty()) str(R.string.hidden_tracks_none)
+                        else plural(R.plurals.n_folders, folderRules.exclude.size),
+                        paths = folderRules.exclude,
+                        expanded = excludeOpen,
+                        onExpanded = { excludeOpen = it },
+                        emptyHint = str(R.string.folder_excluded_hint),
+                        onAdd = { browseExclude = true; browsePath = ""; page = "browse" },
+                        onRemove = { requestRules(folderRules.withoutExclude(it)) }
+                    )
+                    ListItem(
+                        headlineContent = { Text(str(R.string.rescan)) },
+                        supportingContent = {
+                            Text(if (rescanning) str(R.string.rescan_busy) else str(R.string.rescan_summary))
+                        },
+                        leadingContent = { RefreshIcon() },
+                        trailingContent = {
+                            if (rescanning) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                        },
+                        colors = clear,
+                        modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { onRescan() }
+                    )
+                    Spacer(Modifier.height(32.dp + bottomExtra))
+                }
             }
             "hidden" -> {
-                SheetHeader(str(R.string.hidden_tracks)) { page = "main" }
+                var hiddenInfo by remember { mutableStateOf(false) }
+                SheetHeader(
+                    str(R.string.hidden_tracks),
+                    onBack = { page = "main" },
+                    trailing = {
+                        // Info-Knopf: klappt einen kurzen Erklärtext aus, wie das Drei-Punkte-Menü
+                        Box {
+                            BounceIconButton(onClick = { hiddenInfo = true }) {
+                                InfoIcon(description = str(R.string.hidden_tracks_info_button))
+                            }
+                            BounceMenu(expanded = hiddenInfo, onDismissRequest = { hiddenInfo = false }) {
+                                Text(
+                                    str(R.string.hidden_tracks_info),
+                                    modifier = Modifier.widthIn(max = 260.dp).padding(horizontal = 16.dp, vertical = 8.dp),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                    }
+                )
                 if (hiddenSongs.isEmpty()) {
                     Text(
                         str(R.string.hidden_tracks_empty),
@@ -1220,43 +1299,39 @@ fun AppSettingsSheet(
                 ViewStyleOptions(playlistStyle, onPlaylistStyle)
                 Spacer(Modifier.height(32.dp + bottomExtra))
             }
-            else -> {
-                SheetHeader(str(R.string.music_folders)) { page = "index" }
-                Text(
-                    str(R.string.folders_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 24.dp)
-                )
-                Row(Modifier.padding(horizontal = 16.dp)) {
-                    TextButton(onClick = { onFolders(all) }) { Text(str(R.string.all)) }
-                    TextButton(onClick = { onFolders(emptySet()) }) { Text(str(R.string.none)) }
+            "browse" -> {
+                SheetHeader(str(if (browseExclude) R.string.folder_pick_exclude else R.string.folder_pick)) {
+                    browsePath = ""
+                    page = "index"
                 }
-                Column(
-                    Modifier
-                        .weight(1f, fill = false)
-                        .verticalScroll(rememberScrollState())
-                        .padding(bottom = 32.dp + bottomExtra)
-                ) {
-                    counts.forEach { (folder, n) ->
-                        ListItem(
-                            headlineContent = {
-                                Text(folder.trimEnd('/').ifEmpty { str(R.string.root_folder) })
-                            },
-                            supportingContent = { Text(plural(R.plurals.n_songs, n)) },
-                            trailingContent = {
-                                Checkbox(checked = folder in current, onCheckedChange = null)
-                            },
-                            colors = clear,
-                            modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) {
-                                onFolders(if (folder in current) current - folder else current + folder)
-                            }
+                FolderBrowser(
+                    tree = folderTree.value,
+                    rules = folderRules,
+                    forExclude = browseExclude,
+                    path = browsePath,
+                    onPath = { browsePath = it },
+                    onPick = { picked ->
+                        requestRules(
+                            if (browseExclude) folderRules.withExclude(picked) else folderRules.withInclude(picked)
                         )
-                    }
-                }
+                    },
+                    bottomExtra = bottomExtra
+                )
             }
         }
         }   // Ende Column
         }   // Ende AnimatedContent
     }
+
+    // Bestätigung, bevor Ordner-Änderungen die Bibliothek verändern
+    FolderChangeDialog(
+        change = pendingChange,
+        onConfirm = { rules ->
+            onFolderRules(rules)
+            pendingChange = null
+            Toast.makeText(backupCtx, str(R.string.changes_done), Toast.LENGTH_SHORT).show()
+            if (page == "browse") leaveBrowser()
+        },
+        onCancel = { pendingChange = null }
+    )
 }
