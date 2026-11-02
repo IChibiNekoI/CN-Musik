@@ -111,6 +111,8 @@ fun MusikApp(
     var mixQueueIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
     // Der Neko Mix hat eigene Repeat- und Shuffle-Einstellungen, unabhängig vom restlichen Player
     var mixActive by remember { mutableStateOf(readMixActive(ctx)) }
+    // Zufallswiedergabe einer Playlist: Zufall und Alle wiederholen gelten nur für diese Wiedergabe und werden nicht gespeichert
+    var tempProfile by remember { mutableStateOf(false) }
     val toggleFavorite: (Song) -> Unit = { s ->
         favorites = if (s.id in favorites) favorites - s.id else listOf(s.id) + favorites
         saveFavorites(ctx, favorites)
@@ -196,6 +198,17 @@ fun MusikApp(
         controller?.let { c ->
             val r = if (toMix) readMixRepeat(ctx) else readRepeat(ctx)
             val sh = if (toMix) readMixShuffle(ctx) else readShuffle(ctx)
+            if (c.repeatMode != r) c.repeatMode = r
+            if (c.shuffleModeEnabled != sh) c.shuffleModeEnabled = sh
+        }
+    }
+    // Die vorübergehende Zufallswiedergabe beenden: Zufall und Wiederholen kehren zum gespeicherten Profil zurück
+    fun endTempProfile() {
+        if (!tempProfile) return
+        tempProfile = false
+        controller?.let { c ->
+            val r = if (mixActive) readMixRepeat(ctx) else readRepeat(ctx)
+            val sh = if (mixActive) readMixShuffle(ctx) else readShuffle(ctx)
             if (c.repeatMode != r) c.repeatMode = r
             if (c.shuffleModeEnabled != sh) c.shuffleModeEnabled = sh
         }
@@ -294,10 +307,12 @@ fun MusikApp(
             }
             override fun onShuffleModeEnabledChanged(enabled: Boolean) {
                 shuffle = enabled
+                if (tempProfile) return
                 if (mixActive) saveMixShuffle(ctx, enabled) else saveShuffle(ctx, enabled)
             }
             override fun onRepeatModeChanged(mode: Int) {
                 repeat = mode
+                if (tempProfile) return
                 if (mixActive) saveMixRepeat(ctx, mode) else saveRepeat(ctx, mode)
             }
         }
@@ -355,6 +370,7 @@ fun MusikApp(
         if (allSongs.none { it.id == song.id }) externalSong = song
         SkipDirection.dir = 1
         mixQueueIds = emptySet()
+        endTempProfile()
         switchProfile(false)
         c.setMediaItems(toMediaItems(listOf(song)), 0, 0L)
         c.prepare()
@@ -455,7 +471,22 @@ fun MusikApp(
                     mixExcluded = mixDislikes.keys,
                     onMixPlayed = { list ->
                         mixQueueIds = list.map { it.id }.toSet()
+                        endTempProfile()
                         switchProfile(true)
+                    },
+                    onShufflePlay = { list ->
+                        // Zufälliger Titel der Playlist, Zufall und Alle wiederholen nur vorübergehend (wie beim Neko Mix, aber ohne zu speichern)
+                        mixQueueIds = emptySet()
+                        switchProfile(false)
+                        tempProfile = true   // zuerst: ab jetzt speichern die Player-Listener nichts mehr
+                        controller?.let { c ->
+                            SkipDirection.dir = 1
+                            if (c.repeatMode != Player.REPEAT_MODE_ALL) c.repeatMode = Player.REPEAT_MODE_ALL
+                            if (!c.shuffleModeEnabled) c.shuffleModeEnabled = true
+                            c.setMediaItems(toMediaItems(list), list.indices.random(), 0L)
+                            c.prepare()
+                            c.play()
+                        }
                     },
                     onToggleFavorite = toggleFavorite,
                     onHideSong = hideSong,
@@ -469,6 +500,7 @@ fun MusikApp(
                             list.size == mixQueueIds.size && list.all { it.id in mixQueueIds }
                         if (!isMixStart) {
                             mixQueueIds = emptySet()
+                            endTempProfile()
                             switchProfile(false)
                         }
                         controller?.let { c ->
