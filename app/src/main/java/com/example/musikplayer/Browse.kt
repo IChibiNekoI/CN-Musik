@@ -13,7 +13,9 @@ import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -408,20 +410,25 @@ private fun AlbumCollection(
 }
 
 @Composable
-fun DetailHeader(title: String, onBack: () -> Unit, action: (@Composable () -> Unit)? = null) {
+fun DetailHeader(title: String, onBack: (() -> Unit)?, action: (@Composable () -> Unit)? = null) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        BounceIconButton(onClick = onBack) {
-            BackIcon(description = str(R.string.back))
+        // Ohne Pfeil (onBack = null) rückt der Titel an den linken Rand, zurück geht es per Zurück-Geste
+        if (onBack != null) {
+            BounceIconButton(onClick = onBack) {
+                BackIcon(description = str(R.string.back))
+            }
         }
         Text(
             title,
             style = MaterialTheme.typography.titleLarge,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = if (onBack == null) 8.dp else 0.dp)
         )
         // optionale Taste rechts auf Höhe des Titels
         action?.invoke()
@@ -649,6 +656,7 @@ fun LibraryScreen(
     mixSkips: List<MixSkip> = emptyList(),           // Skips im Neko Mix der letzten 30 Tage
     mixExcluded: Set<Long> = emptySet(),             // aus der Warteschlange entfernt: bleiben vorerst aus dem Mix
     onMixPlayed: (List<Song>) -> Unit = {},          // der Mix wurde gestartet (für das Merken von Entfernungen)
+    onShufflePlay: (List<Song>) -> Unit = {},        // Zufallswiedergabe einer Playlist (Zufall und Alle wiederholen nur vorübergehend)
     onToggleFavorite: (Song) -> Unit = {},
     onHideSong: ((Song) -> Unit)? = null,
     hiddenIds: Set<Long> = emptySet(),   // nur im Titel-Tab ausgeblendet, überall sonst weiter sichtbar
@@ -897,6 +905,12 @@ fun LibraryScreen(
                     }
                 }
                 if (tab == 2) {
+                    // In einer geöffneten Playlist blendet sich das Plus aus (dort gibt es ein eigenes Plus für Lieder)
+                    AnimatedVisibility(
+                        visible = openPlaylist == null,
+                        enter = fadeIn(tween(Motion.MEDIUM)) + expandHorizontally(tween(Motion.MEDIUM, easing = Motion.Ease)),
+                        exit = fadeOut(tween(Motion.FAST)) + shrinkHorizontally(tween(Motion.MEDIUM, easing = Motion.Ease))
+                    ) {
                     Box {
                         BounceIconButton(onClick = { plusMenu = true }, rotate = 40f) {
                             PlusIcon(description = str(R.string.playlist_add_cd))
@@ -921,6 +935,7 @@ fun LibraryScreen(
                                 }
                             )
                         }
+                    }
                     }
                 }
                 if (update != null && tab != 2) {
@@ -1349,12 +1364,15 @@ fun LibraryScreen(
                     val list = pl.songIds.mapNotNull { byId[it] }
                     DetailHeader(
                         pl.name,
-                        onBack = { openPlaylist = null },
-                        // Plus rechts: Lieder hinzufügen (bei leerer Playlist übernimmt das die Taste unter dem Bild)
+                        onBack = null,   // zurück per Zurück-Geste (BackHandler oben)
+                        // Rechts: Lieder hinzufügen und Zufallswiedergabe (bei leerer Playlist übernimmt das Hinzufügen die Taste unter dem Bild)
                         action = if (list.isNotEmpty()) {
                             {
                                 BounceIconButton(onClick = { pickFor = pl.id }) {
                                     PlusIcon(description = str(R.string.add_songs))
+                                }
+                                BounceIconButton(onClick = { onShufflePlay(list) }) {
+                                    ShuffleIcon(description = str(R.string.cd_shuffle))
                                 }
                             }
                         } else null
