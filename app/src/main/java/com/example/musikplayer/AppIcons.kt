@@ -673,17 +673,3 @@ fun CheckIcon(
         drawPath(polyPath(k, 5f, 12.5f, 10f, 17.5f, 19f, 7f), c, style = st)
     }
 }
-
-/** Zufall: zwei sich kreuzende Linien mit Pfeilspitzen */
-@Composable
-fun ShuffleIcon(
-    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
-    tint: Color = LocalContentColor.current, description: String? = null
-) {
-    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
-        drawPath(polyPath(k, 2.5f, 7.5f, 7.5f, 7.5f, 15f, 16.5f, 19.5f, 16.5f), c, style = st)
-        drawPath(polyPath(k, 2.5f, 16.5f, 7.5f, 16.5f, 15f, 7.5f, 19.5f, 7.5f), c, style = st)
-        drawPath(polyPath(k, 19.2f, 14.2f, 21.5f, 16.5f, 19.2f, 18.8f), c, style = st)
-        drawPath(polyPath(k, 19.2f, 5.2f, 21.5f, 7.5f, 19.2f, 9.8f), c, style = st)
-    }
-}
