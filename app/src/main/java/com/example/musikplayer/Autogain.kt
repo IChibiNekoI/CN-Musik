@@ -312,15 +312,22 @@ object LoudnessScanner {
             if (!nap(8_000)) return@Thread
             for ((id, uri) in items) {
                 if (cancelled()) return@Thread
-                if (LoudnessCache.get(app, id) != null) continue
+                // Pro Titel fehlen Lautheit und/oder Klangmerkmale (Neko Mix): beides entsteht im selben Durchlauf
+                val haveLoudness = LoudnessCache.get(app, id) != null
+                val haveFeatures = TrackFeatureCache.get(app, id) != null
+                if (haveLoudness && haveFeatures) continue
                 while (!cancelled() && !mayScan()) {
                     if (!nap(5_000)) return@Thread
                 }
                 if (cancelled()) return@Thread
                 if (!inFlight.add(id)) continue
                 try {
-                    val entry = try { LoudnessAnalyzer.analyze(app, uri, 0L) } catch (e: Exception) { null }
-                    LoudnessCache.put(app, id, entry ?: LoudnessCache.FAILED)
+                    val entry = try {
+                        LoudnessAnalyzer.analyze(app, uri, 0L, { TrackFeatureCache.put(app, id, it) }, requireFeatures = !haveFeatures)
+                    } catch (e: Exception) { null }
+                    if (!haveLoudness) LoudnessCache.put(app, id, entry ?: LoudnessCache.FAILED)
+                    // gescheiterte Merkmale merken, damit der Titel nicht bei jedem Start neu versucht wird
+                    if (TrackFeatureCache.get(app, id) == null) TrackFeatureCache.put(app, id, TrackFeatures.FAILED)
                 } finally {
                     inFlight.remove(id)
                 }
@@ -337,8 +344,22 @@ object LoudnessScanner {
 /** Misst die Lautheit eines Titels: erst ReplayGain-Tag, sonst eigene Messung an einem Ausschnitt. */
 object LoudnessAnalyzer {
 
-    fun analyze(ctx: Context, uri: Uri, durationHintMs: Long): LoudnessCache.Entry? =
-        fromReplayGain(ctx, uri) ?: measure(ctx, uri, durationHintMs)
+    /**
+     * [featureSink] bekommt die Klangmerkmale, wenn der Titel ohnehin decodiert wird. Hat der Titel einen ReplayGain-Tag,
+     * wird er nur mit [requireFeatures] = true trotzdem decodiert (Hintergrundlauf), sonst bleibt es beim Tag.
+     */
+    fun analyze(
+        ctx: Context,
+        uri: Uri,
+        durationHintMs: Long,
+        featureSink: ((TrackFeatures) -> Unit)? = null,
+        requireFeatures: Boolean = false
+    ): LoudnessCache.Entry? {
+        val tagged = fromReplayGain(ctx, uri)
+        if (tagged != null && !requireFeatures) return tagged
+        val measured = measure(ctx, uri, durationHintMs, featureSink)
+        return tagged ?: measured
+    }
 
     /** REPLAYGAIN_TRACK_GAIN bezieht sich auf -18 LUFS. */
     private fun fromReplayGain(ctx: Context, uri: Uri): LoudnessCache.Entry? {
@@ -392,7 +413,12 @@ object LoudnessAnalyzer {
         return shelf to hp
     }
 
-    private fun measure(ctx: Context, uri: Uri, durationHintMs: Long): LoudnessCache.Entry? {
+    private fun measure(
+        ctx: Context,
+        uri: Uri,
+        durationHintMs: Long,
+        featureSink: ((TrackFeatures) -> Unit)? = null
+    ): LoudnessCache.Entry? {
         val ex = MediaExtractor()
         var codec: MediaCodec? = null
         try {
@@ -431,6 +457,8 @@ object LoudnessAnalyzer {
             var peak = 0f
             var framesDone = 0L
             val maxFrames = { sampleRate.toLong() * (WINDOW_US / 1_000_000L) }
+            // Klangmerkmale für den Neko Mix aus demselben Ton (nur, wenn jemand sie haben will)
+            var fx: TrackFeatureExtractor? = if (featureSink != null) TrackFeatureExtractor(sampleRate) else null
 
             val info = MediaCodec.BufferInfo()
             var inputDone = false
@@ -465,6 +493,7 @@ object LoudnessAnalyzer {
                         hopFrames = sampleRate / 10
                         hopCount = 0
                         hopSum = 0.0
+                        if (fx != null) fx = TrackFeatureExtractor(sampleRate)
                     }
                     oi >= 0 -> {
                         val out = codec.getOutputBuffer(oi)
@@ -477,9 +506,11 @@ object LoudnessAnalyzer {
                             val frames = info.size / (bps * ch)
                             for (f in 0 until frames) {
                                 var frameEnergy = 0.0
+                                var mono = 0f
                                 for (c in 0 until ch) {
                                     val s = if (floatPcm) b.getFloat() else b.getShort() / 32768f
                                     if (c < 2) {
+                                        mono += s
                                         peak = max(peak, abs(s))
                                         val k = hp[c].process(shelf[c].process(s.toDouble()))
                                         frameEnergy += k * k
@@ -487,6 +518,7 @@ object LoudnessAnalyzer {
                                 }
                                 // Mono zählt wie zwei gleiche Kanäle
                                 if (ch == 1) frameEnergy *= 2.0
+                                fx?.add(if (ch == 1) mono else mono * 0.5f)
                                 hopSum += frameEnergy
                                 if (++hopCount >= hopFrames) {
                                     hops.add(hopSum / hopCount)
@@ -502,6 +534,8 @@ object LoudnessAnalyzer {
                     }
                 }
             }
+
+            featureSink?.invoke(fx?.finish() ?: TrackFeatures.FAILED)
 
             // Blöcke zu 400 ms (4 Abschnitte, 75 % Überlappung), dann Gating nach BS.1770
             if (hops.size < 4) return null
@@ -630,7 +664,9 @@ class AutoGainController(
         try {
             worker.execute {
                 try {
-                    val entry = try { LoudnessAnalyzer.analyze(ctx, uri, 0L) } catch (e: Exception) { null }
+                    val entry = try {
+                        LoudnessAnalyzer.analyze(ctx, uri, 0L, { TrackFeatureCache.put(ctx, id, it) })
+                    } catch (e: Exception) { null }
                     LoudnessCache.put(ctx, id, entry ?: LoudnessCache.FAILED)   // löst über onChange ein refresh() aus
                 } finally {
                     LoudnessScanner.inFlight.remove(id)
