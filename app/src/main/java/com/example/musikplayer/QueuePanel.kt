@@ -127,6 +127,7 @@ fun QueuePanel(
     onClose: (velocity: Float) -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val queueCtx = androidx.compose.ui.platform.LocalContext.current
     var version by remember { mutableIntStateOf(0) }
     DisposableEffect(c) {
         val listener = object : Player.Listener {
@@ -311,6 +312,7 @@ fun QueuePanel(
                             .padding(horizontal = 8.dp, vertical = 2.dp)
                             .clip(RoundedCornerShape(20.dp))
                             .clickable {
+                                Haptics.snap(queueCtx)
                                 SkipDirection.dir = if (qi >= current) 1 else -1
                                 c.seekToDefaultPosition(qi)
                                 c.play()
