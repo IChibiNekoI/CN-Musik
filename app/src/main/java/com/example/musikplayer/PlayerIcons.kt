@@ -160,6 +160,41 @@ private fun DrawScope.chevron(tipX: Float, tipY: Float, dir: Float, size: Float,
     drawPath(p, color, style = style)
 }
 
+/** Die Zeichnung des Zufall-Symbols: gemeinsam für die Taste im Player und das Symbol anderswo, damit beide gleich bleiben. */
+private fun DrawScope.drawShuffleGlyph(tint: Color) {
+    val s = this.size.minDimension
+    val w = s * 0.085f
+    val line = outline(w, s * 0.10f)
+    val head = outline(w, s * 0.03f)
+    val a = Path().apply {
+        moveTo(s * 0.10f, s * 0.30f); lineTo(s * 0.30f, s * 0.30f)
+        lineTo(s * 0.64f, s * 0.70f); lineTo(s * 0.86f, s * 0.70f)
+    }
+    val b = Path().apply {
+        moveTo(s * 0.10f, s * 0.70f); lineTo(s * 0.30f, s * 0.70f)
+        lineTo(s * 0.64f, s * 0.30f); lineTo(s * 0.86f, s * 0.30f)
+    }
+    drawPath(a, tint, style = line)
+    drawPath(b, tint, style = line)
+    chevron(s * 0.88f, s * 0.70f, 1f, s * 0.11f, tint, head)
+    chevron(s * 0.88f, s * 0.30f, 1f, s * 0.11f, tint, head)
+}
+
+/** Das Zufall-Symbol des Players als einfaches Symbol (z. B. in Kopfzeilen), ohne Taste drumherum. */
+@Composable
+fun ShuffleIcon(
+    modifier: Modifier = Modifier,
+    iconSize: Dp = 26.dp,
+    tint: Color = LocalContentColor.current,
+    description: String? = null
+) {
+    Canvas(
+        modifier
+            .size(iconSize)
+            .then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier)
+    ) { drawShuffleGlyph(tint) }
+}
+
 @Composable
 fun ShuffleButton(
     active: Boolean,
@@ -177,22 +212,7 @@ fun ShuffleButton(
         contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.size(iconSize).graphicsLayer { scaleX = pop; scaleY = pop }) {
-            val s = this.size.minDimension
-            val w = s * 0.085f
-            val line = outline(w, s * 0.10f)
-            val head = outline(w, s * 0.03f)
-            val a = Path().apply {
-                moveTo(s * 0.10f, s * 0.30f); lineTo(s * 0.30f, s * 0.30f)
-                lineTo(s * 0.64f, s * 0.70f); lineTo(s * 0.86f, s * 0.70f)
-            }
-            val b = Path().apply {
-                moveTo(s * 0.10f, s * 0.70f); lineTo(s * 0.30f, s * 0.70f)
-                lineTo(s * 0.64f, s * 0.30f); lineTo(s * 0.86f, s * 0.30f)
-            }
-            drawPath(a, tint, style = line)
-            drawPath(b, tint, style = line)
-            chevron(s * 0.88f, s * 0.70f, 1f, s * 0.11f, tint, head)
-            chevron(s * 0.88f, s * 0.30f, 1f, s * 0.11f, tint, head)
+            drawShuffleGlyph(tint)
         }
     }
 }
