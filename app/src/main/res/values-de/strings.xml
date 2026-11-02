@@ -166,6 +166,8 @@
     <string name="hidden_tracks">Ausgeblendete Titel</string>
     <string name="hidden_tracks_none">Keine</string>
     <string name="hidden_tracks_empty">Keine ausgeblendeten Titel. Im Titel-Tab blendest du einen Titel über das Drei-Punkte-Menü aus.</string>
+    <string name="hidden_tracks_info_button">Info</string>
+    <string name="hidden_tracks_info">Ausgeblendete Titel erscheinen nicht im Titel-Tab und werden vom Neko Mix nicht berücksichtigt. In allen anderen Bereichen bleiben sie sichtbar.</string>
     <string name="show_track">Wieder einblenden</string>
     <string name="backup_title">Backup</string>
     <string name="backup_summary">Einstellungen, ausgeblendete Titel, Favoriten und Playlists</string>
@@ -194,4 +196,31 @@
     <string name="widget_compact_desc">Kleines Cover, Titel, Steuerung und Fortschrittsbalken</string>
     <string name="widget_idle_title">Nichts läuft</string>
     <string name="widget_idle_hint">Tippen, um die App zu öffnen</string>
+    <string name="folder_list">Ordnerliste</string>
+    <string name="folder_list_all">Alle Ordner mit Musik</string>
+    <string name="folder_list_hint">Ohne Auswahl zeigt die App alle Ordner mit Musik. Mit hinzugefügten Ordnern erscheint nur deren Inhalt.</string>
+    <string name="folder_excluded">Ausgeschlossene Ordner</string>
+    <string name="folder_excluded_hint">Ausgeschlossene Ordner werden samt Unterordnern nicht angezeigt.</string>
+    <string name="folder_add">Hinzufügen</string>
+    <string name="folder_remove">Entfernen</string>
+    <string name="folder_pick">Ordner wählen</string>
+    <string name="folder_pick_exclude">Ordner ausschließen</string>
+    <string name="folder_home">Home</string>
+    <string name="folder_no_subfolders">Keine Unterordner</string>
+    <string name="folder_sort_name">Name</string>
+    <string name="folder_sort_count">Anzahl</string>
+    <string name="folder_sort_date">Datum</string>
+    <string name="folder_sort_dir">Sortierrichtung</string>
+    <string name="folder_select_this">Diesen Ordner übernehmen</string>
+    <string name="changes_title">Bestätigen</string>
+    <string name="changes_text">Die folgenden Änderungen wurden erkannt.\nAktualisierung bestätigen?</string>
+    <string name="changes_new">Neu</string>
+    <string name="changes_filtered">Gefiltert</string>
+    <string name="changes_apply">Aktualisieren</string>
+    <string name="changes_none">Keine Änderungen gefunden.</string>
+    <string name="changes_done">Fertig: Bibliothek aktualisiert.</string>
+    <plurals name="n_folders">
+        <item quantity="one">%d Ordner</item>
+        <item quantity="other">%d Ordner</item>
+    </plurals>
 </resources>
