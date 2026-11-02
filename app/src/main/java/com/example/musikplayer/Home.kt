@@ -136,7 +136,7 @@ private fun MixCard(mix: List<Song>, onPlay: () -> Unit, onReshuffle: () -> Unit
         Modifier
             .padding(horizontal = 16.dp)
             .fillMaxWidth()
-            .bounceClick(pressedScale = 0.97f, haptic = false) { onPlay() }
+            .bounceClick(pressedScale = 0.97f, hapticSnap = true) { onPlay() }
             .clip(RoundedCornerShape(24.dp))
             .background(card)
             .padding(12.dp),
