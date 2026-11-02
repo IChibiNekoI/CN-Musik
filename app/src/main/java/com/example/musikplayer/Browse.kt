@@ -646,6 +646,7 @@ fun LibraryScreen(
     favorites: List<Long> = emptyList(),
     history: List<Long> = emptyList(),               // zuletzt gehörte Titel, neueste zuerst (Startseite)
     playLog: List<PlayEvent> = emptyList(),          // Hörprotokoll der letzten 30 Tage (Startseite: Dein Neko Mix)
+    mixSkips: List<MixSkip> = emptyList(),           // Skips im Neko Mix der letzten 30 Tage
     mixExcluded: Set<Long> = emptySet(),             // aus der Warteschlange entfernt: bleiben vorerst aus dem Mix
     onMixPlayed: (List<Song>) -> Unit = {},          // der Mix wurde gestartet (für das Merken von Entfernungen)
     onToggleFavorite: (Song) -> Unit = {},
@@ -748,7 +749,11 @@ fun LibraryScreen(
         else songs.filter { it.id !in hiddenIds && it.id !in mixExcluded }
     }
     val mix = remember(mixPool, mixOrderSeed, showHome) {
-        if (!showHome) emptyList() else buildMix(mixPool, favorites.toSet(), playLog, mixSeed, mixOrderSeed)
+        if (!showHome) emptyList() else buildMix(
+            mixPool, favorites.toSet(), playLog, mixSeed, mixOrderSeed,
+            skips = mixSkips,
+            features = { id -> TrackFeatureCache.get(ctx, id) }
+        )
     }
 
     // Vom Player aus: zum Album springen
