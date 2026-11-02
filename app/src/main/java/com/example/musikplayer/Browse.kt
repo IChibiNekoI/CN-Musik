@@ -195,7 +195,7 @@ private fun GridTile(
         // Kein Clip und kein Ripple: Der Clip schnitt unten die Ecken von Titel und Untertitel ab,
         // und der Ripple färbte die Kachel beim Drücken weiß. Stattdessen drückt sich die Kachel leicht ein.
         modifier.fillMaxWidth()
-            .bounceClick(pressedScale = 0.95f, haptic = false) { onClick() }
+            .bounceClick(pressedScale = 0.95f, hapticSnap = true) { onClick() }
     ) {
         val w = maxWidth
         Column(Modifier.fillMaxWidth()) {
@@ -252,7 +252,7 @@ internal fun SearchAlbumCard(
         modifier
             .width(side)
             // Eindrücken zuerst: Es gilt dann für die ganze Karte samt Hintergrund und Rundung, nicht nur für den Inhalt
-            .bounceClick(pressedScale = 0.95f, haptic = false) { onOpen() }
+            .bounceClick(pressedScale = 0.95f, hapticSnap = true) { onOpen() }
             .clip(RoundedCornerShape(20.dp))
             .background(card)
     ) {
@@ -402,7 +402,7 @@ private fun AlbumCollection(
                     },
                     leadingContent = { Cover(list.first(), 56.dp) },
                     colors = clearColors(),
-                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { onOpen(albumName) }
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, hapticSnap = true) { onOpen(albumName) }
                 )
             }
         }
@@ -476,6 +476,7 @@ fun SongRow(
     // Gemeinsame Quelle für Drücken: der Klick liegt auf dem ListItem, die Welle wird dahinter
     // im eingerückten Rechteck gezeichnet (gleiche Breite wie die Hervorhebung des laufenden Titels)
     val pressSource = remember { MutableInteractionSource() }
+    val hapticCtx = LocalContext.current
     // Gedrückt: die ganze Zeile drückt sich leicht ein und federt zurück
     val rowPress = rememberPressProgress(pressSource)
     Box(
@@ -576,7 +577,10 @@ fun SongRow(
         // ein Klick auf der Box dahinter käme nie an.
         modifier = if (rounded) {
             Modifier.clip(RoundedCornerShape(20.dp))
-                .clickable(interactionSource = pressSource, indication = null) { onClick() }
+                .clickable(interactionSource = pressSource, indication = null) {
+                    Haptics.snap(hapticCtx)   // dieselbe Vibration wie beim Ziehen des Fortschrittsbalkens
+                    onClick()
+                }
         } else Modifier.clickable(interactionSource = pressSource, indication = null) { onClick() }
     )
     }
@@ -1222,7 +1226,7 @@ fun LibraryScreen(
                                 },
                                 leadingContent = { Cover(list.first(), 56.dp) },
                                 colors = clearColors(),
-                                modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { openAlbum = albumName }
+                                modifier = Modifier.bounceClick(pressedScale = 0.97f, hapticSnap = true) { openAlbum = albumName }
                             )
                         }
                     }
@@ -1357,7 +1361,7 @@ fun LibraryScreen(
                             colors = clearColors(),
                             modifier = itemMod
                                 .playlistFx(appear = p.id !in knownPlaylistIds, removing = p.id in removingIds)
-                                .bounceClick(pressedScale = 0.97f, haptic = false) { openPlaylist = p.id }
+                                .bounceClick(pressedScale = 0.97f, hapticSnap = true) { openPlaylist = p.id }
                         )
                     }
                 } else {
