@@ -662,3 +662,14 @@ fun PlaylistIcon(
         drawPath(polyPath(k, 13.8f, 14.4f, 19.8f, 17.2f, 13.8f, 20f, closed = true), c, style = st.rounded(1.2f * k))
     }
 }
+
+/** Häkchen */
+@Composable
+fun CheckIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        drawPath(polyPath(k, 5f, 12.5f, 10f, 17.5f, 19f, 7f), c, style = st)
+    }
+}
