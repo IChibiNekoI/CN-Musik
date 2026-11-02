@@ -277,6 +277,7 @@ private fun NowPlayingSheetContent(
     DisposableEffect(Unit) { onDispose { PlayerUiState.queueOpen = false } }
     // velocity = Fingergeschwindigkeit beim Loslassen in Fortschritt pro Sekunde (positiv = Richtung offen)
     fun openQueue(velocity: Float = 0f) {
+        Haptics.snap(prefetchCtx)   // dieselbe Vibration wie beim Öffnen des Players
         queueShown = true
         queueScope.launch {
             queueProgress.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.85f, stiffness = 320f), velocity)
