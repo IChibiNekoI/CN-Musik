@@ -166,6 +166,8 @@
     <string name="hidden_tracks">Hidden tracks</string>
     <string name="hidden_tracks_none">None</string>
     <string name="hidden_tracks_empty">No hidden tracks. In the Tracks tab, hide a track from its three-dot menu.</string>
+    <string name="hidden_tracks_info_button">Info</string>
+    <string name="hidden_tracks_info">Hidden tracks do not appear in the Tracks tab and are ignored by Neko Mix. They stay visible everywhere else.</string>
     <string name="show_track">Show again</string>
     <string name="backup_title">Backup</string>
     <string name="backup_summary">Settings, hidden tracks, favorites and playlists</string>
@@ -194,4 +196,31 @@
     <string name="widget_compact_desc">Small cover, title, controls and progress bar</string>
     <string name="widget_idle_title">Nothing playing</string>
     <string name="widget_idle_hint">Tap to open the app</string>
+    <string name="folder_list">Folder list</string>
+    <string name="folder_list_all">All folders with music</string>
+    <string name="folder_list_hint">Without a selection the app shows all folders with music. With added folders, only their content appears.</string>
+    <string name="folder_excluded">Excluded folders</string>
+    <string name="folder_excluded_hint">Excluded folders are hidden together with their subfolders.</string>
+    <string name="folder_add">Add</string>
+    <string name="folder_remove">Remove</string>
+    <string name="folder_pick">Choose folder</string>
+    <string name="folder_pick_exclude">Exclude folder</string>
+    <string name="folder_home">Home</string>
+    <string name="folder_no_subfolders">No subfolders</string>
+    <string name="folder_sort_name">Name</string>
+    <string name="folder_sort_count">Count</string>
+    <string name="folder_sort_date">Date</string>
+    <string name="folder_sort_dir">Sort direction</string>
+    <string name="folder_select_this">Use this folder</string>
+    <string name="changes_title">Confirm</string>
+    <string name="changes_text">The following changes were detected.\nConfirm the update?</string>
+    <string name="changes_new">New</string>
+    <string name="changes_filtered">Filtered</string>
+    <string name="changes_apply">Update</string>
+    <string name="changes_none">No changes found.</string>
+    <string name="changes_done">Done: library updated.</string>
+    <plurals name="n_folders">
+        <item quantity="one">%d folder</item>
+        <item quantity="other">%d folders</item>
+    </plurals>
 </resources>
