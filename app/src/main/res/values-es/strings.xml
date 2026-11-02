@@ -169,6 +169,8 @@
     <string name="hidden_tracks">Canciones ocultas</string>
     <string name="hidden_tracks_none">Ninguna</string>
     <string name="hidden_tracks_empty">No hay canciones ocultas. En la pestaña Canciones, oculta una canción desde su menú de tres puntos.</string>
+    <string name="hidden_tracks_info_button">Información</string>
+    <string name="hidden_tracks_info">Las canciones ocultas no aparecen en la pestaña Canciones y Neko Mix no las tiene en cuenta. En el resto de la app siguen visibles.</string>
     <string name="show_track">Mostrar de nuevo</string>
     <string name="backup_title">Copia de seguridad</string>
     <string name="backup_summary">Ajustes, canciones ocultas, favoritos y listas</string>
@@ -197,4 +199,32 @@
     <string name="widget_compact_desc">Portada pequeña, título, controles y barra de progreso</string>
     <string name="widget_idle_title">Nada en reproducción</string>
     <string name="widget_idle_hint">Toca para abrir la app</string>
+    <string name="folder_list">Lista de carpetas</string>
+    <string name="folder_list_all">Todas las carpetas con música</string>
+    <string name="folder_list_hint">Sin selección, la app muestra todas las carpetas con música. Con carpetas añadidas, solo aparece su contenido.</string>
+    <string name="folder_excluded">Carpetas excluidas</string>
+    <string name="folder_excluded_hint">Las carpetas excluidas no se muestran, junto con sus subcarpetas.</string>
+    <string name="folder_add">Añadir</string>
+    <string name="folder_remove">Quitar</string>
+    <string name="folder_pick">Elegir carpeta</string>
+    <string name="folder_pick_exclude">Excluir carpeta</string>
+    <string name="folder_home">Inicio</string>
+    <string name="folder_no_subfolders">Sin subcarpetas</string>
+    <string name="folder_sort_name">Nombre</string>
+    <string name="folder_sort_count">Cantidad</string>
+    <string name="folder_sort_date">Fecha</string>
+    <string name="folder_sort_dir">Orden de clasificación</string>
+    <string name="folder_select_this">Usar esta carpeta</string>
+    <string name="changes_title">Confirmar</string>
+    <string name="changes_text">Se detectaron los siguientes cambios.\n¿Confirmar la actualización?</string>
+    <string name="changes_new">Nuevo</string>
+    <string name="changes_filtered">Filtrado</string>
+    <string name="changes_apply">Actualizar</string>
+    <string name="changes_none">No se encontraron cambios.</string>
+    <string name="changes_done">Listo: biblioteca actualizada.</string>
+    <plurals name="n_folders">
+        <item quantity="one">%d carpeta</item>
+        <item quantity="many">%d de carpetas</item>
+        <item quantity="other">%d carpetas</item>
+    </plurals>
 </resources>
