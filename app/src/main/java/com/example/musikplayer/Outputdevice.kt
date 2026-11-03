@@ -141,15 +141,18 @@ fun rememberOutputDevice(): State<OutputDevice?> {
  */
 @Composable
 private fun RowScope.BrandLogo(brand: OutputBrand) {
-    // x-Höhe als Anteil der Bildhöhe (aus den Pixeln der PNGs gemessen): soundcore ~41/64, Xiaomi gemessen ~62/64, optisch auf 0.88 nachgestellt (i-Punkt)
-    val (res, xHeightFraction, label) = when (brand) {
-        OutputBrand.XIAOMI -> Triple(R.drawable.logo_xiaomi, 0.88f, "Xiaomi")
-        OutputBrand.SOUNDCORE -> Triple(R.drawable.logo_soundcore, 0.64f, "soundcore")
+    // Anteil der Buchstabenhöhe an der Bildhöhe (aus den Pixeln der PNGs gemessen) und die Zielhöhe der Buchstaben:
+    // soundcore: Kleinbuchstaben (x-Höhe) ~41/64 des Bildes, passend zur x-Höhe des Textes
+    // Xiaomi: Das Logo besteht nur aus Kleinbuchstaben, ist aber auf die Großbuchstaben-Höhe des Textes ("B" in "Buds") gesetzt
+    val (res, letterFraction, letterHeight) = when (brand) {
+        OutputBrand.XIAOMI -> Triple(R.drawable.logo_xiaomi, 0.97f, LABEL_CAP_HEIGHT)
+        OutputBrand.SOUNDCORE -> Triple(R.drawable.logo_soundcore, 0.64f, LOGO_X_HEIGHT)
         OutputBrand.NONE -> return
     }
+    val label = if (brand == OutputBrand.XIAOMI) "Xiaomi" else "soundcore"
     val painter = painterResource(res)
     val ratio = painter.intrinsicSize.let { if (it.height > 0f) it.width / it.height else 6f }
-    val height = LOGO_X_HEIGHT / xHeightFraction
+    val height = letterHeight / letterFraction
     Image(
         painter = painter,
         contentDescription = label,
@@ -160,6 +163,9 @@ private fun RowScope.BrandLogo(brand: OutputBrand) {
         contentScale = ContentScale.Fit
     )
 }
+
+/** Versalhöhe von labelMedium (12sp, ca. 0,71 em). */
+private val LABEL_CAP_HEIGHT = 8.5.dp
 
 /** Gewünschte x-Höhe der Logos. labelMedium (12sp) hat ca. 6,3 dp; etwas darüber, damit das Logo optisch gleich groß wirkt. */
 private val LOGO_X_HEIGHT = 6.8.dp
