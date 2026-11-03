@@ -159,6 +159,8 @@
     <string name="progress_bar_style_sub">Barra continua simple</string>
     <string name="progress_wave_sub">Forma de onda hecha de barras sueltas</string>
     <string name="output_device">Mostrar dispositivo de salida</string>
+    <string name="song_duration">Mostrar duración de la canción</string>
+    <string name="song_duration_summary">Se muestra en el reproductor junto al botón de menú</string>
     <string name="output_device_summary">Se muestra cuando hay auriculares conectados</string>
     <string name="search_albums_title">Álbumes • %1$d</string>
     <string name="search_tracks_title">Canciones • %1$d</string>
