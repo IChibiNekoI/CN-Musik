@@ -441,6 +441,13 @@ private fun trackNumberOf(song: Song, position: Int): Int {
     return if (n > 0) n else position
 }
 
+/** Dauer als m:ss, ab einer Stunde h:mm:ss */
+private fun formatSongDuration(ms: Long): String {
+    val s = ms / 1000
+    return if (s >= 3600) "%d:%02d:%02d".format(s / 3600, (s / 60) % 60, s % 60)
+    else "%d:%02d".format(s / 60, s % 60)
+}
+
 @Composable
 fun SongRow(
     song: Song,
@@ -523,6 +530,18 @@ fun SongRow(
             }
         },
         trailingContent = {
+            // Optional: Dauer des Liedes links neben dem Drei-Punkte-Menü
+            Row(verticalAlignment = Alignment.CenterVertically) {
+            if (CornerSettings.showSongDuration && song.durationMs > 0L) {
+                Text(
+                    formatSongDuration(song.durationMs),
+                    // Der Button hat 8 dp Versatz nach rechts, die Dauer rückt entsprechend mit
+                    modifier = Modifier.offset(x = 8.dp),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
             // 8 dp nach rechts: die drei Punkte stehen genau unter dem Zahnrad und dem Plus der Kopfzeile
             Box(Modifier.offset(x = 8.dp)) {
                 BounceIconButton(onClick = { expanded = true }) {
@@ -570,6 +589,7 @@ fun SongRow(
                 }
                 if (showInfo) SongInfoDialog(song) { showInfo = false }
                 if (showTags) TagEditDialog(song) { showTags = false }
+            }
             }
         },
         colors = ListItemDefaults.colors(containerColor = if (rounded) Color.Transparent else rowColor),
