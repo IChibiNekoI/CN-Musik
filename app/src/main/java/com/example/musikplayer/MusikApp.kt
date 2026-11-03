@@ -1045,6 +1045,22 @@ fun AppSettingsSheet(
                         saveShowOutputDevice(outputCtx, on)
                     }
                 )
+                val durationCtx = LocalContext.current
+                val durationOn = CornerSettings.showSongDuration
+                ListItem(
+                    headlineContent = { Text(str(R.string.song_duration)) },
+                    supportingContent = { Text(str(R.string.song_duration_summary)) },
+                    leadingContent = { ClockIcon() },
+                    trailingContent = {
+                        Switch(checked = durationOn, onCheckedChange = null)
+                    },
+                    colors = clear,
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f) {
+                        val on = !durationOn
+                        CornerSettings.showSongDuration = on
+                        saveShowSongDuration(durationCtx, on)
+                    }
+                )
                 HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
                 Text(
                     str(R.string.settings_general),
