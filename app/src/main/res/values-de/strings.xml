@@ -157,7 +157,7 @@
     <string name="progress_wave_sub">Wellenform aus einzelnen Balken</string>
     <string name="output_device">Ausgabegerät anzeigen</string>
     <string name="song_duration">Lieddauer anzeigen</string>
-    <string name="song_duration_summary">Wird im Player links neben dem Menü-Button angezeigt</string>
+    <string name="song_duration_summary">Wird in den Titellisten links neben dem Menü-Button angezeigt</string>
     <string name="output_device_summary">Wird angezeigt, wenn Kopfhörer verbunden sind</string>
     <string name="search_albums_title">Alben • %1$d</string>
     <string name="search_tracks_title">Titel • %1$d</string>
