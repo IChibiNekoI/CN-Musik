@@ -10,6 +10,8 @@ import android.os.Handler
 import android.os.Looper
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -27,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -130,29 +133,41 @@ fun rememberOutputDevice(): State<OutputDevice?> {
     return state
 }
 
-/** Logo eines Herstellers in passender Größe (die Logos sind zugeschnitten, ihre Höhe ist je Logo abgestimmt). */
+/**
+ * Logo eines Herstellers. Die Logos sind auf die Pixel zugeschnitten; die Höhe wird nicht mehr "nach Gefühl" je Logo
+ * gewählt, sondern aus der x-Höhe (Höhe der Kleinbuchstaben ohne Ober-/Unterlänge) berechnet. So haben beide Logos
+ * dieselbe Buchstabenhöhe, egal wie viel Platz ein Aufstrich (d bei soundcore, i-Punkt bei Xiaomi) im Bild braucht.
+ * Der Unterrand beider Logos ist die Schriftgrundlinie, daher sitzen sie auf der Grundlinie des Modelltextes.
+ */
 @Composable
-private fun BrandLogo(brand: OutputBrand) {
-    // Die Höhe gleicht die Schrifthöhe der Logos an: Beim soundcore-Logo zählt der kleine Buchstabe, der Aufstrich
-    // des d ragt darüber hinaus, deshalb ist es höher angesetzt als das reine Kleinbuchstaben-Logo von Xiaomi
-    val (res, height, label) = when (brand) {
-        OutputBrand.XIAOMI -> Triple(R.drawable.logo_xiaomi, 8.dp, "Xiaomi")
-        OutputBrand.SOUNDCORE -> Triple(R.drawable.logo_soundcore, 12.5.dp, "soundcore")
+private fun RowScope.BrandLogo(brand: OutputBrand) {
+    // x-Höhe als Anteil der Bildhöhe (aus den Pixeln der PNGs gemessen): soundcore ~41/64, Xiaomi ~62/64
+    val (res, xHeightFraction, label) = when (brand) {
+        OutputBrand.XIAOMI -> Triple(R.drawable.logo_xiaomi, 0.97f, "Xiaomi")
+        OutputBrand.SOUNDCORE -> Triple(R.drawable.logo_soundcore, 0.64f, "soundcore")
         OutputBrand.NONE -> return
     }
     val painter = painterResource(res)
     val ratio = painter.intrinsicSize.let { if (it.height > 0f) it.width / it.height else 6f }
+    val height = LOGO_X_HEIGHT / xHeightFraction
     Image(
         painter = painter,
         contentDescription = label,
-        modifier = Modifier.height(height).aspectRatio(ratio),
+        modifier = Modifier
+            .height(height)
+            .aspectRatio(ratio)
+            .alignBy { it.measuredHeight }, // Grundlinie = Unterkante des Logos
         contentScale = ContentScale.Fit
     )
 }
 
+/** Gewünschte x-Höhe der Logos. labelMedium (12sp) hat ca. 6,3 dp; etwas darüber, damit das Logo optisch gleich groß wirkt. */
+private val LOGO_X_HEIGHT = 6.8.dp
+
 /**
  * Name der angeschlossenen Kopfhörer mit Symbol davor. Bei Xiaomi und soundcore steht das Logo statt des
  * Herstellernamens, danach das Modell (z. B. Logo + "Buds 5"). Wird mittig zwischen die Zeiten gesetzt.
+ * Symbol, Logo und Text sind an der Schriftgrundlinie ausgerichtet.
  */
 @Composable
 fun OutputDeviceLabel(modifier: Modifier = Modifier) {
@@ -160,12 +175,17 @@ fun OutputDeviceLabel(modifier: Modifier = Modifier) {
     // Nur bei Kopfhörern (Bluetooth, Kabel, USB). Bei Lautsprecher und allem anderen bleibt die Mitte leer.
     val d = device?.takeIf { it.kind == OutputKind.HEADPHONES } ?: return
     val color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+    val density = LocalDensity.current
+    // Das Symbol soll auf der Mitte der Großbuchstaben liegen: Grundlinie = Symbolmitte + halbe Versalhöhe
+    val halfCapPx = with(density) { 4.2.dp.roundToPx() }
     Row(
         modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
-        HeadphonesIcon(iconSize = 14.dp, tint = color)
+        Box(Modifier.alignBy { it.measuredHeight / 2 + halfCapPx }) {
+            HeadphonesIcon(iconSize = 14.dp, tint = color)
+        }
         Spacer(Modifier.width(4.dp))
         if (d.brand != OutputBrand.NONE) {
             BrandLogo(d.brand)
@@ -180,7 +200,7 @@ fun OutputDeviceLabel(modifier: Modifier = Modifier) {
                 color = color,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false)
+                modifier = Modifier.weight(1f, fill = false).alignByBaseline()
             )
         }
     }
