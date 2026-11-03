@@ -141,9 +141,9 @@ fun rememberOutputDevice(): State<OutputDevice?> {
  */
 @Composable
 private fun RowScope.BrandLogo(brand: OutputBrand) {
-    // x-Höhe als Anteil der Bildhöhe (aus den Pixeln der PNGs gemessen): soundcore ~41/64, Xiaomi ~62/64
+    // x-Höhe als Anteil der Bildhöhe (aus den Pixeln der PNGs gemessen): soundcore ~41/64, Xiaomi gemessen ~62/64, optisch auf 0.88 nachgestellt (i-Punkt)
     val (res, xHeightFraction, label) = when (brand) {
-        OutputBrand.XIAOMI -> Triple(R.drawable.logo_xiaomi, 0.97f, "Xiaomi")
+        OutputBrand.XIAOMI -> Triple(R.drawable.logo_xiaomi, 0.88f, "Xiaomi")
         OutputBrand.SOUNDCORE -> Triple(R.drawable.logo_soundcore, 0.64f, "soundcore")
         OutputBrand.NONE -> return
     }
