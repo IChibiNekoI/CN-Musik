@@ -130,6 +130,12 @@ fun saveShowOutputDevice(ctx: Context, on: Boolean) {
     prefs(ctx).edit().putBoolean("show_output_device", on).apply()
 }
 
+fun readShowSongDuration(ctx: Context): Boolean = prefs(ctx).getBoolean("show_song_duration", false)
+
+fun saveShowSongDuration(ctx: Context, on: Boolean) {
+    prefs(ctx).edit().putBoolean("show_song_duration", on).apply()
+}
+
 fun readWaveProgress(ctx: Context): Boolean = prefs(ctx).getBoolean("wave_progress", false)
 
 fun saveWaveProgress(ctx: Context, on: Boolean) {
