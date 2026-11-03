@@ -464,8 +464,6 @@ private fun NowPlayingSheetContent(
                             // Pfeil flacht beim Runterziehen zu einer Linie ab und knickt beim Öffnen wieder ein
                             flatten = headerFlatten
                         )
-                        // Mit Lieddauer braucht der Albumname rechts mehr Platz (Dauer ca. 36 dp + 8 dp Abstand)
-                        val rightReserve = if (CornerSettings.showSongDuration) 100.dp else 44.dp
                         Text(
                             song.album.ifBlank { str(R.string.unknown_album) },
                             // Albumname: genau in der Mitte des Bildschirms, solange er nicht zu lang ist.
@@ -475,7 +473,7 @@ private fun NowPlayingSheetContent(
                                 .align(Alignment.CenterStart)
                                 .layout { measurable, constraints ->
                                     val left = 56.dp.roundToPx()
-                                    val right = rightReserve.roundToPx()
+                                    val right = 44.dp.roundToPx()
                                     val total = constraints.maxWidth
                                     val placeable = measurable.measure(
                                         constraints.copy(minWidth = 0, maxWidth = (total - left - right).coerceAtLeast(0))
@@ -490,19 +488,6 @@ private fun NowPlayingSheetContent(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        if (CornerSettings.showSongDuration) {
-                            val totalMs = if (duration > 0L) duration else song.durationMs
-                            if (totalMs > 0L) {
-                                Text(
-                                    fmt(totalMs),
-                                    // links neben dem Menü-Button: 36 dp Button + 8 dp Abstand
-                                    modifier = Modifier.align(Alignment.CenterEnd).padding(end = 44.dp).headerPop { open.value },
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-                                    maxLines = 1
-                                )
-                            }
-                        }
                         Box(Modifier.align(Alignment.CenterEnd)) {
                             MoreButton(
                                 onClick = { menuOpen = true },
