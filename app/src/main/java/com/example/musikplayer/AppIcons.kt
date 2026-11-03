@@ -279,6 +279,19 @@ fun InfoIcon(
     }
 }
 
+/** Uhr: Kreis mit Zeigern */
+@Composable
+fun ClockIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        drawCircle(c, radius = 8.6f * k, center = Offset(12f * k, 12f * k), style = st)
+        seg(c, st, k, 12f, 7.2f, 12f, 12f)
+        seg(c, st, k, 12f, 12f, 15.2f, 14f)
+    }
+}
+
 /** Stift mit Linie darunter (bearbeiten) */
 /** Auge: Umriss mit Pupille */
 @Composable
