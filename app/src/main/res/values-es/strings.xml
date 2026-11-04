@@ -167,6 +167,8 @@
     <string name="playlist_change_image">Cambiar imagen de la lista</string>
     <string name="playlist_exported">Lista exportada</string>
     <string name="playlist_export_failed">Error al exportar</string>
+    <string name="playlist_image_title">Imagen de la lista</string>
+    <string name="playlist_image_pick">Elegir del almacenamiento</string>
     <string name="song_duration">Mostrar duración de la canción</string>
     <string name="song_duration_summary">Se muestra en las listas de canciones junto al botón de menú</string>
     <string name="output_device_summary">Se muestra cuando hay auriculares conectados</string>
