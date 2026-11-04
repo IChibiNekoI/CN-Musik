@@ -143,7 +143,9 @@ object Backup {
                     val mapped = mapList(List(old.length()) { old.getLong(it) })
                     val ids = JSONArray()
                     mapped.forEach { ids.put(it) }
-                    out.put(JSONObject().put("id", pl.getString("id")).put("name", pl.getString("name")).put("songs", ids))
+                    out.put(JSONObject().put("id", pl.getString("id")).put("name", pl.getString("name")).put("songs", ids).apply {
+                        pl.optString("cover", "").takeIf { it.isNotEmpty() }?.let { put("cover", it) }
+                    })
                 }
                 edit.putString("playlists", out.toString())
             } catch (e: Exception) {
