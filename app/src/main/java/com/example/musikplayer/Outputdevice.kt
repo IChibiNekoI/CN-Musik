@@ -190,7 +190,7 @@ fun OutputDeviceLabel(modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.Center
     ) {
         Box(Modifier.alignBy { it.measuredHeight / 2 + halfCapPx }) {
-            HeadphonesIcon(iconSize = 14.dp, tint = color)
+            HeadphonesIcon(iconSize = 16.dp, tint = color)
         }
         Spacer(Modifier.width(4.dp))
         if (d.brand != OutputBrand.NONE) {
