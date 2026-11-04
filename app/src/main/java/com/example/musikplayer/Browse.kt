@@ -474,12 +474,29 @@ private fun PlaylistMenu(
             ) {
                 PlaylistCover(covers, 56.dp, custom = playlist.cover)
                 Spacer(Modifier.width(14.dp))
-                Text(
-                    playlist.name,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis
-                )
+                // Name, darunter "xx Titel • Monat Jahr" (Erstellungsdatum steckt in der Playlist-ID)
+                val subtitle = remember(playlist.id, playlist.songIds.size) {
+                    val tracks = plural(R.plurals.n_tracks, playlist.songIds.size)
+                    val created = playlist.id.toLongOrNull()?.takeIf { it > 946684800000L }
+                    if (created == null) tracks else {
+                        val locale = strCtx?.resources?.configuration?.locales?.get(0) ?: java.util.Locale.getDefault()
+                        val month = java.text.SimpleDateFormat("LLL yyyy", locale).format(java.util.Date(created))
+                        "$tracks • $month"
+                    }
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        playlist.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
+                }
                 BounceIconButton(onClick = { expanded = false; onPickCover() }) {
                     ImageEditIcon(description = str(R.string.playlist_change_image))
                 }
@@ -500,7 +517,7 @@ private fun PlaylistMenu(
             )
             DropdownMenuItem(
                 text = { Text(str(R.string.playlist_shuffle)) },
-                leadingIcon = { ShuffleIcon() },
+                leadingIcon = { ShuffleIcon(iconSize = 24.dp) },
                 onClick = { expanded = false; onShuffle() }
             )
             DropdownMenuItem(
