@@ -345,6 +345,22 @@ fun EditIcon(
     }
 }
 
+/** Bild mit Berg und Stift in der Ecke (Bild ändern) */
+@Composable
+fun ImageEditIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        // Rahmen mit Lücke oben rechts, dort sitzt der Stift
+        drawPath(polyPath(k, 12.8f, 4.5f, 4.5f, 4.5f, 4.5f, 19.5f, 19.5f, 19.5f, 19.5f, 11.2f), c, style = st.rounded(2.6f * k))
+        // Hügel
+        drawPath(polyPath(k, 5f, 17f, 9.4f, 12.6f, 13f, 16.2f, 15.2f, 14.2f, 19.2f, 18.2f), c, style = st.rounded(1.2f * k))
+        // Stift
+        drawPath(polyPath(k, 13.9f, 10.1f, 14.5f, 7.6f, 18.8f, 3.3f, 20.7f, 5.2f, 16.4f, 9.5f, closed = true), c, style = st.rounded(0.9f * k))
+    }
+}
+
 /** Liste mit Plus (zur Playlist hinzufügen) */
 @Composable
 fun PlaylistAddIcon(
