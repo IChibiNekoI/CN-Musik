@@ -27,13 +27,13 @@
     <string name="sort_name_az">Nombre (A–Z)</string>
     <string name="sort_modified_summary">Fecha de modificación (más reciente primero)</string>
     <string name="sort_added_summary">Fecha de adición (más reciente primero)</string>
-    <string name="index">Indexación</string>
+    <string name="index">Elegir carpetas de música</string>
     <string name="album_view">Vista de álbumes</string>
     <string name="playlist_view">Vista de listas</string>
     <string name="design">Diseño</string>
     <string name="header">Cabecera</string>
     <string name="header_logo">Logotipo de ChibiNeko</string>
-    <string name="header_summary_default">Predeterminado (texto «Música»)</string>
+    <string name="header_summary_default">Predeterminado</string>
     <string name="header_option_text">Texto «Música»</string>
     <string name="header_option_logo_sub">Imagen en lugar de texto</string>
     <string name="audio_info">Información de audio en el reproductor</string>
@@ -160,7 +160,7 @@
     <string name="progress_wave_sub">Forma de onda hecha de barras sueltas</string>
     <string name="output_device">Mostrar dispositivo de salida</string>
     <string name="song_duration">Mostrar duración de la canción</string>
-    <string name="song_duration_summary">Se muestra en el reproductor junto al botón de menú</string>
+    <string name="song_duration_summary">Se muestra en las listas de canciones junto al botón de menú</string>
     <string name="output_device_summary">Se muestra cuando hay auriculares conectados</string>
     <string name="search_albums_title">Álbumes • %1$d</string>
     <string name="search_tracks_title">Canciones • %1$d</string>
