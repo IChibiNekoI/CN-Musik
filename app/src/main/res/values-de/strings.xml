@@ -156,6 +156,14 @@
     <string name="progress_bar_style_sub">Einfacher, durchgehender Balken</string>
     <string name="progress_wave_sub">Wellenform aus einzelnen Balken</string>
     <string name="output_device">Ausgabegerät anzeigen</string>
+    <string name="playlist_rename">Umbenennen</string>
+    <string name="playlist_rename_title">Playlist umbenennen</string>
+    <string name="playlist_play_all">Alle abspielen</string>
+    <string name="playlist_shuffle">Mischen</string>
+    <string name="playlist_export_m3u">Als M3U exportieren</string>
+    <string name="playlist_change_image">Playlist-Bild ändern</string>
+    <string name="playlist_exported">Playlist exportiert</string>
+    <string name="playlist_export_failed">Export fehlgeschlagen</string>
     <string name="song_duration">Lieddauer anzeigen</string>
     <string name="song_duration_summary">Wird in den Titellisten links neben dem Menü-Button angezeigt</string>
     <string name="output_device_summary">Wird angezeigt, wenn Kopfhörer verbunden sind</string>
