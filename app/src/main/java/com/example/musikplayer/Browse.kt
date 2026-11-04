@@ -850,6 +850,7 @@ fun LibraryScreen(
     var renameTarget by remember { mutableStateOf<Playlist?>(null) }
     var renameText by remember { mutableStateOf("") }
     var coverTargetId by remember { mutableStateOf<String?>(null) }
+    var coverChoice by remember { mutableStateOf<Playlist?>(null) }   // Frage: vom Speicher wählen oder Bild löschen
     var exportTarget by remember { mutableStateOf<Playlist?>(null) }
     val coverLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         val id = coverTargetId
@@ -885,7 +886,7 @@ fun LibraryScreen(
     val playlistMenu: @Composable (Playlist, List<Song>, Boolean) -> Unit = { p, covers, compact ->
         PlaylistMenu(
             playlist = p, covers = covers, compact = compact,
-            onPickCover = { coverTargetId = p.id; coverLauncher.launch("image/*") },
+            onPickCover = { coverChoice = p },
             onRename = { renameText = p.name; renameTarget = p },
             onPlay = {
                 val l = p.songIds.mapNotNull { byId[it] }
@@ -1842,6 +1843,48 @@ fun LibraryScreen(
             TextButton(onClick = { pendingSong = null; creating = false }) { Text(str(R.string.cancel)) }
         }
     )
+
+    val choiceShown = rememberLastNonNull(coverChoice)
+    if (choiceShown != null) {
+        val t = choiceShown
+        BounceAlertDialog(
+            visible = coverChoice != null,
+            onDismissRequest = { coverChoice = null },
+            title = { Text(str(R.string.playlist_image_title)) },
+            text = {
+                Column {
+                    ListItem(
+                        headlineContent = { Text(str(R.string.playlist_image_pick)) },
+                        leadingContent = { ImageEditIcon() },
+                        colors = clearColors(),
+                        modifier = Modifier.clickable {
+                            coverChoice = null
+                            coverTargetId = t.id
+                            coverLauncher.launch("image/*")
+                        }
+                    )
+                    // Löschen gibt es nur, wenn die Playlist ein eigenes Bild hat
+                    if (t.cover != null) {
+                        ListItem(
+                            headlineContent = { Text(str(R.string.delete)) },
+                            leadingContent = { TrashIcon() },
+                            colors = clearColors(),
+                            modifier = Modifier.clickable {
+                                coverChoice = null
+                                scope.launch {
+                                    val old = latestPlaylists.firstOrNull { it.id == t.id }?.cover
+                                    onPlaylistsChange(latestPlaylists.map { if (it.id == t.id) it.copy(cover = null) else it })
+                                    withContext(Dispatchers.IO) { deletePlaylistCover(ctx, old) }
+                                }
+                            }
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { coverChoice = null }) { Text(str(R.string.cancel)) } }
+        )
+    }
 
     val renameShown = rememberLastNonNull(renameTarget)
     if (renameShown != null) {
