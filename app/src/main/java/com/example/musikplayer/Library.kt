@@ -31,7 +31,7 @@ import org.json.JSONObject
 
 enum class SortMode { DATE, MODIFIED, NAME }
 
-data class Playlist(val id: String, val name: String, val songIds: List<Long>)
+data class Playlist(val id: String, val name: String, val songIds: List<Long>, val cover: String? = null)
 
 private fun prefs(ctx: Context) =
     ctx.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -654,7 +654,10 @@ fun readPlaylists(ctx: Context): List<Playlist> {
         List(arr.length()) { i ->
             val o = arr.getJSONObject(i)
             val ids = o.getJSONArray("songs")
-            Playlist(o.getString("id"), o.getString("name"), List(ids.length()) { ids.getLong(it) })
+            Playlist(
+                o.getString("id"), o.getString("name"), List(ids.length()) { ids.getLong(it) },
+                o.optString("cover", "").ifEmpty { null }
+            )
         }
     } catch (e: Exception) {
         emptyList()
@@ -666,7 +669,7 @@ fun savePlaylists(ctx: Context, list: List<Playlist>) {
     for (p in list) {
         val ids = JSONArray()
         for (id in p.songIds) ids.put(id)
-        arr.put(JSONObject().put("id", p.id).put("name", p.name).put("songs", ids))
+        arr.put(JSONObject().put("id", p.id).put("name", p.name).put("songs", ids).apply { p.cover?.let { put("cover", it) } })
     }
     prefs(ctx).edit().putString("playlists", arr.toString()).apply()
 }
