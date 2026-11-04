@@ -100,14 +100,20 @@ private fun clearColors() = ListItemDefaults.colors(containerColor = Color.Trans
 
 /** Playlist-Cover: 2x2-Raster aus den Covern der ersten 4 Titel. */
 @Composable
-fun PlaylistCover(songs: List<Song>, size: Dp, corner: Dp = 12.dp) {
+fun PlaylistCover(songs: List<Song>, size: Dp, corner: Dp = 12.dp, custom: String? = null) {
     val first = songs.take(4)
+    val own by rememberPlaylistCoverImage(custom)
     Box(
         Modifier.size(size).clip(RoundedCornerShape(coverRadius(LocalCoverStyle.current, size, corner)))
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center
     ) {
         when {
+            // eigenes Bild gewählt: füllt das ganze Cover
+            own != null -> Image(
+                bitmap = own!!, contentDescription = null,
+                modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop
+            )
             first.isEmpty() -> MusicNoteIcon(tint = MaterialTheme.colorScheme.onSurfaceVariant)
             first.size == 1 -> Cover(first[0], size, corner = 0.dp)
             else -> {
@@ -187,7 +193,7 @@ private fun GridTile(
     subtitle: String,
     onClick: () -> Unit,
     detail: String? = null,
-    onDelete: (() -> Unit)? = null,
+    menu: (@Composable () -> Unit)? = null,   // z. B. das Drei-Punkte-Menü einer Playlist
     modifier: Modifier = Modifier,
     cover: @Composable (Dp) -> Unit
 ) {
@@ -223,11 +229,7 @@ private fun GridTile(
                         )
                     }
                 }
-                if (onDelete != null) {
-                    BounceIconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                        TrashIcon(iconSize = 18.dp, description = str(R.string.delete))
-                    }
-                }
+                menu?.invoke()
             }
         }
     }
@@ -439,6 +441,80 @@ fun DetailHeader(title: String, onBack: (() -> Unit)?, action: (@Composable () -
 private fun trackNumberOf(song: Song, position: Int): Int {
     val n = song.track % 1000
     return if (n > 0) n else position
+}
+
+/**
+ * Drei-Punkte-Menü einer Playlist: oben Bild, Name und eine Taste zum Ändern des Bildes,
+ * darunter Umbenennen, Alle abspielen, Mischen, Als M3U exportieren und Löschen.
+ */
+@Composable
+private fun PlaylistMenu(
+    playlist: Playlist,
+    covers: List<Song>,
+    compact: Boolean,
+    onPickCover: () -> Unit,
+    onRename: () -> Unit,
+    onPlay: () -> Unit,
+    onShuffle: () -> Unit,
+    onExport: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        BounceIconButton(
+            onClick = { expanded = true },
+            modifier = if (compact) Modifier.size(32.dp) else Modifier
+        ) {
+            MoreVertIcon(iconSize = if (compact) 20.dp else 24.dp, description = str(R.string.more))
+        }
+        BounceMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            Row(
+                Modifier.width(280.dp).padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                PlaylistCover(covers, 56.dp, custom = playlist.cover)
+                Spacer(Modifier.width(14.dp))
+                Text(
+                    playlist.name,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis
+                )
+                BounceIconButton(onClick = { expanded = false; onPickCover() }) {
+                    ImageEditIcon(description = str(R.string.playlist_change_image))
+                }
+            }
+            HorizontalDivider(
+                Modifier.padding(horizontal = 16.dp).padding(bottom = 4.dp),
+                color = MaterialTheme.colorScheme.outlineVariant
+            )
+            DropdownMenuItem(
+                text = { Text(str(R.string.playlist_rename)) },
+                leadingIcon = { EditIcon() },
+                onClick = { expanded = false; onRename() }
+            )
+            DropdownMenuItem(
+                text = { Text(str(R.string.playlist_play_all)) },
+                leadingIcon = { PlayTriangleIcon() },
+                onClick = { expanded = false; onPlay() }
+            )
+            DropdownMenuItem(
+                text = { Text(str(R.string.playlist_shuffle)) },
+                leadingIcon = { ShuffleIcon() },
+                onClick = { expanded = false; onShuffle() }
+            )
+            DropdownMenuItem(
+                text = { Text(str(R.string.playlist_export_m3u)) },
+                leadingIcon = { BackupIcon() },
+                onClick = { expanded = false; onExport() }
+            )
+            DropdownMenuItem(
+                text = { Text(str(R.string.delete)) },
+                leadingIcon = { TrashIcon() },
+                onClick = { expanded = false; onDelete() }
+            )
+        }
+    }
 }
 
 /** Dauer als m:ss, ab einer Stunde h:mm:ss */
@@ -752,6 +828,60 @@ fun LibraryScreen(
             .toList().sortedBy { it.first.lowercase() }
     }
     val byId = remember(songs) { songs.associateBy { it.id } }
+
+    // Playlist-Menü: Umbenennen, eigenes Bild, M3U-Export
+    var renameTarget by remember { mutableStateOf<Playlist?>(null) }
+    var renameText by remember { mutableStateOf("") }
+    var coverTargetId by remember { mutableStateOf<String?>(null) }
+    var exportTarget by remember { mutableStateOf<Playlist?>(null) }
+    val coverLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val id = coverTargetId
+        coverTargetId = null
+        if (uri != null && id != null) scope.launch {
+            val name = savePlaylistCover(ctx, uri, id)
+            if (name == null) {
+                Toast.makeText(ctx, str(R.string.tag_image_failed), Toast.LENGTH_LONG).show()
+            } else {
+                val old = latestPlaylists.firstOrNull { it.id == id }?.cover
+                onPlaylistsChange(latestPlaylists.map { if (it.id == id) it.copy(cover = name) else it })
+                withContext(Dispatchers.IO) { deletePlaylistCover(ctx, old) }
+            }
+        }
+    }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/x-mpegurl")) { uri ->
+        val target = exportTarget
+        exportTarget = null
+        if (uri != null && target != null) scope.launch {
+            val list = target.songIds.mapNotNull { byId[it] }
+            val ok = withContext(Dispatchers.IO) {
+                try {
+                    ctx.contentResolver.openOutputStream(uri, "wt")?.use { it.write(buildM3u(list).toByteArray(Charsets.UTF_8)) } != null
+                } catch (e: Exception) {
+                    false
+                }
+            }
+            Toast.makeText(
+                ctx, str(if (ok) R.string.playlist_exported else R.string.playlist_export_failed), Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+    val playlistMenu: @Composable (Playlist, List<Song>, Boolean) -> Unit = { p, covers, compact ->
+        PlaylistMenu(
+            playlist = p, covers = covers, compact = compact,
+            onPickCover = { coverTargetId = p.id; coverLauncher.launch("image/*") },
+            onRename = { renameText = p.name; renameTarget = p },
+            onPlay = {
+                val l = p.songIds.mapNotNull { byId[it] }
+                if (l.isNotEmpty()) onPlay(l, 0)
+            },
+            onShuffle = {
+                val l = p.songIds.mapNotNull { byId[it] }
+                if (l.isNotEmpty()) onShufflePlay(l)
+            },
+            onExport = { exportTarget = p; exportLauncher.launch("${p.name}.m3u") },
+            onDelete = { deleteTarget = p }
+        )
+    }
     val favSet = remember(favorites) { favorites.toSet() }
     // Der Favoriten-Tab gibt es nur, solange mindestens ein Titel favorisiert ist
     val showHome = CornerSettings.showHome
@@ -1337,10 +1467,10 @@ fun LibraryScreen(
                             title = p.name,
                             subtitle = playlistMeta(p.songIds, byId),
                             onClick = { openPlaylist = p.id },
-                            onDelete = { deleteTarget = p },
+                            menu = { playlistMenu(p, covers, true) },
                             modifier = itemMod
                                 .playlistFx(appear = p.id !in knownPlaylistIds, removing = p.id in removingIds),
-                            cover = { w -> PlaylistCover(covers, w) }
+                            cover = { w -> PlaylistCover(covers, w, custom = p.cover) }
                         )
                     }
                 } else if (pl == null) {
@@ -1362,22 +1492,18 @@ fun LibraryScreen(
                             )
                         }
                     ) { _, p, itemMod ->
+                        val listCovers = remember(p.songIds, byId) {
+                            p.songIds.asSequence().mapNotNull { byId[it] }.take(4).toList()
+                        }
                         ListItem(
                             headlineContent = {
                                 Text(p.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             },
                             supportingContent = { Text(playlistMeta(p.songIds, byId)) },
                             leadingContent = {
-                                val covers = remember(p.songIds, byId) {
-                                    p.songIds.asSequence().mapNotNull { byId[it] }.take(4).toList()
-                                }
-                                PlaylistCover(covers, 56.dp)
+                                PlaylistCover(listCovers, 56.dp, custom = p.cover)
                             },
-                            trailingContent = {
-                                BounceIconButton(onClick = { deleteTarget = p }) {
-                                    TrashIcon(description = str(R.string.delete))
-                                }
-                            },
+                            trailingContent = { playlistMenu(p, listCovers, false) },
                             colors = clearColors(),
                             modifier = itemMod
                                 .playlistFx(appear = p.id !in knownPlaylistIds, removing = p.id in removingIds)
@@ -1700,6 +1826,33 @@ fun LibraryScreen(
         }
     )
 
+    val renameShown = rememberLastNonNull(renameTarget)
+    if (renameShown != null) {
+        val t = renameShown
+        val doRename = {
+            val n = renameText.trim()
+            if (n.isNotEmpty()) onPlaylistsChange(latestPlaylists.map { if (it.id == t.id) it.copy(name = n) else it })
+            renameTarget = null
+        }
+        BounceAlertDialog(
+            visible = renameTarget != null,
+            onDismissRequest = { renameTarget = null },
+            title = { Text(str(R.string.playlist_rename_title)) },
+            text = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it },
+                    singleLine = true,
+                    label = { Text(str(R.string.name)) }
+                )
+            },
+            confirmButton = {
+                TextButton(enabled = renameText.isNotBlank(), onClick = { doRename() }) { Text(str(R.string.save)) }
+            },
+            dismissButton = { TextButton(onClick = { renameTarget = null }) { Text(str(R.string.cancel)) } }
+        )
+    }
+
     val deleteShown = rememberLastNonNull(deleteTarget)
     if (deleteShown != null) {
         val t = deleteShown
@@ -1716,6 +1869,7 @@ fun LibraryScreen(
                     scope.launch {
                         delay(Motion.MEDIUM.toLong())
                         onPlaylistsChange(latestPlaylists.filter { it.id != t.id })
+                        withContext(Dispatchers.IO) { deletePlaylistCover(ctx, t.cover) }
                         removingIds = removingIds - t.id
                     }
                 }) { Text(str(R.string.delete)) }
