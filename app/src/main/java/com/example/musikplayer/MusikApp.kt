@@ -866,7 +866,6 @@ fun AppSettingsSheet(
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.index)) },
-                    supportingContent = { Text(str(R.string.index_summary)) },
                     leadingContent = { HashIcon() },
                     trailingContent = {
                         ChevronRightIcon()
@@ -918,7 +917,6 @@ fun AppSettingsSheet(
                 val homeOn = CornerSettings.showHome
                 ListItem(
                     headlineContent = { Text(str(R.string.home_setting_title)) },
-                    supportingContent = { Text(str(R.string.home_setting_summary)) },
                     leadingContent = { HomeIcon() },
                     trailingContent = {
                         Switch(checked = homeOn, onCheckedChange = null)
@@ -995,7 +993,6 @@ fun AppSettingsSheet(
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.audio_info)) },
-                    supportingContent = { Text(str(R.string.audio_info_summary)) },
                     leadingContent = { InfoIcon() },
                     trailingContent = {
                         Switch(checked = showAudioInfo, onCheckedChange = null)
@@ -1005,7 +1002,6 @@ fun AppSettingsSheet(
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.haptics)) },
-                    supportingContent = { Text(str(R.string.haptics_summary)) },
                     leadingContent = { VibrationIcon() },
                     trailingContent = {
                         Switch(checked = haptics, onCheckedChange = null)
@@ -1017,7 +1013,6 @@ fun AppSettingsSheet(
                 val gainOn = CornerSettings.autoGain
                 ListItem(
                     headlineContent = { Text(str(R.string.auto_gain)) },
-                    supportingContent = { Text(str(R.string.auto_gain_summary)) },
                     leadingContent = { WaveBarsIcon() },
                     trailingContent = {
                         Switch(checked = gainOn, onCheckedChange = null)
@@ -1089,7 +1084,6 @@ fun AppSettingsSheet(
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.backup_title)) },
-                    supportingContent = { Text(str(R.string.backup_summary)) },
                     leadingContent = { BackupIcon() },
                     trailingContent = { ChevronRightIcon() },
                     colors = clear,
@@ -1231,7 +1225,7 @@ fun AppSettingsSheet(
             }
             "language" -> {
                 SheetHeader(str(R.string.language)) { page = "main" }
-                SortOption(str(R.string.language_system), str(R.string.language_system_sub), language == AppLang.SYSTEM) {
+                SortOption(str(R.string.language_system), null, language == AppLang.SYSTEM) {
                     onLanguage(AppLang.SYSTEM)
                 }
                 SortOption("Deutsch", null, language == AppLang.DE) { onLanguage(AppLang.DE) }
