@@ -159,6 +159,14 @@
     <string name="progress_bar_style_sub">Barra continua simple</string>
     <string name="progress_wave_sub">Forma de onda hecha de barras sueltas</string>
     <string name="output_device">Mostrar dispositivo de salida</string>
+    <string name="playlist_rename">Renombrar</string>
+    <string name="playlist_rename_title">Renombrar lista</string>
+    <string name="playlist_play_all">Reproducir todo</string>
+    <string name="playlist_shuffle">Aleatorio</string>
+    <string name="playlist_export_m3u">Exportar como M3U</string>
+    <string name="playlist_change_image">Cambiar imagen de la lista</string>
+    <string name="playlist_exported">Lista exportada</string>
+    <string name="playlist_export_failed">Error al exportar</string>
     <string name="song_duration">Mostrar duración de la canción</string>
     <string name="song_duration_summary">Se muestra en las listas de canciones junto al botón de menú</string>
     <string name="output_device_summary">Se muestra cuando hay auriculares conectados</string>
