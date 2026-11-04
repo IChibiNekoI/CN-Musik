@@ -27,13 +27,13 @@
     <string name="sort_name_az">Name (A–Z)</string>
     <string name="sort_modified_summary">Date modified (newest first)</string>
     <string name="sort_added_summary">Date added (newest first)</string>
-    <string name="index">Index</string>
+    <string name="index">Choose music folders</string>
     <string name="album_view">Album view</string>
     <string name="playlist_view">Playlist view</string>
     <string name="design">Design</string>
     <string name="header">Header</string>
     <string name="header_logo">ChibiNeko logo</string>
-    <string name="header_summary_default">Default (“Music” text)</string>
+    <string name="header_summary_default">Default</string>
     <string name="header_option_text">“Music” text</string>
     <string name="header_option_logo_sub">Image instead of text</string>
     <string name="audio_info">Audio info in player</string>
