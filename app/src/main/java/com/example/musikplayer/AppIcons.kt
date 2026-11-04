@@ -163,13 +163,11 @@ fun PlayTriangleIcon(
     tint: Color = LocalContentColor.current, description: String? = null
 ) {
     LineIcon(modifier, iconSize, tint, description) { c, st, k ->
-        val p = androidx.compose.ui.graphics.Path().apply {
-            moveTo(8.5f * k, 5.5f * k)
-            lineTo(18.5f * k, 12f * k)
-            lineTo(8.5f * k, 18.5f * k)
-            close()
-        }
-        drawPath(p, c, style = st)
+        // größeres Dreieck mit weich gerundeten Ecken, wie die Tasten im Player
+        drawPath(
+            polyPath(k, 7f, 4.6f, 19.6f, 12f, 7f, 19.4f, closed = true),
+            c, style = st.rounded(2.4f * k)
+        )
     }
 }
 
@@ -336,12 +334,13 @@ fun EditIcon(
     tint: Color = LocalContentColor.current, description: String? = null
 ) {
     LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        // Stift als schräger, abgerundeter Körper mit Spitze unten links, füllt das Raster wie Mülleimer und Zahnrad
         drawPath(
-            polyPath(k, 4.5f, 19.5f, 5.6f, 15.4f, 15.2f, 5.8f, 18.2f, 8.8f, 8.6f, 18.4f, closed = true),
-            c, style = st.rounded(1.4f * k)
+            polyPath(k, 4.6f, 19.4f, 6.2f, 14.6f, 17.3f, 3.5f, 20.5f, 6.7f, 9.4f, 17.8f, closed = true),
+            c, style = st.rounded(1.6f * k)
         )
-        seg(c, st, k, 13.3f, 7.7f, 16.3f, 10.7f)
-        seg(c, st, k, 12.5f, 20.8f, 20f, 20.8f)
+        // Trennlinie zwischen Spitze und Körper
+        seg(c, st, k, 6.2f, 14.6f, 9.4f, 17.8f)
     }
 }
 
@@ -589,12 +588,11 @@ fun BackupIcon(
     tint: Color = LocalContentColor.current, description: String? = null
 ) {
     LineIcon(modifier, iconSize, tint, description) { c, st, k ->
-        seg(c, st, k, 12f, 3.5f, 12f, 15f)
-        seg(c, st, k, 7.5f, 10.5f, 12f, 15f)
-        seg(c, st, k, 16.5f, 10.5f, 12f, 15f)
-        seg(c, st, k, 4f, 15.5f, 4f, 20f)
-        seg(c, st, k, 4f, 20f, 20f, 20f)
-        seg(c, st, k, 20f, 20f, 20f, 15.5f)
+        // Pfeil nach unten
+        seg(c, st, k, 12f, 3.8f, 12f, 14.6f)
+        drawPath(polyPath(k, 7.4f, 10.2f, 12f, 14.8f, 16.6f, 10.2f), c, style = st.rounded(0.8f * k))
+        // Ablage mit weich gerundeten Ecken
+        drawPath(polyPath(k, 4.2f, 14.6f, 4.2f, 19.6f, 19.8f, 19.6f, 19.8f, 14.6f), c, style = st.rounded(2.6f * k))
     }
 }
 
