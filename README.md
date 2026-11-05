@@ -100,7 +100,8 @@ ChibiNeko Music is designed for listening to music stored on your device.
 
 - Android Studio with Android SDK support
 - JDK 17
-- Android SDK Platform 35 or a compatible setup for the project
+- Android SDK Platform 31 (Android 12) or higher
+- Android SDK Platform 35 (Android 15) target 
 
 ## 🧩 Technology
 
