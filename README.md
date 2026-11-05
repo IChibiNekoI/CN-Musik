@@ -16,7 +16,16 @@ Listen to the music on your device with playlists, favorites, a built-in tag edi
 </div>
 
 ---
+<p align="center">
+  <a href="https://github.com/IChibiNekoI/CN-Musik/releases/latest">
+    <img src=".github/assets/badge_github.png" alt="Get it on GitHub" height="80">
+  </a>
+  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/IChibiNekoI/CN-Musik">
+    <img src=".github/assets/badge_obtainium.png" alt="Get it on Obtainium" height="80">
+  </a>
+</p>
 
+---
 ## Contents
 
 - [Features](#-features)
