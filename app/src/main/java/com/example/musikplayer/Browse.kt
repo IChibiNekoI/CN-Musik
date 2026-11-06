@@ -1,17 +1,12 @@
 package com.example.musikplayer
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.scaleIn
-import androidx.compose.animation.ContentTransform
-import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
@@ -21,44 +16,30 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import android.widget.Toast
-import android.content.Intent
-import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.Animatable
 import kotlinx.coroutines.delay
 import androidx.compose.animation.core.VisibilityThreshold
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -67,26 +48,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.ui.composed
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -96,708 +60,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-
-@Composable
-private fun clearColors() = ListItemDefaults.colors(containerColor = Color.Transparent)
-
-/** Playlist-Cover: 2x2-Raster aus den Covern der ersten 4 Titel. */
-@Composable
-fun PlaylistCover(songs: List<Song>, size: Dp, corner: Dp = 12.dp, custom: String? = null) {
-    val first = songs.take(4)
-    val own by rememberPlaylistCoverImage(custom)
-    Box(
-        Modifier.size(size).clip(RoundedCornerShape(coverRadius(LocalCoverStyle.current, size, corner)))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
-        contentAlignment = Alignment.Center
-    ) {
-        when {
-            // eigenes Bild gewählt: füllt das ganze Cover
-            own != null -> Image(
-                bitmap = own!!, contentDescription = null,
-                modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop
-            )
-            first.isEmpty() -> MusicNoteIcon(tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            first.size == 1 -> Cover(first[0], size, corner = 0.dp)
-            else -> {
-                val half = size / 2
-                Column {
-                    for (row in 0..1) {
-                        Row {
-                            for (col in 0..1) {
-                                val s = first.getOrNull(row * 2 + col)
-                                if (s != null) {
-                                    Cover(s, half, corner = 0.dp)
-                                } else {
-                                    Box(Modifier.size(half), contentAlignment = Alignment.Center) {
-                                        MusicNoteIcon(
-                                            iconSize = half * 0.5f,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/** Kachel für die Rasteransicht: Cover in voller Kachelbreite, darunter Titel und Untertitel. */
-/**
- * Bewegung für Playlists in Liste und Raster: Eine neue Playlist poppt mit Überschwinger auf,
- * eine gelöschte schrumpft leicht und blendet aus. [appear] wird nur beim ersten Anzeigen gelesen.
- */
-@Composable
-private fun Modifier.playlistFx(appear: Boolean, removing: Boolean): Modifier {
-    val pop = remember { Animatable(if (appear) 0.6f else 1f) }
-    LaunchedEffect(Unit) {
-        if (appear) pop.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = 400f))
-    }
-    val exit by animateFloatAsState(
-        targetValue = if (removing) 0f else 1f,
-        animationSpec = tween(Motion.MEDIUM, easing = Motion.Ease),
-        label = "playlistExit"
-    )
-    return this.graphicsLayer {
-        val sc = pop.value * (0.8f + 0.2f * exit)
-        scaleX = sc
-        scaleY = sc
-        alpha = (((pop.value - 0.6f) / 0.4f) * 2f).coerceIn(0f, 1f) * exit
-    }
-}
-
-/**
- * Titelzahl und Gesamtlaufzeit, z. B. "12 Titel • 45 min" oder "12 Titel • 1 h 5 min"
- * (unter 60 Minuten nur Minuten, ab 60 Minuten Stunden und Minuten). Ohne bekannte Laufzeit nur die Titelzahl.
- * Gleich bei Alben (Tab und Suche) und Playlists.
- */
-internal fun trackMeta(count: Int, totalMs: Long): String {
-    val tracks = plural(R.plurals.n_tracks, count)
-    if (totalMs <= 0L) return tracks
-    val minutes = maxOf(1, Math.round(totalMs / 60000.0).toInt())
-    val duration = if (minutes < 60) "$minutes min" else "${minutes / 60} h ${minutes % 60} min"
-    return "$tracks • $duration"
-}
-
-internal fun trackMetaOf(songs: List<Song>): String = trackMeta(songs.size, songs.sumOf { it.durationMs })
-
-internal fun albumMeta(songs: List<Song>): String = trackMeta(songs.size, songs.sumOf { it.durationMs })
-
-/** Playlist: Titelzahl ist die Zahl der Einträge, die Laufzeit zählt nur Titel, die noch in der Bibliothek sind */
-private fun playlistMeta(songIds: List<Long>, byId: Map<Long, Song>): String =
-    trackMeta(songIds.size, songIds.sumOf { byId[it]?.durationMs ?: 0L })
-
-@Composable
-private fun GridTile(
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-    detail: String? = null,
-    menu: (@Composable () -> Unit)? = null,   // z. B. das Drei-Punkte-Menü einer Playlist
-    modifier: Modifier = Modifier,
-    cover: @Composable (Dp) -> Unit
-) {
-    BoxWithConstraints(
-        // Kein Clip und kein Ripple: Der Clip schnitt unten die Ecken von Titel und Untertitel ab,
-        // und der Ripple färbte die Kachel beim Drücken weiß. Stattdessen drückt sich die Kachel leicht ein.
-        modifier.fillMaxWidth()
-            .bounceClick(pressedScale = 0.95f, hapticSnap = true) { onClick() }
-    ) {
-        val w = maxWidth
-        Column(Modifier.fillMaxWidth()) {
-            cover(w)
-            Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        title,
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis
-                    )
-                    if (detail != null) {
-                        Text(
-                            detail,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-                menu?.invoke()
-            }
-        }
-    }
-}
-
-/* ---------- Suche: Albenzeile, Karten, Überschriften ---------- */
-
-/** Albumkarte der Suche: Cover mit Jahr oben rechts und Abspielen-Taste unten rechts, darunter Titel, Künstler, Titelzahl und Laufzeit */
-@Composable
-internal fun SearchAlbumCard(
-    songs: List<Song>,
-    name: String,
-    onOpen: () -> Unit,
-    onPlay: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val first = songs.first()
-    val year = remember(songs) { songs.map { it.year }.filter { it > 0 }.minOrNull() ?: 0 }
-    val card = MaterialTheme.colorScheme.surfaceContainerHigh
-    val side = 128.dp
-    Column(
-        modifier
-            .width(side)
-            // Eindrücken zuerst: Es gilt dann für die ganze Karte samt Hintergrund und Rundung, nicht nur für den Inhalt
-            .bounceClick(pressedScale = 0.95f, hapticSnap = true) { onOpen() }
-            .clip(RoundedCornerShape(20.dp))
-            .background(card)
-    ) {
-        Box(Modifier.size(side)) {
-            Cover(first, side, corner = 0.dp)
-            if (year > 0) {
-                Box(
-                    Modifier
-                        .align(Alignment.TopEnd)
-                        .clip(RoundedCornerShape(bottomStart = 12.dp))
-                        .background(card)
-                        .padding(horizontal = 9.dp, vertical = 3.dp)
-                ) {
-                    Text(
-                        year.toString(),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            Box(
-                Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(6.dp)
-                    .size(34.dp)
-                    .bounceClick(pressedScale = 0.88f) { onPlay() }
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(card.copy(alpha = 0.85f)),
-                contentAlignment = Alignment.Center
-            ) {
-                PlayTriangleIcon(
-                    iconSize = 18.dp,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    description = str(R.string.play_album)
-                )
-            }
-        }
-        Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-            Text(
-                name,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1, overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                first.artist,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1, overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                albumMeta(songs),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1, overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-/** Überschrift eines Suchabschnitts: Symbol, Titel mit Anzahl und optional die Taste "Alle anzeigen" */
-@Composable
-internal fun SearchSectionHeader(
-    icon: @Composable () -> Unit,
-    title: String,
-    onShowAll: (() -> Unit)? = null,
-    topPadding: Dp = 8.dp
-) {
-    Row(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = topPadding, bottom = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        icon()
-        Spacer(Modifier.width(10.dp))
-        Text(
-            title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
-        )
-        if (onShowAll != null) {
-            Row(
-                Modifier
-                    .bounceClick(pressedScale = 0.95f) { onShowAll() }
-                    .clip(CircleShape)
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                GridIcon(iconSize = 18.dp, tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    str(R.string.search_show_all),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1
-                )
-            }
-        }
-    }
-}
-
-/** Alle Alben einer Liste in der Darstellung der Albenansicht (Liste oder Raster mit eingestellter Spaltenzahl) */
-@Composable
-private fun AlbumCollection(
-    albums: List<Pair<String, List<Song>>>,
-    style: ViewStyle,
-    bottomSpace: Dp,
-    modifier: Modifier = Modifier,
-    // Scroll-Zustände kommen von außen, damit die Position beim Öffnen eines Albums und Zurückgehen erhalten bleibt
-    gridState: androidx.compose.foundation.lazy.grid.LazyGridState = rememberLazyGridState(),
-    listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
-    onOpen: (String) -> Unit
-) {
-    if (style.grid) {
-        HapticLazyGrid(
-            columns = GridCells.Fixed(style.cols),
-            modifier = modifier,
-            state = gridState,
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp + bottomSpace),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            gridItems(albums, key = { it.first }) { (albumName, list) ->
-                GridTile(
-                    title = albumName,
-                    subtitle = list.first().artist,
-                    detail = albumMeta(list),
-                    onClick = { onOpen(albumName) },
-                    cover = { w -> Cover(list.first(), w) }
-                )
-            }
-        }
-    } else {
-        HapticLazyColumn(modifier, contentPadding = PaddingValues(bottom = bottomSpace), state = listState) {
-            items(albums, key = { it.first }) { (albumName, list) ->
-                ListItem(
-                    headlineContent = { Text(albumName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    supportingContent = {
-                        Column {
-                            Text(list.first().artist, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(
-                                albumMeta(list),
-                                style = MaterialTheme.typography.labelSmall,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    },
-                    leadingContent = { Cover(list.first(), 56.dp) },
-                    colors = clearColors(),
-                    modifier = Modifier.bounceClick(pressedScale = 0.97f, hapticSnap = true) { onOpen(albumName) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun DetailHeader(title: String, onBack: (() -> Unit)?, action: (@Composable () -> Unit)? = null) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Ohne Pfeil (onBack = null) rückt der Titel an den linken Rand, zurück geht es per Zurück-Geste
-        if (onBack != null) {
-            BounceIconButton(onClick = onBack) {
-                BackIcon(description = str(R.string.back))
-            }
-        }
-        Text(
-            title,
-            style = MaterialTheme.typography.titleLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = if (onBack == null) 8.dp else 0.dp)
-        )
-        // optionale Taste rechts auf Höhe des Titels
-        action?.invoke()
-    }
-}
-
-/** Tracknummer für die Anzeige: Das Tag kann die CD-Nummer enthalten (CD 2, Titel 3 = 2003), die wird abgetrennt. Ohne Tag zählt die Position. */
-private fun trackNumberOf(song: Song, position: Int): Int {
-    val n = song.track % 1000
-    return if (n > 0) n else position
-}
-
-/**
- * Drei-Punkte-Menü einer Playlist: oben Bild, Name und eine Taste zum Ändern des Bildes,
- * darunter Umbenennen, Alle abspielen, Mischen, Als M3U exportieren und Löschen.
- */
-@Composable
-private fun PlaylistMenu(
-    playlist: Playlist,
-    covers: List<Song>,
-    compact: Boolean,
-    onPickCover: () -> Unit,
-    onRename: () -> Unit,
-    onPlay: () -> Unit,
-    onShuffle: () -> Unit,
-    onExport: () -> Unit,
-    onDelete: () -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        BounceIconButton(
-            onClick = { expanded = true },
-            modifier = if (compact) Modifier.size(32.dp) else Modifier
-        ) {
-            MoreVertIcon(iconSize = if (compact) 20.dp else 24.dp, description = str(R.string.more))
-        }
-        BounceMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            Row(
-                Modifier.width(280.dp).padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                PlaylistCover(covers, 56.dp, custom = playlist.cover)
-                Spacer(Modifier.width(14.dp))
-                // Name, darunter "xx Titel • Monat Jahr" (Erstellungsdatum steckt in der Playlist-ID)
-                val subtitle = remember(playlist.id, playlist.songIds.size) {
-                    val tracks = plural(R.plurals.n_tracks, playlist.songIds.size)
-                    val created = playlist.id.toLongOrNull()?.takeIf { it > 946684800000L }
-                    if (created == null) tracks else {
-                        val locale = strCtx?.resources?.configuration?.locales?.get(0) ?: java.util.Locale.getDefault()
-                        val month = java.text.SimpleDateFormat("LLL yyyy", locale).format(java.util.Date(created))
-                        "$tracks • $month"
-                    }
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        playlist.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2, overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        subtitle,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis
-                    )
-                }
-                BounceIconButton(onClick = { expanded = false; onPickCover() }) {
-                    ImageEditIcon(description = str(R.string.playlist_change_image))
-                }
-            }
-            HorizontalDivider(
-                Modifier.padding(horizontal = 16.dp).padding(bottom = 4.dp),
-                color = MaterialTheme.colorScheme.outlineVariant
-            )
-            DropdownMenuItem(
-                text = { Text(str(R.string.playlist_rename)) },
-                leadingIcon = { EditIcon() },
-                onClick = { expanded = false; onRename() }
-            )
-            DropdownMenuItem(
-                text = { Text(str(R.string.playlist_play_all)) },
-                leadingIcon = { PlayTriangleIcon() },
-                onClick = { expanded = false; onPlay() }
-            )
-            DropdownMenuItem(
-                text = { Text(str(R.string.playlist_shuffle)) },
-                leadingIcon = { ShuffleIcon(iconSize = 24.dp) },
-                onClick = { expanded = false; onShuffle() }
-            )
-            DropdownMenuItem(
-                text = { Text(str(R.string.playlist_export_m3u)) },
-                leadingIcon = { BackupIcon() },
-                onClick = { expanded = false; onExport() }
-            )
-            DropdownMenuItem(
-                text = { Text(str(R.string.delete)) },
-                leadingIcon = { TrashIcon() },
-                onClick = { expanded = false; onDelete() }
-            )
-        }
-    }
-}
-
-/** Dauer als m:ss, ab einer Stunde h:mm:ss */
-private fun formatSongDuration(ms: Long): String {
-    val s = ms / 1000
-    return if (s >= 3600) "%d:%02d:%02d".format(s / 3600, (s / 60) % 60, s % 60)
-    else "%d:%02d".format(s / 60, s % 60)
-}
-
-@Composable
-fun SongRow(
-    song: Song,
-    isCurrent: Boolean,
-    onClick: () -> Unit,
-    onAddToPlaylist: () -> Unit,
-    onRemove: (() -> Unit)? = null,
-    // Titel aus der Bibliothek ausblenden (nur im Titel-Tab), null = Eintrag fehlt im Menü
-    onHide: (() -> Unit)? = null,
-    isFavorite: Boolean = false,
-    onToggleFavorite: () -> Unit = {},
-    // Tracknummer links vor dem Cover (nur in der Albenansicht), null = keine
-    trackNumber: Int? = null,
-    modifier: Modifier = Modifier
-) {
-    // Die Hervorhebung des laufenden Titels erscheint sofort (kein Aufleuchten) und federt dabei mit kleinem
-    // Überschwinger an ihren Platz. Beim bisherigen Titel verschwindet sie fast sofort, damit nie zwei Zeilen leuchten.
-    val rowColor by animateColorAsState(
-        if (isCurrent) MaterialTheme.colorScheme.secondaryContainer
-        else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0f),
-        animationSpec = if (isCurrent) snap() else tween(80, easing = Motion.Ease),
-        label = "rowColor"
-    )
-    val highlightScale = animateFloatAsState(
-        targetValue = if (isCurrent) 1f else 0.9f,
-        animationSpec = spring(dampingRatio = 0.45f, stiffness = 600f),
-        label = "rowHighlightScale"
-    )
-    var expanded by remember { mutableStateOf(false) }
-    var showInfo by remember { mutableStateOf(false) }
-    var showTags by remember { mutableStateOf(false) }
-    val rounded = LocalCornerStyle.current == CornerStyle.UNIFORM
-    // Gemeinsame Quelle für Drücken: der Klick liegt auf dem ListItem, die Welle wird dahinter
-    // im eingerückten Rechteck gezeichnet (gleiche Breite wie die Hervorhebung des laufenden Titels)
-    val pressSource = remember { MutableInteractionSource() }
-    val hapticCtx = LocalContext.current
-    // Gedrückt: die ganze Zeile drückt sich leicht ein und federt zurück
-    val rowPress = rememberPressProgress(pressSource)
-    Box(
-        modifier.fillMaxWidth().graphicsLayer {
-            val s = 1f - 0.03f * rowPress.value
-            scaleX = s
-            scaleY = s
-        }
-    ) {
-    if (rounded) {
-        // Einheitlich: abgerundete, leicht eingerückte Hervorhebung. Der Inhalt bleibt an seinem gewohnten Platz.
-        Box(
-            Modifier
-                .matchParentSize()
-                .padding(horizontal = 8.dp, vertical = 2.dp)
-                .graphicsLayer {
-                    scaleX = highlightScale.value
-                    scaleY = highlightScale.value
-                }
-                .clip(RoundedCornerShape(20.dp))
-                .background(rowColor)
-                .indication(pressSource, LocalIndication.current)
-        )
-    }
-    ListItem(
-        headlineContent = { Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        supportingContent = { Text(song.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        leadingContent = {
-            if (trackNumber != null) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "$trackNumber",
-                        modifier = Modifier.widthIn(min = 22.dp),
-                        style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Cover(song, 48.dp)
-                }
-            } else {
-                Cover(song, 48.dp)
-            }
-        },
-        trailingContent = {
-            // Optional: Dauer des Liedes links neben dem Drei-Punkte-Menü
-            Row(verticalAlignment = Alignment.CenterVertically) {
-            if (CornerSettings.showSongDuration && song.durationMs > 0L) {
-                Text(
-                    formatSongDuration(song.durationMs),
-                    // Der Button hat 8 dp Versatz nach rechts, die Dauer rückt entsprechend mit
-                    modifier = Modifier.offset(x = 8.dp),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
-            }
-            // 8 dp nach rechts: die drei Punkte stehen genau unter dem Zahnrad und dem Plus der Kopfzeile
-            Box(Modifier.offset(x = 8.dp)) {
-                BounceIconButton(onClick = { expanded = true }) {
-                    MoreVertIcon(description = str(R.string.more))
-                }
-                BounceMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    DropdownMenuItem(
-                        text = { Text(str(R.string.track_info)) },
-                        leadingIcon = { InfoIcon() },
-                        onClick = { expanded = false; showInfo = true }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(str(R.string.edit_tags)) },
-                        leadingIcon = { EditIcon() },
-                        onClick = { expanded = false; showTags = true }
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Text(if (isFavorite) str(R.string.fav_remove) else str(R.string.fav_add))
-                        },
-                        leadingIcon = { HeartIcon(filled = isFavorite) },
-                        onClick = { expanded = false; onToggleFavorite() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(str(R.string.add_to_playlist)) },
-                        leadingIcon = {
-                            PlaylistAddIcon()
-                        },
-                        onClick = { expanded = false; onAddToPlaylist() }
-                    )
-                    if (onHide != null) {
-                        DropdownMenuItem(
-                            text = { Text(str(R.string.hide_track)) },
-                            leadingIcon = { EyeOffIcon() },
-                            onClick = { expanded = false; onHide() }
-                        )
-                    }
-                    if (onRemove != null) {
-                        DropdownMenuItem(
-                            text = { Text(str(R.string.remove_from_playlist)) },
-                            leadingIcon = { TrashIcon() },
-                            onClick = { expanded = false; onRemove() }
-                        )
-                    }
-                }
-                if (showInfo) SongInfoDialog(song) { showInfo = false }
-                if (showTags) TagEditDialog(song) { showTags = false }
-            }
-            }
-        },
-        colors = ListItemDefaults.colors(containerColor = if (rounded) Color.Transparent else rowColor),
-        // Der Klick muss auf dem ListItem selbst liegen: dessen Surface fängt alle Berührungen ab,
-        // ein Klick auf der Box dahinter käme nie an.
-        modifier = if (rounded) {
-            Modifier.clip(RoundedCornerShape(20.dp))
-                .clickable(interactionSource = pressSource, indication = null) {
-                    Haptics.snap(hapticCtx)   // dieselbe Vibration wie beim Ziehen des Fortschrittsbalkens
-                    onClick()
-                }
-        } else Modifier.clickable(interactionSource = pressSource, indication = null) { onClick() }
-    )
-    }
-}
-
-/** Kopfzeile <-> Suchfeld: wächst aus der Ecke der Such-Taste (rechts) heraus bzw. kehrt von links zurück */
-private fun AnimatedContentTransitionScope<Boolean>.searchHeader(): ContentTransform {
-    val origin = TransformOrigin(if (targetState) 1f else 0f, 0.5f)
-    val enter = fadeIn(tween(Motion.MEDIUM, delayMillis = 40)) +
-        scaleIn(spring(dampingRatio = 0.7f, stiffness = 420f), initialScale = 0.85f, transformOrigin = origin)
-    val exit = fadeOut(tween(Motion.FAST)) +
-        scaleOut(tween(Motion.FAST, easing = Motion.Ease), targetScale = 0.92f, transformOrigin = origin)
-    return (enter togetherWith exit) using SizeTransform(clip = false)
-}
-
-/** Ergebnisse <-> Tabs: Der neue Inhalt steigt mit Feder leicht auf, der alte weicht aus und blendet aus */
-private fun AnimatedContentTransitionScope<Boolean>.searchBody(): ContentTransform {
-    val opening = targetState
-    val move = spring<IntOffset>(dampingRatio = 1f, stiffness = 380f, visibilityThreshold = IntOffset.VisibilityThreshold)
-    val enter = slideInVertically(move) { h -> if (opening) h / 14 else -h / 18 } +
-        fadeIn(tween(Motion.MEDIUM, delayMillis = 60))
-    val exit = slideOutVertically(move) { h -> if (opening) -h / 18 else h / 14 } +
-        fadeOut(tween(Motion.FAST))
-    return (enter togetherWith exit) using SizeTransform(clip = false)
-}
-
-/**
- * Alben und Playlists öffnen und schließen wie ein Seitenwechsel: Die Detailansicht schiebt sich mit Feder von rechts
- * herein und wird dabei größer, die Liste weicht nach links aus. Beim Zurückgehen läuft es umgekehrt.
- */
-private fun AnimatedContentTransitionScope<String?>.pushPop(): ContentTransform {
-    val push = targetState != null
-    val move = spring<IntOffset>(dampingRatio = 1f, stiffness = 380f, visibilityThreshold = IntOffset.VisibilityThreshold)
-    val enter = slideInHorizontally(move) { w -> if (push) w / 4 else -w / 8 } +
-        fadeIn(tween(Motion.MEDIUM, delayMillis = 40)) +
-        scaleIn(tween(Motion.MEDIUM, easing = Motion.Ease), initialScale = if (push) 0.96f else 1.03f)
-    val exit = slideOutHorizontally(move) { w -> if (push) -w / 8 else w / 4 } +
-        fadeOut(tween(Motion.FAST)) +
-        scaleOut(tween(Motion.MEDIUM, easing = Motion.Ease), targetScale = if (push) 1.03f else 0.96f)
-    return (enter togetherWith exit) using SizeTransform(clip = false)
-}
-
-/** Welche Ansicht die Suche gerade zeigt: Treffer, alle Alben oder ein geöffnetes Album. [depth] bestimmt die Richtung des Übergangs. */
-private data class SearchView(val all: Boolean = false, val album: String? = null) {
-    val depth: Int get() = (if (all) 1 else 0) + (if (album != null) 1 else 0)
-}
-
-/** Wie [pushPop] bei Album und Playlist: tiefer hinein schiebt die neue Ansicht von rechts herein, zurück läuft es umgekehrt */
-private fun AnimatedContentTransitionScope<SearchView>.searchPushPop(): ContentTransform {
-    val push = targetState.depth > initialState.depth
-    val move = spring<IntOffset>(dampingRatio = 1f, stiffness = 380f, visibilityThreshold = IntOffset.VisibilityThreshold)
-    val enter = slideInHorizontally(move) { w -> if (push) w / 4 else -w / 8 } +
-        fadeIn(tween(Motion.MEDIUM, delayMillis = 40)) +
-        scaleIn(tween(Motion.MEDIUM, easing = Motion.Ease), initialScale = if (push) 0.96f else 1.03f)
-    val exit = slideOutHorizontally(move) { w -> if (push) -w / 8 else w / 4 } +
-        fadeOut(tween(Motion.FAST)) +
-        scaleOut(tween(Motion.MEDIUM, easing = Motion.Ease), targetScale = if (push) 1.03f else 0.96f)
-    return (enter togetherWith exit) using SizeTransform(clip = false)
-}
-
-/** Wischgeste auf der Kopfzeile: senkrechtes Wischen; hoch = onUp, runter = onDown (erst beim Loslassen) */
-private fun Modifier.headerSwipe(onUp: () -> Unit, onDown: () -> Unit): Modifier = composed {
-    val up by rememberUpdatedState(onUp)
-    val down by rememberUpdatedState(onDown)
-    val threshold = with(LocalDensity.current) { 36.dp.toPx() }
-    pointerInput(Unit) {
-        var total = 0f
-        detectVerticalDragGestures(
-            onDragStart = { total = 0f },
-            onDragEnd = {
-                if (total < -threshold) up() else if (total > threshold) down()
-                total = 0f
-            },
-            onDragCancel = { total = 0f },
-            onVerticalDrag = { _, dy -> total += dy }
-        )
-    }
-}
-
-/** kind: 0 = zu [target] springen (liegt im oberen Drittel), 1 = Anfang, 2 = Ende */
-private suspend fun LazyListState.headerJump(kind: Int, target: Int) {
-    when (kind) {
-        1 -> animateScrollToItem(0)
-        2 -> { val n = layoutInfo.totalItemsCount; if (n > 0) animateScrollToItem(n - 1) }
-        else -> if (target >= 0) animateScrollToItem(target, -(layoutInfo.viewportSize.height / 3))
-    }
-}
-
-private suspend fun androidx.compose.foundation.lazy.grid.LazyGridState.headerJump(kind: Int, target: Int) {
-    when (kind) {
-        1 -> animateScrollToItem(0)
-        2 -> { val n = layoutInfo.totalItemsCount; if (n > 0) animateScrollToItem(n - 1) }
-        else -> if (target >= 0) animateScrollToItem(target, -(layoutInfo.viewportSize.height / 3))
-    }
-}
 
 @Composable
 fun LibraryScreen(
@@ -1499,7 +763,7 @@ fun LibraryScreen(
                             GridTile(
                                 title = albumName,
                                 subtitle = list.first().artist,
-                                detail = albumMeta(list),
+                                detail = trackMetaOf(list),
                                 onClick = { openAlbum = albumName },
                                 cover = { w -> Cover(list.first(), w) }
                             )
@@ -1516,7 +780,7 @@ fun LibraryScreen(
                                     Column {
                                         Text(list.first().artist, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         Text(
-                                            albumMeta(list),
+                                            trackMetaOf(list),
                                             style = MaterialTheme.typography.labelSmall,
                                             maxLines = 1, overflow = TextOverflow.Ellipsis
                                         )
@@ -1744,331 +1008,102 @@ fun LibraryScreen(
     }
 
     if (showUpdate && update != null) {
-        AlertDialog(
-            onDismissRequest = { showUpdate = false },
-            title = { Text(str(R.string.update_available)) },
-            text = { DialogSystemBars(); Text(str(R.string.update_text, update.version)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    showUpdate = false
-                    try {
-                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.url)))
-                    } catch (e: Exception) {
-                        Toast.makeText(ctx, str(R.string.toast_link_failed), Toast.LENGTH_LONG).show()
-                    }
-                }) { Text(str(R.string.download)) }
-            },
-            dismissButton = { TextButton(onClick = { showUpdate = false }) { Text(str(R.string.later)) } }
-        )
+        UpdateDialog(update) { showUpdate = false }
     }
 
     pickFor?.let { plId ->
         val target = playlists.firstOrNull { it.id == plId }
         if (target == null) { pickFor = null } else {
-            var chosen by remember(plId) { mutableStateOf(setOf<Long>()) }
-            var filter by remember(plId) { mutableStateOf("") }
-            val candidates = remember(songs, target.songIds) { songs.filter { it.id !in target.songIds } }
-            val shown = remember(candidates, filter) {
-                val q = filter.trim()
-                if (q.isEmpty()) candidates
-                else candidates.filter {
-                    it.title.contains(q, ignoreCase = true) ||
-                        it.artist.contains(q, ignoreCase = true) ||
-                        it.album.contains(q, ignoreCase = true)
+            SongPickerDialog(
+                songs = songs,
+                target = target,
+                onDismiss = { pickFor = null },
+                onAdd = { add ->
+                    onPlaylistsChange(
+                        playlists.map { if (it.id == plId) it.copy(songIds = it.songIds + add) else it }
+                    )
+                    pickFor = null
                 }
-            }
-            // Eigenes Fenster: gleich viel Rand links und rechts, oben und unten bleibt Platz
-            androidx.compose.ui.window.Dialog(
-                onDismissRequest = { pickFor = null },
-                properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
-            ) {
-                DialogSystemBars()
-                // Abstand zum Rand (links/rechts so groß wie unten) und Ecken, die zum Gerät passen:
-                // Display-Rundung minus Abstand ergibt gleichmäßig verlaufende (konzentrische) Ecken
-                val sideGap = 10.dp
-                val ctxForCorner = LocalContext.current
-                val density = androidx.compose.ui.platform.LocalDensity.current
-                val dialogCorner = remember(ctxForCorner) {
-                    val px = if (android.os.Build.VERSION.SDK_INT >= 31) {
-                        val insets = ctxForCorner.findActivity()?.window?.decorView?.rootWindowInsets
-                        listOf(
-                            android.view.RoundedCorner.POSITION_TOP_LEFT,
-                            android.view.RoundedCorner.POSITION_TOP_RIGHT,
-                            android.view.RoundedCorner.POSITION_BOTTOM_LEFT,
-                            android.view.RoundedCorner.POSITION_BOTTOM_RIGHT
-                        ).mapNotNull { insets?.getRoundedCorner(it)?.radius }.maxOrNull()
-                    } else null
-                    // Gerät ohne Angabe: normale Dialog-Rundung
-                    val dp = px?.let { with(density) { it.toDp() } - sideGap } ?: 28.dp
-                    dp.coerceIn(16.dp, 56.dp)
-                }
-                val noRipple = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                Box(
-                    Modifier.fillMaxSize().clickable(interactionSource = noRipple, indication = null) { pickFor = null },
-                    contentAlignment = Alignment.Center
-                ) {
-                Surface(
-                    // fängt Tipps im Fenster selbst ab, damit nur Tipps daneben den Dialog schließen
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = sideGap, vertical = 56.dp)
-                        .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) {},
-                    shape = RoundedCornerShape(dialogCorner),
-                    color = AlertDialogDefaults.containerColor,
-                    tonalElevation = AlertDialogDefaults.TonalElevation
-                ) {
-                    Column(Modifier.padding(top = 24.dp, bottom = 12.dp)) {
-                        Text(
-                            str(R.string.add_songs),
-                            style = MaterialTheme.typography.headlineSmall,
-                            modifier = Modifier.padding(horizontal = 24.dp)
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        if (shown.isEmpty()) {
-                            Text(
-                                str(R.string.no_results),
-                                modifier = Modifier.weight(1f, fill = false).padding(24.dp)
-                            )
-                        } else {
-                            LazyColumn(Modifier.weight(1f, fill = false).fillMaxWidth()) {
-                                items(shown, key = { it.id }) { s ->
-                                    val on = s.id in chosen
-                                    // Gleiche Optik wie die Titelübersicht: bei "Einheitlich" abgerundete, eingerückte Berührungswelle
-                                    val rounded = LocalCornerStyle.current == CornerStyle.UNIFORM
-                                    val pressSource = remember { MutableInteractionSource() }
-                                    val toggle = { chosen = if (on) chosen - s.id else chosen + s.id }
-                                    Box(Modifier.fillMaxWidth()) {
-                                        if (rounded) {
-                                            Box(
-                                                Modifier
-                                                    .matchParentSize()
-                                                    .padding(horizontal = 8.dp, vertical = 2.dp)
-                                                    .clip(RoundedCornerShape(20.dp))
-                                                    .indication(pressSource, LocalIndication.current)
-                                            )
-                                        }
-                                        ListItem(
-                                            headlineContent = { Text(s.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                            supportingContent = { Text(s.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                            leadingContent = { Cover(s, 48.dp) },
-                                            trailingContent = { Checkbox(checked = on, onCheckedChange = null) },
-                                            colors = clearColors(),
-                                            modifier = if (rounded) {
-                                                Modifier.clip(RoundedCornerShape(20.dp))
-                                                    .clickable(interactionSource = pressSource, indication = null) { toggle() }
-                                            } else Modifier.clickable { toggle() }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        // Suche direkt über den Tasten
-                        TextField(
-                            value = filter,
-                            onValueChange = { filter = it },
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                            placeholder = { Text(str(R.string.search_hint), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            leadingIcon = { SearchIcon() },
-                            trailingIcon = {
-                                if (filter.isNotEmpty()) {
-                                    BounceIconButton(onClick = { filter = "" }) {
-                                        CloseIcon(description = str(R.string.clear))
-                                    }
-                                }
-                            },
-                            singleLine = true,
-                            shape = MaterialTheme.shapes.extraLarge,
-                            colors = TextFieldDefaults.colors(
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                                disabledIndicatorColor = Color.Transparent
-                            )
-                        )
-                        Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            TextButton(onClick = { pickFor = null }) { Text(str(R.string.cancel)) }
-                            TextButton(
-                                enabled = chosen.isNotEmpty(),
-                                onClick = {
-                                    // in der Reihenfolge der Bibliothek hinzufügen
-                                    val add = candidates.filter { it.id in chosen }.map { it.id }
-                                    onPlaylistsChange(
-                                        playlists.map { if (it.id == plId) it.copy(songIds = it.songIds + add) else it }
-                                    )
-                                    pickFor = null
-                                }
-                            ) { Text(str(R.string.add_n, chosen.size)) }
-                        }
-                    }
-                }
-                }   // Ende Box
-            }
+            )
         }
     }
 
-    val addShown = rememberLastNonNull(addSong)
-    if (addShown != null) {
-        val s = addShown
-        BounceAlertDialog(
-            visible = addSong != null,
-            onDismissRequest = { addSong = null },
-            title = { Text(str(R.string.add_to_playlist)) },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
-                    ListItem(
-                        headlineContent = { Text(str(R.string.playlist_new_dots)) },
-                        leadingContent = { PlusIcon() },
-                        colors = clearColors(),
-                        modifier = Modifier.clickable {
-                            pendingSong = s; addSong = null; newName = ""; creating = true
-                        }
-                    )
-                    playlists.forEach { p ->
-                        ListItem(
-                            headlineContent = { Text(p.name) },
-                            colors = clearColors(),
-                            modifier = Modifier.clickable {
-                                if (s.id !in p.songIds) {
-                                    onPlaylistsChange(
-                                        playlists.map {
-                                            if (it.id == p.id) it.copy(songIds = it.songIds + s.id) else it
-                                        }
-                                    )
-                                }
-                                addSong = null
-                            }
-                        )
+    AddToPlaylistDialog(
+        song = addSong,
+        playlists = playlists,
+        onDismiss = { addSong = null },
+        onCreateNew = { s ->
+            pendingSong = s; addSong = null; newName = ""; creating = true
+        },
+        onAdd = { s, p ->
+            if (s.id !in p.songIds) {
+                onPlaylistsChange(
+                    playlists.map {
+                        if (it.id == p.id) it.copy(songIds = it.songIds + s.id) else it
                     }
-                }
-            },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = { addSong = null }) { Text(str(R.string.cancel)) } }
-        )
-    }
-
-    BounceAlertDialog(
-        visible = creating,
-        onDismissRequest = { pendingSong = null; creating = false },
-        title = { Text(str(R.string.playlist_new)) },
-        text = {
-            OutlinedTextField(
-                value = newName,
-                onValueChange = { newName = it },
-                singleLine = true,
-                label = { Text(str(R.string.name)) }
-            )
-        },
-        confirmButton = {
-            TextButton(
-                enabled = newName.isNotBlank(),
-                onClick = {
-                    val p = Playlist(
-                        System.currentTimeMillis().toString(),
-                        newName.trim(),
-                        listOfNotNull(pendingSong?.id)
-                    )
-                    onPlaylistsChange(playlists + p)
-                    pendingSong = null
-                    creating = false
-                }
-            ) { Text(str(R.string.create)) }
-        },
-        dismissButton = {
-            TextButton(onClick = { pendingSong = null; creating = false }) { Text(str(R.string.cancel)) }
+                )
+            }
+            addSong = null
         }
     )
 
-    val choiceShown = rememberLastNonNull(coverChoice)
-    if (choiceShown != null) {
-        val t = choiceShown
-        BounceAlertDialog(
-            visible = coverChoice != null,
-            onDismissRequest = { coverChoice = null },
-            title = { Text(str(R.string.playlist_image_title)) },
-            text = {
-                Column {
-                    ListItem(
-                        headlineContent = { Text(str(R.string.playlist_image_pick)) },
-                        leadingContent = { ImageEditIcon() },
-                        colors = clearColors(),
-                        modifier = Modifier.clickable {
-                            coverChoice = null
-                            coverTargetId = t.id
-                            coverLauncher.launch("image/*")
-                        }
-                    )
-                    // Löschen gibt es nur, wenn die Playlist ein eigenes Bild hat
-                    if (t.cover != null) {
-                        ListItem(
-                            headlineContent = { Text(str(R.string.delete)) },
-                            leadingContent = { TrashIcon() },
-                            colors = clearColors(),
-                            modifier = Modifier.clickable {
-                                coverChoice = null
-                                scope.launch {
-                                    val old = latestPlaylists.firstOrNull { it.id == t.id }?.cover
-                                    onPlaylistsChange(latestPlaylists.map { if (it.id == t.id) it.copy(cover = null) else it })
-                                    withContext(Dispatchers.IO) { deletePlaylistCover(ctx, old) }
-                                }
-                            }
-                        )
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = { coverChoice = null }) { Text(str(R.string.cancel)) } }
-        )
-    }
-
-    val renameShown = rememberLastNonNull(renameTarget)
-    if (renameShown != null) {
-        val t = renameShown
-        val doRename = {
-            val n = renameText.trim()
-            if (n.isNotEmpty()) onPlaylistsChange(latestPlaylists.map { if (it.id == t.id) it.copy(name = n) else it })
-            renameTarget = null
+    NewPlaylistDialog(
+        visible = creating,
+        name = newName,
+        onNameChange = { newName = it },
+        onDismiss = { pendingSong = null; creating = false },
+        onCreate = {
+            val p = Playlist(
+                System.currentTimeMillis().toString(),
+                newName.trim(),
+                listOfNotNull(pendingSong?.id)
+            )
+            onPlaylistsChange(playlists + p)
+            pendingSong = null
+            creating = false
         }
-        BounceAlertDialog(
-            visible = renameTarget != null,
-            onDismissRequest = { renameTarget = null },
-            title = { Text(str(R.string.playlist_rename_title)) },
-            text = {
-                OutlinedTextField(
-                    value = renameText,
-                    onValueChange = { renameText = it },
-                    singleLine = true,
-                    label = { Text(str(R.string.name)) }
-                )
-            },
-            confirmButton = {
-                TextButton(enabled = renameText.isNotBlank(), onClick = { doRename() }) { Text(str(R.string.save)) }
-            },
-            dismissButton = { TextButton(onClick = { renameTarget = null }) { Text(str(R.string.cancel)) } }
-        )
-    }
+    )
 
-    val deleteShown = rememberLastNonNull(deleteTarget)
-    if (deleteShown != null) {
-        val t = deleteShown
-        BounceAlertDialog(
-            visible = deleteTarget != null,
-            onDismissRequest = { deleteTarget = null },
-            title = { Text(str(R.string.playlist_delete_title)) },
-            text = { Text(str(R.string.playlist_delete_text, t.name)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    deleteTarget = null
-                    // Erst schrumpft die Kachel weg, dann wird sie entfernt und die übrigen rücken mit Feder nach
-                    removingIds = removingIds + t.id
-                    scope.launch {
-                        delay(Motion.MEDIUM.toLong())
-                        onPlaylistsChange(latestPlaylists.filter { it.id != t.id })
-                        withContext(Dispatchers.IO) { deletePlaylistCover(ctx, t.cover) }
-                        removingIds = removingIds - t.id
-                    }
-                }) { Text(str(R.string.delete)) }
-            },
-            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text(str(R.string.cancel)) } }
-        )
-    }
+    PlaylistImageDialog(
+        target = coverChoice,
+        onDismiss = { coverChoice = null },
+        onPick = { t ->
+            coverChoice = null
+            coverTargetId = t.id
+            coverLauncher.launch("image/*")
+        },
+        onDelete = { t ->
+            coverChoice = null
+            scope.launch {
+                val old = latestPlaylists.firstOrNull { it.id == t.id }?.cover
+                onPlaylistsChange(latestPlaylists.map { if (it.id == t.id) it.copy(cover = null) else it })
+                withContext(Dispatchers.IO) { deletePlaylistCover(ctx, old) }
+            }
+        }
+    )
+
+    RenamePlaylistDialog(
+        target = renameTarget,
+        text = renameText,
+        onTextChange = { renameText = it },
+        onDismiss = { renameTarget = null },
+        onSave = { t, n ->
+            onPlaylistsChange(latestPlaylists.map { if (it.id == t.id) it.copy(name = n) else it })
+        }
+    )
+
+    DeletePlaylistDialog(
+        target = deleteTarget,
+        onDismiss = { deleteTarget = null },
+        onConfirm = { t ->
+            // Erst schrumpft die Kachel weg, dann wird sie entfernt und die übrigen rücken mit Feder nach
+            removingIds = removingIds + t.id
+            scope.launch {
+                delay(Motion.MEDIUM.toLong())
+                onPlaylistsChange(latestPlaylists.filter { it.id != t.id })
+                withContext(Dispatchers.IO) { deletePlaylistCover(ctx, t.cover) }
+                removingIds = removingIds - t.id
+            }
+        }
+    )
 }

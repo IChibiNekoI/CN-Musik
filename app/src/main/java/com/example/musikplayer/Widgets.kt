@@ -71,19 +71,6 @@ object WidgetHub {
         appVisible = visible
         updater?.onAppVisibilityChanged()
     }
-
-    /** Zeichnet alle Widgets neu: mit dem Player, falls der Dienst läuft, sonst im Ruhezustand. */
-    fun requestRefresh(ctx: Context) {
-        val u = updater
-        if (u != null) {
-            u.refresh(true)
-        } else {
-            val app = ctx.applicationContext
-            Thread {
-                try { WidgetRenderer.update(app, WidgetSnapshot.IDLE, true) } catch (e: Exception) {}
-            }.start()
-        }
-    }
 }
 
 abstract class BaseWidgetProvider : AppWidgetProvider() {

@@ -8,17 +8,14 @@ import kotlinx.coroutines.Job
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.interaction.InteractionSource
 import android.os.SystemClock
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.SpringSpec
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -47,8 +44,6 @@ object Motion {
     const val FAST = 160
     /** normale Übergänge (Seiten, Tabs, Cover) */
     const val MEDIUM = 300
-    /** große Bewegungen */
-    const val SLOW = 420
 
     /** Farbwechsel beim Titelwechsel (Hintergrund, Tasten, Texte): schnell und flüssig */
     const val COLOR = 320
@@ -57,9 +52,6 @@ object Motion {
     const val COLOR_QUICK = 260
 
     val Ease = FastOutSlowInEasing
-
-    /** Sehr sanfter Start und langes, weiches Ausklingen (für Farb- und Hintergrundwechsel) */
-    val Soft = CubicBezierEasing(0.4f, 0f, 0.1f, 1f)
 
     /** Federt kurz über das Ziel hinaus und beruhigt sich dann */
     fun <T> pop(): SpringSpec<T> = spring(dampingRatio = 0.5f, stiffness = 500f)

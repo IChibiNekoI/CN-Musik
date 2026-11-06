@@ -177,7 +177,6 @@ fun BounceSheet(
     var closing by remember { mutableStateOf(false) }
     var dragJob by remember { mutableStateOf<Job?>(null) }
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val scrimColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f)
     val noRipple = remember { MutableInteractionSource() }
 
     LaunchedEffect(Unit) { progress.animateTo(1f, sheetSpring()) }
