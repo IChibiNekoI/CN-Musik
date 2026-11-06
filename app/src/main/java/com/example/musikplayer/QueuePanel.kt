@@ -1,6 +1,12 @@
 package com.example.musikplayer
 
 import android.net.Uri
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.indication
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.spring
@@ -286,21 +292,25 @@ fun QueuePanel(
                     val qi = entry.queueIndex
                     val song = entry.song
                     val isCurrent = qi == current
-                    ListItem(
-                        headlineContent = { Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        supportingContent = { Text(song.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        leadingContent = { Cover(song, 48.dp) },
-                        trailingContent = {
-                            if (!isCurrent) {
-                                BounceIconButton(onClick = { onRemoved(song); c.removeMediaItem(qi) }) {
-                                    CloseIcon(description = str(R.string.queue_remove))
-                                }
-                            }
-                        },
-                        colors = ListItemDefaults.colors(
-                            containerColor = if (isCurrent) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
-                        ),
-                        modifier = itemModifier
+                    // Dieselbe Mechanik wie in den Titellisten (SongRow):
+                    // Hervorhebung des laufenden Titels erscheint sofort und federt mit kleinem Überschwinger an ihren Platz,
+                    // beim bisherigen Titel verschwindet sie fast sofort, damit nie zwei Zeilen leuchten
+                    val rowColor by animateColorAsState(
+                        if (isCurrent) MaterialTheme.colorScheme.secondaryContainer
+                        else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0f),
+                        animationSpec = if (isCurrent) snap() else tween(80, easing = Motion.Ease),
+                        label = "queueRowColor"
+                    )
+                    val highlightScale = animateFloatAsState(
+                        targetValue = if (isCurrent) 1f else 0.9f,
+                        animationSpec = spring(dampingRatio = 0.45f, stiffness = 600f),
+                        label = "queueRowHighlightScale"
+                    )
+                    // Gedrückt: die ganze Zeile drückt sich leicht ein und federt zurück, dazu die Welle in der Hervorhebung
+                    val pressSource = remember { MutableInteractionSource() }
+                    val rowPress = rememberPressProgress(pressSource)
+                    Box(
+                        itemModifier
                             // Beim Öffnen gleiten die Einträge nacheinander hoch und ein (an den Fortschritt gekoppelt:
                             // zieht man die Fläche mit dem Finger auf oder zu, laufen sie mit)
                             .graphicsLayer {
@@ -309,15 +319,49 @@ fun QueuePanel(
                                 alpha = t
                                 translationY = (1f - t) * 28.dp.toPx()
                             }
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .clickable {
-                                Haptics.snap(queueCtx)
-                                SkipDirection.dir = if (qi >= current) 1 else -1
-                                c.seekToDefaultPosition(qi)
-                                c.play()
+                            .fillMaxWidth()
+                            .graphicsLayer {
+                                val sc = 1f - 0.03f * rowPress.value
+                                scaleX = sc
+                                scaleY = sc
                             }
-                    )
+                    ) {
+                        Box(
+                            Modifier
+                                .matchParentSize()
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                                .graphicsLayer {
+                                    scaleX = highlightScale.value
+                                    scaleY = highlightScale.value
+                                }
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(rowColor)
+                                .indication(pressSource, LocalIndication.current)
+                        )
+                        ListItem(
+                            headlineContent = { Text(song.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            supportingContent = { Text(song.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            leadingContent = { Cover(song, 48.dp) },
+                            trailingContent = {
+                                if (!isCurrent) {
+                                    BounceIconButton(onClick = { onRemoved(song); c.removeMediaItem(qi) }) {
+                                        CloseIcon(description = str(R.string.queue_remove))
+                                    }
+                                }
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            // Der Klick liegt auf dem ListItem selbst, dessen Fläche fängt alle Berührungen ab
+                            modifier = Modifier
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                                .clip(RoundedCornerShape(20.dp))
+                                .clickable(interactionSource = pressSource, indication = null) {
+                                    Haptics.snap(queueCtx)
+                                    SkipDirection.dir = if (qi >= current) 1 else -1
+                                    c.seekToDefaultPosition(qi)
+                                    c.play()
+                                }
+                        )
+                    }
                 }
             }
         }
