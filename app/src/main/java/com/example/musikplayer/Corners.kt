@@ -33,6 +33,8 @@ object CornerSettings {
     var showOutputDevice by mutableStateOf(false)
     /** Dauer des Liedes im Player links neben dem Drei-Punkte-Menü zeigen, optional */
     var showSongDuration by mutableStateOf(false)
+    /** Wischgesten auf der Kopfzeile: Tippen = zum aktuellen Titel, hoch = Listenanfang, runter = Listenende */
+    var swipeHeader by mutableStateOf(false)
     /** Startseite als erster Tab der Bibliothek, optional (standardmäßig an) */
     var showHome by mutableStateOf(true)
     /** Auto-Gain (angeglichene Lautstärke), standardmäßig an */
@@ -50,6 +52,7 @@ object CornerSettings {
             waveProgress = readWaveProgress(ctx)
             showOutputDevice = readShowOutputDevice(ctx)
             showSongDuration = readShowSongDuration(ctx)
+            swipeHeader = readSwipeHeader(ctx)
             showHome = readShowHome(ctx)
             autoGain = readAutoGain(ctx)
         }
