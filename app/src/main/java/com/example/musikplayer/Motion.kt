@@ -191,14 +191,30 @@ fun popOnChange(key: Any?): State<Float> {
 /**
  * Schaltet das Ein- und Ausblenden und Verschieben der Listenzeilen ([animateItem]) kurz ab.
  * Springt die Kopfzeile per Geste weit durch eine Liste, gelten die Zeilen sonst als "bewegt" und blenden kurz aus und ein.
+ * Wichtig: Der Modifier bleibt immer dran, nur die Animations-Vorgaben werden auf null gesetzt. Würde man den Modifier
+ * entfernen und später wieder anhängen, liefen die Zeilen beim Wiederanhängen neu an und blinkten.
  */
 object ItemAnimation {
     var suspended by mutableStateOf(false)
+
+    /** Standardvorgaben von animateItem(), bei laufendem Sprung null (= keine Animation) */
+    fun fade(): androidx.compose.animation.core.FiniteAnimationSpec<Float>? =
+        if (suspended) null else spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow)
+
+    fun placement(): androidx.compose.animation.core.FiniteAnimationSpec<androidx.compose.ui.unit.IntOffset>? =
+        if (suspended) null else spring(
+            stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow,
+            visibilityThreshold = androidx.compose.ui.unit.IntOffset.VisibilityThreshold
+        )
 }
 
-/** Wie animateItem(), aber nur solange keine Sprung-Geste der Kopfzeile läuft */
+/** Wie animateItem(), aber ohne Animation, solange eine Sprung-Geste der Kopfzeile läuft */
 fun androidx.compose.foundation.lazy.LazyItemScope.listItemAnim(): androidx.compose.ui.Modifier =
-    if (ItemAnimation.suspended) androidx.compose.ui.Modifier else androidx.compose.ui.Modifier.animateItem()
+    androidx.compose.ui.Modifier.animateItem(
+        fadeInSpec = ItemAnimation.fade(), placementSpec = ItemAnimation.placement(), fadeOutSpec = ItemAnimation.fade()
+    )
 
 fun androidx.compose.foundation.lazy.grid.LazyGridItemScope.gridItemAnim(): androidx.compose.ui.Modifier =
-    if (ItemAnimation.suspended) androidx.compose.ui.Modifier else androidx.compose.ui.Modifier.animateItem()
+    androidx.compose.ui.Modifier.animateItem(
+        fadeInSpec = ItemAnimation.fade(), placementSpec = ItemAnimation.placement(), fadeOutSpec = ItemAnimation.fade()
+    )

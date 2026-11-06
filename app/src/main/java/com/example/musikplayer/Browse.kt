@@ -1600,9 +1600,10 @@ fun LibraryScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         plainItemModifier = {
-                            if (ItemAnimation.suspended) Modifier else Modifier.animateItem(
+                            Modifier.animateItem(
                                 fadeInSpec = null, fadeOutSpec = null,
-                                placementSpec = spring(
+                                // während eines Kopfzeilen-Sprungs keine Verschiebe-Animation, der Modifier bleibt dabei dran
+                                placementSpec = if (ItemAnimation.suspended) null else spring(
                                     dampingRatio = 0.75f, stiffness = 400f,
                                     visibilityThreshold = IntOffset.VisibilityThreshold
                                 )
@@ -1632,9 +1633,10 @@ fun LibraryScreen(
                         contentPadding = PaddingValues(bottom = bottomSpace),
                         listState = playlistsListState,
                         plainItemModifier = {
-                            if (ItemAnimation.suspended) Modifier else Modifier.animateItem(
+                            Modifier.animateItem(
                                 fadeInSpec = null, fadeOutSpec = null,
-                                placementSpec = spring(
+                                // während eines Kopfzeilen-Sprungs keine Verschiebe-Animation, der Modifier bleibt dabei dran
+                                placementSpec = if (ItemAnimation.suspended) null else spring(
                                     dampingRatio = 0.75f, stiffness = 400f,
                                     visibilityThreshold = IntOffset.VisibilityThreshold
                                 )
