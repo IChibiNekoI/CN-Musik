@@ -1602,8 +1602,8 @@ fun LibraryScreen(
                         plainItemModifier = {
                             Modifier.animateItem(
                                 fadeInSpec = null, fadeOutSpec = null,
-                                // während eines Kopfzeilen-Sprungs keine Verschiebe-Animation, der Modifier bleibt dabei dran
-                                placementSpec = if (ItemAnimation.suspended) null else spring(
+                                // während eines Kopfzeilen-Sprungs sofort statt animiert; NIE null, sonst hängt sich der Modifier ab und die Liste blendet neu ein
+                                placementSpec = if (ItemAnimation.suspended) snap<IntOffset>() else spring(
                                     dampingRatio = 0.75f, stiffness = 400f,
                                     visibilityThreshold = IntOffset.VisibilityThreshold
                                 )
@@ -1635,8 +1635,8 @@ fun LibraryScreen(
                         plainItemModifier = {
                             Modifier.animateItem(
                                 fadeInSpec = null, fadeOutSpec = null,
-                                // während eines Kopfzeilen-Sprungs keine Verschiebe-Animation, der Modifier bleibt dabei dran
-                                placementSpec = if (ItemAnimation.suspended) null else spring(
+                                // während eines Kopfzeilen-Sprungs sofort statt animiert; NIE null, sonst hängt sich der Modifier ab und die Liste blendet neu ein
+                                placementSpec = if (ItemAnimation.suspended) snap<IntOffset>() else spring(
                                     dampingRatio = 0.75f, stiffness = 400f,
                                     visibilityThreshold = IntOffset.VisibilityThreshold
                                 )

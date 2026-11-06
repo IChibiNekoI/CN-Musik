@@ -13,6 +13,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.clickable
@@ -193,18 +194,22 @@ fun popOnChange(key: Any?): State<Float> {
 /**
  * Schaltet das Ein- und Ausblenden und Verschieben der Listenzeilen ([animateItem]) kurz ab.
  * Springt die Kopfzeile per Geste weit durch eine Liste, gelten die Zeilen sonst als "bewegt" und blenden kurz aus und ein.
- * Wichtig: Der Modifier bleibt immer dran, nur die Animations-Vorgaben werden auf null gesetzt. Würde man den Modifier
- * entfernen und später wieder anhängen, liefen die Zeilen beim Wiederanhängen neu an und blinkten.
+ *
+ * Wichtig: [animateItem] hängt sich komplett vom Eintrag ab, sobald ALLE drei Vorgaben null sind. Beim Wiederanhängen
+ * gelten alle sichtbaren Zeilen als neu und blenden von transparent aus neu ein (die ganze Liste wird kurz durchsichtig).
+ * Darum ist die Verschiebe-Vorgabe nie null: Während des Sprungs ist sie [snap] (sofort, ohne Bewegung), dadurch bleibt
+ * der Modifier immer dran. Nur das Ein-/Ausblenden wird währenddessen auf null gesetzt.
  */
 object ItemAnimation {
     var suspended by mutableStateOf(false)
 
-    /** Standardvorgaben von animateItem(), bei laufendem Sprung null (= keine Animation) */
+    /** Standardvorgaben von animateItem(), bei laufendem Sprung null (= kein Ein-/Ausblenden) */
     fun fade(): androidx.compose.animation.core.FiniteAnimationSpec<Float>? =
         if (suspended) null else spring(stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow)
 
-    fun placement(): androidx.compose.animation.core.FiniteAnimationSpec<androidx.compose.ui.unit.IntOffset>? =
-        if (suspended) null else spring(
+    /** Nie null, damit der Modifier angehängt bleibt; bei laufendem Sprung sofort statt animiert */
+    fun placement(): androidx.compose.animation.core.FiniteAnimationSpec<IntOffset> =
+        if (suspended) snap<IntOffset>() else spring(
             stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow,
             visibilityThreshold = IntOffset.VisibilityThreshold
         )
