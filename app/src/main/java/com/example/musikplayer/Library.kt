@@ -136,6 +136,12 @@ fun saveShowSongDuration(ctx: Context, on: Boolean) {
     prefs(ctx).edit().putBoolean("show_song_duration", on).apply()
 }
 
+fun readSwipeHeader(ctx: Context): Boolean = prefs(ctx).getBoolean("swipe_header", false)
+
+fun saveSwipeHeader(ctx: Context, on: Boolean) {
+    prefs(ctx).edit().putBoolean("swipe_header", on).apply()
+}
+
 fun readWaveProgress(ctx: Context): Boolean = prefs(ctx).getBoolean("wave_progress", false)
 
 fun saveWaveProgress(ctx: Context, on: Boolean) {
