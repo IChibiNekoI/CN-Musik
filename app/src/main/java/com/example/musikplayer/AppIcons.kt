@@ -278,6 +278,19 @@ fun InfoIcon(
     }
 }
 
+/** Zwei Pfeile nach oben und unten (Wischgesten) */
+@Composable
+fun SwipeVerticalIcon(
+    modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
+    tint: Color = LocalContentColor.current, description: String? = null
+) {
+    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+        seg(c, st, k, 12f, 4f, 12f, 20f)
+        drawPath(polyPath(k, 7.4f, 8.6f, 12f, 4f, 16.6f, 8.6f), c, style = st.rounded(0.8f * k))
+        drawPath(polyPath(k, 7.4f, 15.4f, 12f, 20f, 16.6f, 15.4f), c, style = st.rounded(0.8f * k))
+    }
+}
+
 /** Uhr: Kreis mit Zeigern */
 @Composable
 fun ClockIcon(
