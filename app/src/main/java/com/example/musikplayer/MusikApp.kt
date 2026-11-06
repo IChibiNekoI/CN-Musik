@@ -974,6 +974,21 @@ fun AppSettingsSheet(
                     colors = clear,
                     modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "headerView" }
                 )
+                val swipeCtx = LocalContext.current
+                val swipeOn = CornerSettings.swipeHeader
+                ListItem(
+                    headlineContent = { Text(str(R.string.swipe_header)) },
+                    leadingContent = { SwipeVerticalIcon() },
+                    trailingContent = {
+                        Switch(checked = swipeOn, onCheckedChange = null)
+                    },
+                    colors = clear,
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f) {
+                        val on = !swipeOn
+                        CornerSettings.swipeHeader = on
+                        saveSwipeHeader(swipeCtx, on)
+                    }
+                )
                 ListItem(
                     headlineContent = { Text(str(R.string.progress_bar)) },
                     supportingContent = { Text(if (CornerSettings.waveProgress) str(R.string.progress_wave) else str(R.string.progress_bar_style)) },
