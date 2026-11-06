@@ -82,6 +82,11 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.composed
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -367,12 +372,16 @@ private fun AlbumCollection(
     style: ViewStyle,
     bottomSpace: Dp,
     modifier: Modifier = Modifier,
+    // Scroll-Zustände kommen von außen, damit die Position beim Öffnen eines Albums und Zurückgehen erhalten bleibt
+    gridState: androidx.compose.foundation.lazy.grid.LazyGridState = rememberLazyGridState(),
+    listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
     onOpen: (String) -> Unit
 ) {
     if (style.grid) {
         HapticLazyGrid(
             columns = GridCells.Fixed(style.cols),
             modifier = modifier,
+            state = gridState,
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp + bottomSpace),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -388,7 +397,7 @@ private fun AlbumCollection(
             }
         }
     } else {
-        HapticLazyColumn(modifier, contentPadding = PaddingValues(bottom = bottomSpace)) {
+        HapticLazyColumn(modifier, contentPadding = PaddingValues(bottom = bottomSpace), state = listState) {
             items(albums, key = { it.first }) { (albumName, list) ->
                 ListItem(
                     headlineContent = { Text(albumName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -754,6 +763,42 @@ private fun AnimatedContentTransitionScope<SearchView>.searchPushPop(): ContentT
     return (enter togetherWith exit) using SizeTransform(clip = false)
 }
 
+/** Wischgeste auf der Kopfzeile: senkrechtes Wischen; hoch = onUp, runter = onDown (erst beim Loslassen) */
+private fun Modifier.headerSwipe(onUp: () -> Unit, onDown: () -> Unit): Modifier = composed {
+    val up by rememberUpdatedState(onUp)
+    val down by rememberUpdatedState(onDown)
+    val threshold = with(LocalDensity.current) { 36.dp.toPx() }
+    pointerInput(Unit) {
+        var total = 0f
+        detectVerticalDragGestures(
+            onDragStart = { total = 0f },
+            onDragEnd = {
+                if (total < -threshold) up() else if (total > threshold) down()
+                total = 0f
+            },
+            onDragCancel = { total = 0f },
+            onVerticalDrag = { _, dy -> total += dy }
+        )
+    }
+}
+
+/** kind: 0 = zu [target] springen (liegt im oberen Drittel), 1 = Anfang, 2 = Ende */
+private suspend fun LazyListState.headerJump(kind: Int, target: Int) {
+    when (kind) {
+        1 -> animateScrollToItem(0)
+        2 -> { val n = layoutInfo.totalItemsCount; if (n > 0) animateScrollToItem(n - 1) }
+        else -> if (target >= 0) animateScrollToItem(target, -(layoutInfo.viewportSize.height / 3))
+    }
+}
+
+private suspend fun androidx.compose.foundation.lazy.grid.LazyGridState.headerJump(kind: Int, target: Int) {
+    when (kind) {
+        1 -> animateScrollToItem(0)
+        2 -> { val n = layoutInfo.totalItemsCount; if (n > 0) animateScrollToItem(n - 1) }
+        else -> if (target >= 0) animateScrollToItem(target, -(layoutInfo.viewportSize.height / 3))
+    }
+}
+
 @Composable
 fun LibraryScreen(
     loaded: Boolean = true,
@@ -808,6 +853,9 @@ fun LibraryScreen(
     // Scrollstände der Trefferliste und der Albenzeile bleiben beim Öffnen eines Albums und beim Zurückkehren erhalten
     val searchListState = rememberLazyListState()
     val searchRowState = rememberLazyListState()
+    // "Alle anzeigen" in der Suche: Scroll-Position bleibt erhalten, wenn man ein Album öffnet und zurückgeht
+    val searchAllGridState = rememberLazyGridState()
+    val searchAllListState = rememberLazyListState()
     // Scrollstände der Hauptlisten: Sie liegen hier oben, damit sie beim Öffnen eines Albums oder einer Playlist
     // und beim Wechsel der Tabs nicht verloren gehen (die Listen selbst verlassen dabei kurz die Komposition)
     val songsState = rememberLazyListState()
@@ -815,6 +863,10 @@ fun LibraryScreen(
     val albumsListState = rememberLazyListState()
     val playlistsGridState = rememberLazyGridState()
     val playlistsListState = rememberLazyListState()
+    // Scrollstände der Favoriten und der geöffneten Album-/Playlist-Ansicht (für die Wischgesten der Kopfzeile)
+    val favoritesState = rememberLazyListState()
+    val albumDetailState = rememberLazyListState()
+    val playlistDetailState = rememberLazyListState()
     var plusMenu by remember { mutableStateOf(false) }
     var showUpdate by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
@@ -967,6 +1019,16 @@ fun LibraryScreen(
         query = ""
     }
     // Zurück: erst aus dem Album, dann aus der Albenübersicht, dann aus der Suche
+    LaunchedEffect(query) {
+        searchAllGridState.scrollToItem(0)
+        searchAllListState.scrollToItem(0)
+    }
+    LaunchedEffect(searchAll) {
+        if (!searchAll) {
+            searchAllGridState.scrollToItem(0)
+            searchAllListState.scrollToItem(0)
+        }
+    }
     BackHandler(enabled = searching && (searchAlbum != null || searchAll)) {
         if (searchAlbum != null) searchAlbum = null else searchAll = false
     }
@@ -997,6 +1059,53 @@ fun LibraryScreen(
         }
     }
 
+    // Wischgesten Kopfzeile: 0 = Tippen (zum aktuellen Titel/Album), 1 = zum Anfang, 2 = zum Ende
+    LaunchedEffect(openAlbum) { if (openAlbum != null) albumDetailState.scrollToItem(0) }
+    LaunchedEffect(openPlaylist) { if (openPlaylist != null) playlistDetailState.scrollToItem(0) }
+    val headerAction: (Int) -> Unit = { kind ->
+        val curId = currentId
+        val curSong = songs.firstOrNull { it.id.toString() == curId }
+        scope.launch {
+            when (effTab) {
+                HOME_TAB -> homeState.headerJump(kind, -1)
+                0 -> songsState.headerJump(kind, titleList.indexOfFirst { it.id.toString() == curId })
+                1 -> {
+                    val name = openAlbum
+                    if (name != null) {
+                        val ordered = (albums.firstOrNull { it.first == name }?.second ?: emptyList())
+                            .sortedWith(compareBy<Song>({ it.track }, { it.title.lowercase() }))
+                        albumDetailState.headerJump(kind, ordered.indexOfFirst { it.id.toString() == curId })
+                    } else {
+                        val idx = if (curSong == null) -1
+                            else albums.indexOfFirst { it.first == curSong.album.ifBlank { null } ?: str(R.string.unknown_album) }
+                        if (albumStyle.grid) albumsGridState.headerJump(kind, idx) else albumsListState.headerJump(kind, idx)
+                    }
+                }
+                2 -> {
+                    val pl = openPlaylist?.let { id -> playlists.firstOrNull { it.id == id } }
+                    if (pl != null) {
+                        val list = pl.songIds.mapNotNull { byId[it] }
+                        playlistDetailState.headerJump(kind, list.indexOfFirst { it.id.toString() == curId })
+                    } else if (playlistStyle.grid) playlistsGridState.headerJump(kind, -1)
+                    else playlistsListState.headerJump(kind, -1)
+                }
+                else -> {
+                    // Favoriten: nur springen, wenn der laufende Titel darin steht
+                    val favSongs = favorites.mapNotNull { byId[it] }
+                    favoritesState.headerJump(kind, favSongs.indexOfFirst { it.id.toString() == curId })
+                }
+            }
+        }
+    }
+    val tapHeader: () -> Unit = {
+        onHeaderTap()
+        if (CornerSettings.swipeHeader) { Haptics.snap(ctx); headerAction(0) }
+    }
+    val swipeHeaderMod = if (CornerSettings.swipeHeader) Modifier.headerSwipe(
+        onUp = { Haptics.snap(ctx); headerAction(1) },
+        onDown = { Haptics.snap(ctx); headerAction(2) }
+    ) else Modifier
+
     Column(Modifier.fillMaxSize().padding(pad)) {
         // Die Kopfzeile wandelt sich in das Suchfeld: Es wächst mit leichtem Überschwinger aus der Such-Taste heraus
         AnimatedContent(
@@ -1007,6 +1116,7 @@ fun LibraryScreen(
         ) { isSearching ->
         Row(
             Modifier.fillMaxWidth()
+                .then(if (isSearching) Modifier else swipeHeaderMod)
                 .padding(start = if (isSearching) 8.dp else 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1048,32 +1158,41 @@ fun LibraryScreen(
                 // Jeder Tipp auf die Kopfzeile wird gezählt (Easter Egg), ohne sichtbare Welle
                 val headerTap = remember { MutableInteractionSource() }
                 when (headerStyle) {
-                    HeaderStyle.LOGO -> Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    HeaderStyle.LOGO -> Box(
+                        Modifier.weight(1f).then(if (CornerSettings.swipeHeader) Modifier.clickable(interactionSource = headerTap, indication = null) { tapHeader() } else Modifier),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
                         Image(
                             painter = painterResource(R.drawable.title_logo),
                             contentDescription = "ChibiNeko",
                             // Höhe des Logos hier ändern; die Breite folgt dem Seitenverhältnis (362:68)
                             modifier = Modifier.height(36.dp).aspectRatio(362f / 68f)
-                                .clickable(interactionSource = headerTap, indication = null) { onHeaderTap() },
+                                .clickable(interactionSource = headerTap, indication = null) { tapHeader() },
                             colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onBackground)
                         )
                     }
-                    HeaderStyle.FOX -> Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    HeaderStyle.FOX -> Box(
+                        Modifier.weight(1f).then(if (CornerSettings.swipeHeader) Modifier.clickable(interactionSource = headerTap, indication = null) { tapHeader() } else Modifier),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
                         Image(
                             painter = painterResource(R.drawable.header_fox),
                             contentDescription = null,
                             // Höhe des Fuchses hier ändern; die Breite folgt dem Seitenverhältnis (640:390)
                             modifier = Modifier.height(52.dp).aspectRatio(640f / 390f)
-                                .clickable(interactionSource = headerTap, indication = null) { onHeaderTap() }
+                                .clickable(interactionSource = headerTap, indication = null) { tapHeader() }
                         )
                     }
                     HeaderStyle.TEXT -> {
                         Text(
                             str(R.string.app_header_text),
                             style = MaterialTheme.typography.headlineLarge,
-                            modifier = Modifier.clickable(interactionSource = headerTap, indication = null) { onHeaderTap() }
+                            modifier = Modifier.clickable(interactionSource = headerTap, indication = null) { tapHeader() }
                         )
-                        Spacer(Modifier.weight(1f))
+                        Spacer(
+                            Modifier.weight(1f).fillMaxHeight()
+                                .then(if (CornerSettings.swipeHeader) Modifier.clickable(interactionSource = headerTap, indication = null) { tapHeader() } else Modifier)
+                        )
                     }
                 }
                 if (tab == 2) {
@@ -1184,7 +1303,9 @@ fun LibraryScreen(
                     albums = matchedAlbums,
                     style = albumStyle,
                     bottomSpace = bottomSpace,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    gridState = searchAllGridState,
+                    listState = searchAllListState
                 ) { name -> focusManager.clearFocus(); searchAlbum = name }
             } else {
                 HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace), state = searchListState) {
@@ -1404,7 +1525,7 @@ fun LibraryScreen(
                             .sortedWith(compareBy<Song>({ it.track }, { it.title.lowercase() }))
                     }
                     DetailHeader(name, onBack = { closeAlbum() })
-                    HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace)) {
+                    HapticLazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = bottomSpace), state = albumDetailState) {
                         itemsIndexed(ordered, key = { _, s -> s.id }) { i, s ->
                             SongRow(
                                 s, s.id.toString() == currentId, { onPlay(ordered, i) }, { addSong = s },
@@ -1430,7 +1551,8 @@ fun LibraryScreen(
                         onReorderFavorites(new.map { it.id } + favorites.filter { id -> byId[id] == null })
                     },
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(bottom = bottomSpace)
+                    contentPadding = PaddingValues(bottom = bottomSpace),
+                    listState = favoritesState
                 ) { i, s, itemMod ->
                     SongRow(
                         s, s.id.toString() == currentId, { onPlay(favSongs, i) }, { addSong = s },
@@ -1579,7 +1701,8 @@ fun LibraryScreen(
                             )
                         },
                         modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(bottom = bottomSpace)
+                        contentPadding = PaddingValues(bottom = bottomSpace),
+                        listState = playlistDetailState
                     ) { i, s, itemMod ->
                         SongRow(
                             s, s.id.toString() == currentId,
