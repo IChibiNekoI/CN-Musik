@@ -13,6 +13,8 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -204,7 +206,7 @@ object ItemAnimation {
     fun placement(): androidx.compose.animation.core.FiniteAnimationSpec<androidx.compose.ui.unit.IntOffset>? =
         if (suspended) null else spring(
             stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow,
-            visibilityThreshold = androidx.compose.ui.unit.IntOffset.VisibilityThreshold
+            visibilityThreshold = IntOffset.VisibilityThreshold
         )
 }
 
