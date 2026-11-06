@@ -55,6 +55,7 @@ fun ReorderableSongList(
     contentPadding: PaddingValues = PaddingValues(),
     enabled: Boolean = true,          // false: Liste ohne Umsortieren (z. B. bei Zufallswiedergabe)
     initialIndex: Int = 0,            // Eintrag, bei dem die Liste beginnt
+    listState: LazyListState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex),
     row: @Composable (index: Int, song: Song, itemModifier: Modifier) -> Unit
 ) = ReorderableList(
     items = songs,
@@ -64,6 +65,7 @@ fun ReorderableSongList(
     contentPadding = contentPadding,
     enabled = enabled,
     initialIndex = initialIndex,
+    listState = listState,
     row = row
 )
 
