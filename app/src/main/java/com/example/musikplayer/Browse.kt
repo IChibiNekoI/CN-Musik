@@ -1190,7 +1190,7 @@ fun LibraryScreen(
                             modifier = Modifier.clickable(interactionSource = headerTap, indication = null) { tapHeader() }
                         )
                         Spacer(
-                            Modifier.weight(1f).fillMaxHeight()
+                            Modifier.weight(1f).height(48.dp)   // gleiche Höhe wie die Symbol-Tasten, füllt nicht die ganze Höhe
                                 .then(if (CornerSettings.swipeHeader) Modifier.clickable(interactionSource = headerTap, indication = null) { tapHeader() } else Modifier)
                         )
                     }
