@@ -166,6 +166,7 @@
     <string name="playlist_export_failed">Export failed</string>
     <string name="playlist_image_title">Playlist image</string>
     <string name="playlist_image_pick">Choose from storage</string>
+    <string name="swipe_header">Header swipe gestures</string>
     <string name="song_duration">Show song length</string>
     <string name="song_duration_summary">Shown in song lists next to the menu button</string>
     <string name="output_device_summary">Shown when headphones are connected</string>
