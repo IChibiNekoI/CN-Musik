@@ -90,7 +90,7 @@ fun <T> ReorderableList(
     enabled: Boolean = true,          // false: Liste ohne Umsortieren (z. B. bei Zufallswiedergabe)
     initialIndex: Int = 0,            // Eintrag, bei dem die Liste beginnt
     listState: LazyListState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex),
-    plainItemModifier: LazyItemScope.() -> Modifier = { Modifier.animateItem() },
+    plainItemModifier: LazyItemScope.() -> Modifier = { listItemAnim() },
     row: @Composable (index: Int, item: T, itemModifier: Modifier) -> Unit
 ) {
     val currentEnabled by rememberUpdatedState(enabled)
@@ -330,7 +330,7 @@ fun <T> ReorderableGrid(
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
     enabled: Boolean = true,
     gridState: LazyGridState = rememberLazyGridState(),
-    plainItemModifier: LazyGridItemScope.() -> Modifier = { Modifier.animateItem() },
+    plainItemModifier: LazyGridItemScope.() -> Modifier = { gridItemAnim() },
     row: @Composable (index: Int, item: T, itemModifier: Modifier) -> Unit
 ) {
     val currentEnabled by rememberUpdatedState(enabled)

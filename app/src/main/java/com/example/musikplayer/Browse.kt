@@ -1066,6 +1066,9 @@ fun LibraryScreen(
         val curId = currentId
         val curSong = songs.firstOrNull { it.id.toString() == curId }
         scope.launch {
+            // Während des Sprungs keine Ein-/Ausblend-Animation der Zeilen, sonst blinkt die Liste kurz
+            ItemAnimation.suspended = true
+            try {
             when (effTab) {
                 HOME_TAB -> homeState.headerJump(kind, -1)
                 0 -> songsState.headerJump(kind, titleList.indexOfFirst { it.id.toString() == curId })
@@ -1093,6 +1096,12 @@ fun LibraryScreen(
                     // Favoriten: nur springen, wenn der laufende Titel darin steht
                     val favSongs = favorites.mapNotNull { byId[it] }
                     favoritesState.headerJump(kind, favSongs.indexOfFirst { it.id.toString() == curId })
+                }
+            }
+            } finally {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    kotlinx.coroutines.delay(200)
+                    ItemAnimation.suspended = false
                 }
             }
         }
@@ -1291,7 +1300,7 @@ fun LibraryScreen(
                             s, s.id.toString() == currentId, { onPlay(ordered, i) }, { addSong = s },
                             isFavorite = s.id in favSet,
                             trackNumber = trackNumberOf(s, i + 1),
-                            modifier = Modifier.animateItem(),
+                            modifier = listItemAnim(),
                             onToggleFavorite = { onToggleFavorite(s) }
                         )
                     }
@@ -1353,7 +1362,7 @@ fun LibraryScreen(
                             { focusManager.clearFocus(); onPlay(results, i) },
                             { addSong = s },
                             isFavorite = s.id in favSet,
-                            modifier = Modifier.animateItem(),
+                            modifier = listItemAnim(),
                             onToggleFavorite = { onToggleFavorite(s) }
                         )
                     }
@@ -1463,7 +1472,7 @@ fun LibraryScreen(
                             s, s.id.toString() == currentId, { onPlay(titleList, i) }, { addSong = s },
                             onHide = onHideSong?.let { hide -> { hide(s) } },
                             isFavorite = s.id in favSet,
-                            modifier = Modifier.animateItem(),
+                            modifier = listItemAnim(),
                             onToggleFavorite = { onToggleFavorite(s) }
                         )
                     }
@@ -1531,7 +1540,7 @@ fun LibraryScreen(
                                 s, s.id.toString() == currentId, { onPlay(ordered, i) }, { addSong = s },
                                 isFavorite = s.id in favSet,
                                 trackNumber = trackNumberOf(s, i + 1),
-                                modifier = Modifier.animateItem(),
+                                modifier = listItemAnim(),
                                 onToggleFavorite = { onToggleFavorite(s) }
                             )
                         }
@@ -1591,7 +1600,7 @@ fun LibraryScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         plainItemModifier = {
-                            Modifier.animateItem(
+                            if (ItemAnimation.suspended) Modifier else Modifier.animateItem(
                                 fadeInSpec = null, fadeOutSpec = null,
                                 placementSpec = spring(
                                     dampingRatio = 0.75f, stiffness = 400f,
@@ -1623,7 +1632,7 @@ fun LibraryScreen(
                         contentPadding = PaddingValues(bottom = bottomSpace),
                         listState = playlistsListState,
                         plainItemModifier = {
-                            Modifier.animateItem(
+                            if (ItemAnimation.suspended) Modifier else Modifier.animateItem(
                                 fadeInSpec = null, fadeOutSpec = null,
                                 placementSpec = spring(
                                     dampingRatio = 0.75f, stiffness = 400f,

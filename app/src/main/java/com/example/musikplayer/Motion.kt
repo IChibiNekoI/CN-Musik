@@ -186,3 +186,19 @@ fun popOnChange(key: Any?): State<Float> {
     }
     return scale.asState()
 }
+
+
+/**
+ * Schaltet das Ein- und Ausblenden und Verschieben der Listenzeilen ([animateItem]) kurz ab.
+ * Springt die Kopfzeile per Geste weit durch eine Liste, gelten die Zeilen sonst als "bewegt" und blenden kurz aus und ein.
+ */
+object ItemAnimation {
+    var suspended by mutableStateOf(false)
+}
+
+/** Wie animateItem(), aber nur solange keine Sprung-Geste der Kopfzeile läuft */
+fun androidx.compose.foundation.lazy.LazyItemScope.listItemAnim(): androidx.compose.ui.Modifier =
+    if (ItemAnimation.suspended) androidx.compose.ui.Modifier else androidx.compose.ui.Modifier.animateItem()
+
+fun androidx.compose.foundation.lazy.grid.LazyGridItemScope.gridItemAnim(): androidx.compose.ui.Modifier =
+    if (ItemAnimation.suspended) androidx.compose.ui.Modifier else androidx.compose.ui.Modifier.animateItem()
