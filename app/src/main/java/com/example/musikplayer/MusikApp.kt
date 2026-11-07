@@ -156,6 +156,22 @@ fun MusikApp(
         }
         var base = withContext(Dispatchers.IO) { loadLibrary(ctx) }
         showWithFileTags(base)
+        // Backup wurde eingespielt, bevor die Bibliothek da war: Titel jetzt zuordnen und Listen neu aus den Einstellungen laden
+        if (Backup.hasPending(ctx) && allSongs.isNotEmpty()) {
+            val r = withContext(Dispatchers.IO) { Backup.resolvePending(ctx, allSongs) }
+            if (r != null && r.ok) {
+                Toast.makeText(
+                    ctx,
+                    if (r.ambiguous > 0) str(R.string.backup_restored_unclear, r.matched, r.total, r.ambiguous)
+                    else str(R.string.backup_restored, r.matched, r.total),
+                    Toast.LENGTH_LONG
+                ).show()
+                var c: android.content.Context = ctx
+                while (c is android.content.ContextWrapper && c !is android.app.Activity) c = c.baseContext
+                (c as? android.app.Activity)?.recreate()
+                return@LaunchedEffect
+            }
+        }
         if (!startupDone) {
             // Die aufwendigen Prüfungen erst, wenn die Oberfläche steht und die ersten Cover geladen sind.
             // So ruckelt der Start auf schwächeren Geräten nicht.

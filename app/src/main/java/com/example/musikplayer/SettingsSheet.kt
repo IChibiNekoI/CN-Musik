@@ -106,11 +106,12 @@ fun AppSettingsSheet(
     // Backup: Datei zum Speichern bzw. Auswählen über das Android-Dateisystem-Fenster
     val backupCtx = LocalContext.current
     val backupSongs = remember(allSongs, hiddenSongs) { (allSongs + hiddenSongs).distinctBy { it.id } }
+    var backupProfile by remember { mutableStateOf(false) }   // Hörprofil mitsichern (standardmäßig aus)
     val createBackup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) {
             val ok = try {
                 backupCtx.contentResolver.openOutputStream(uri, "wt")?.use {
-                    it.write(Backup.create(backupCtx, backupSongs).toByteArray(Charsets.UTF_8))
+                    it.write(Backup.create(backupCtx, backupSongs, backupProfile).toByteArray(Charsets.UTF_8))
                 } != null
             } catch (e: Exception) {
                 false
@@ -129,9 +130,12 @@ fun AppSettingsSheet(
             }
             val result = if (text != null) Backup.restore(backupCtx, text, backupSongs) else null
             if (result != null && result.ok) {
-                android.widget.Toast.makeText(
-                    backupCtx, str(R.string.backup_restored, result.matched, result.total), android.widget.Toast.LENGTH_LONG
-                ).show()
+                val msg = when {
+                    result.pending -> str(R.string.backup_restored_pending)
+                    result.ambiguous > 0 -> str(R.string.backup_restored_unclear, result.matched, result.total, result.ambiguous)
+                    else -> str(R.string.backup_restored, result.matched, result.total)
+                }
+                android.widget.Toast.makeText(backupCtx, msg, android.widget.Toast.LENGTH_LONG).show()
                 // Activity neu aufbauen, damit alle Einstellungen und Listen frisch aus dem Backup geladen werden
                 var c: android.content.Context = backupCtx
                 while (c is android.content.ContextWrapper && c !is android.app.Activity) c = c.baseContext
@@ -594,6 +598,14 @@ fun AppSettingsSheet(
                         val day = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
                         createBackup.launch("CN-Musik-Backup-$day.json")
                     }
+                )
+                ListItem(
+                    headlineContent = { Text(str(R.string.backup_profile)) },
+                    supportingContent = { Text(str(R.string.backup_profile_sub)) },
+                    leadingContent = { BackupIcon() },
+                    trailingContent = { Switch(checked = backupProfile, onCheckedChange = null) },
+                    colors = clear,
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f) { backupProfile = !backupProfile }
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.backup_restore)) },
