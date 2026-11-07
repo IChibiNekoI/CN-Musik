@@ -19,17 +19,29 @@ class TrackFeatures(
     /** Wie kraftvoll der Titel klingt, 0 (ruhig) bis 1 (intensiv). Negativ = Messung gescheitert. */
     val energy: Float,
     /** Wie hell der Titel klingt, 0 (dunkel, bassig) bis 1 (hell, höhenreich). */
-    val brightness: Float
+    val brightness: Float,
+    /** Dynamik: 0 (durchgehend gleich laut, stark komprimiert) bis 1 (große Lautstärkeunterschiede, z. B. Klassik). Negativ = nicht gemessen. */
+    val dynamics: Float = -1f,
+    /** Wie klar ein Puls zu hören ist, 0 (frei fließend, Ambient) bis 1 (deutlicher Beat). Negativ = nicht gemessen. */
+    val pulse: Float = -1f,
+    /** Anteil des Basses (unter etwa 200 Hz), 0 (kaum Bass) bis 1 (bassdominiert). Negativ = nicht gemessen. */
+    val bass: Float = -1f
 ) {
     val failed: Boolean get() = energy < 0f
     val hasTempo: Boolean get() = bpm > 0f
+
+    /** Hat die neuen Merkmale (Dynamik, Puls, Bass). Ältere Einträge haben nur Tempo, Energie und Helligkeit. */
+    val extended: Boolean get() = failed || dynamics >= 0f
 
     companion object {
         val FAILED = TrackFeatures(0f, -1f, 0f)
     }
 }
 
-/** Gespeicherte Merkmale pro Titel (Datei "features.txt", eine Zeile pro Titel: id,bpm,energie,helligkeit). */
+/**
+ * Gespeicherte Merkmale pro Titel (Datei "features.txt", eine Zeile pro Titel: id,bpm,energie,helligkeit,dynamik,puls,bass).
+ * Ältere Zeilen mit nur vier Werten bleiben gültig und werden im Hintergrund nach und nach neu gemessen (die neuere Zeile gewinnt).
+ */
 object TrackFeatureCache {
     private val map = ConcurrentHashMap<Long, TrackFeatures>()
     private var loaded = false
@@ -44,12 +56,19 @@ object TrackFeatureCache {
         try {
             f.forEachLine { line ->
                 val p = line.split(',')
-                if (p.size == 4) {
+                if (p.size == 4 || p.size == 7) {
                     val id = p[0].toLongOrNull() ?: return@forEachLine
                     val bpm = p[1].toFloatOrNull() ?: return@forEachLine
                     val energy = p[2].toFloatOrNull() ?: return@forEachLine
                     val bright = p[3].toFloatOrNull() ?: return@forEachLine
-                    map[id] = TrackFeatures(bpm, energy, bright)
+                    map[id] = if (p.size == 7) {
+                        TrackFeatures(
+                            bpm, energy, bright,
+                            p[4].toFloatOrNull() ?: return@forEachLine,
+                            p[5].toFloatOrNull() ?: return@forEachLine,
+                            p[6].toFloatOrNull() ?: return@forEachLine
+                        )
+                    } else TrackFeatures(bpm, energy, bright)
                 }
             }
         } catch (e: Exception) {
@@ -67,7 +86,10 @@ object TrackFeatureCache {
         ensureLoaded(ctx)
         map[id] = features
         try {
-            file?.appendText("$id,${features.bpm},${features.energy},${features.brightness}\n")
+            file?.appendText(
+                "$id,${features.bpm},${features.energy},${features.brightness}," +
+                    "${features.dynamics},${features.pulse},${features.bass}\n"
+            )
         } catch (e: Exception) {
             // Speichern ist optional: ohne Datei wird beim nächsten Start neu gemessen
         }
@@ -82,6 +104,12 @@ private val LN2 = ln(2.0)
  */
 class TrackFeatureExtractor(sampleRate: Int) {
     private val hop = (sampleRate / 100).coerceAtLeast(1)   // 10 ms je Abschnitt
+    // Bass: einfacher Tiefpass bei etwa 200 Hz, gemessen wird, wie viel der Energie darunter liegt
+    private val lowAlpha = (1.0 - exp(-2.0 * Math.PI * 200.0 / sampleRate.coerceAtLeast(8000))).toFloat()
+    private var low = 0f
+    private var totalLowSq = 0.0
+    private var sumLowSq = 0.0
+    private var pulse = 0f
     private var inHop = 0
     private var sumSq = 0.0
     private var sumDiffSq = 0.0
@@ -95,15 +123,19 @@ class TrackFeatureExtractor(sampleRate: Int) {
     fun add(x: Float) {
         val d = x - prev
         prev = x
+        low += lowAlpha * (x - low)
         sumSq += (x * x).toDouble()
         sumDiffSq += (d * d).toDouble()
+        sumLowSq += (low * low).toDouble()
         if (++inHop >= hop) {
             if (count == env.size) env = env.copyOf(env.size * 2)
             env[count++] = (sumSq / inHop).toFloat()
             totalSq += sumSq
             totalDiffSq += sumDiffSq
+            totalLowSq += sumLowSq
             sumSq = 0.0
             sumDiffSq = 0.0
+            sumLowSq = 0.0
             inHop = 0
         }
     }
@@ -135,7 +167,19 @@ class TrackFeatureExtractor(sampleRate: Int) {
         }
         val flux = fluxSum / (n - 1)
         val energy = 0.65 * loud + 0.35 * (flux / 0.2).coerceIn(0.0, 1.0)
-        return TrackFeatures(tempo(onset, n), energy.toFloat(), bright.toFloat())
+        val bpm = tempo(onset, n)
+
+        // Dynamik: Abstand zwischen lauten und leisen Momenten (Pegel je 10 ms, 95. gegen 10. Perzentil in dB).
+        // Stark komprimierte Titel liegen eng beieinander, Klassik und Akustisches weit auseinander.
+        val db = FloatArray(n) { (10.0 * log10(env[it] + 1e-12)).toFloat() }
+        db.sort()
+        val spread = (db[(n * 0.95).toInt().coerceAtMost(n - 1)] - db[(n * 0.10).toInt()]).toDouble()
+        val dynamics = ((spread - 8.0) / 32.0).coerceIn(0.0, 1.0)
+
+        // Bass: Anteil der Energie unter etwa 200 Hz, logarithmisch (1 % = 0, 100 % = 1)
+        val bass = ((log10(totalLowSq / totalSq + 1e-4) + 2.0) / 2.0).coerceIn(0.0, 1.0)
+
+        return TrackFeatures(bpm, energy.toFloat(), bright.toFloat(), dynamics.toFloat(), pulse, bass.toFloat())
     }
 
     /** Tempo über die Selbstähnlichkeit des Einsatz-Verlaufs (Autokorrelation), Werte zwischen 60 und 200 BPM. */
@@ -170,6 +214,8 @@ class TrackFeatureExtractor(sampleRate: Int) {
                 bestLag = lag
             }
         }
+        // Pulsstärke: wie deutlich der beste Gipfel gegenüber dem Rauschen des Einsatz-Verlaufs ist (0 bis 1)
+        pulse = if (bestLag == 0) 0f else (r[bestLag] / r0 / 0.5).coerceIn(0.0, 1.0).toFloat()
         if (bestLag == 0 || r[bestLag] / r0 < 0.05) return 0f   // kein erkennbarer Puls
 
         // Gipfel zwischen den Werten genauer bestimmen (Parabel durch drei Punkte)

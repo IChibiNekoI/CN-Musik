@@ -314,7 +314,8 @@ object LoudnessScanner {
                 if (cancelled()) return@Thread
                 // Pro Titel fehlen Lautheit und/oder Klangmerkmale (Neko Mix): beides entsteht im selben Durchlauf
                 val haveLoudness = LoudnessCache.get(app, id) != null
-                val haveFeatures = TrackFeatureCache.get(app, id) != null
+                // Ältere Einträge ohne Dynamik, Puls und Bass zählen als fehlend und werden hier nach und nach neu gemessen
+                val haveFeatures = TrackFeatureCache.get(app, id)?.extended == true
                 if (haveLoudness && haveFeatures) continue
                 while (!cancelled() && !mayScan()) {
                     if (!nap(5_000)) return@Thread

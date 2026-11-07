@@ -34,8 +34,18 @@ private class MixProfile(
     val hasTempo: Boolean,
     val energy: Double,
     val brightness: Double,
-    val confidence: Double
+    val confidence: Double,
+    /** Dynamik, Puls und Bass deines typischen Klangs; null, solange zu wenige Ankertitel die neuen Merkmale haben. */
+    val ext: ExtProfile? = null
 )
+
+private class ExtProfile(val dynamics: Double, val pulse: Double, val bass: Double)
+
+/** Gauß-Passung eines Merkmals: 1 = gleich, fällt mit dem Abstand (in Einheiten von [width]) ab. */
+private fun gauss(diff: Double, width: Double): Double {
+    val z = diff / width
+    return Math.exp(-0.5 * z * z)
+}
 
 /** Wie gut passt ein Titel zu deinem typischen Klang? 0 bis 1; ohne Messwert neutral. */
 private fun soundMatch(f: TrackFeatures?, p: MixProfile?): Double {
@@ -49,6 +59,15 @@ private fun soundMatch(f: TrackFeatures?, p: MixProfile?): Double {
         val dt = tempoDist(tempoPos(f.bpm), p.tempo) / 0.12
         Math.exp(-0.5 * dt * dt)
     } else 0.5
+    val x = p.ext
+    // Mit Dynamik, Puls und Bass (Titel und Profil haben sie): feineres Bild, das z. B. Ambient von Techno
+    // und Klassik von Rock trennt, auch wenn Tempo, Energie und Helligkeit ähnlich ausfallen
+    if (x != null && f.extended) {
+        val gD = gauss(f.dynamics - x.dynamics, 0.25)
+        val gP = gauss(f.pulse - x.pulse, 0.25)
+        val gS = gauss(f.bass - x.bass, 0.25)
+        return 0.28 * gT + 0.22 * gE + 0.14 * gB + 0.14 * gD + 0.10 * gP + 0.12 * gS
+    }
     return 0.4 * gT + 0.35 * gE + 0.25 * gB
 }
 
@@ -56,7 +75,15 @@ private fun soundMatch(f: TrackFeatures?, p: MixProfile?): Double {
 private fun soundDistance(a: TrackFeatures?, b: TrackFeatures?): Double {
     if (a == null || b == null || a.failed || b.failed) return 0.4
     val t = if (a.hasTempo && b.hasTempo) 2.0 * tempoDist(tempoPos(a.bpm), tempoPos(b.bpm)) else 0.4
-    return 0.5 * t + 0.3 * Math.abs((a.energy - b.energy).toDouble()) + 0.2 * Math.abs((a.brightness - b.brightness).toDouble())
+    val dE = Math.abs((a.energy - b.energy).toDouble())
+    val dB = Math.abs((a.brightness - b.brightness).toDouble())
+    if (a.extended && b.extended) {
+        return 0.35 * t + 0.2 * dE + 0.15 * dB +
+            0.1 * Math.abs((a.dynamics - b.dynamics).toDouble()) +
+            0.1 * Math.abs((a.pulse - b.pulse).toDouble()) +
+            0.1 * Math.abs((a.bass - b.bass).toDouble())
+    }
+    return 0.5 * t + 0.3 * dE + 0.2 * dB
 }
 
 /**
@@ -97,7 +124,7 @@ private fun flowOrder(list: List<Song>, orderSeed: Long, features: (Long) -> Tra
  *  - Künstler, die du magst
  *  - Skips im Mix (nur dort): übersprungene Titel und ihre Künstler werden seltener gewählt
  *  - Ähnlichkeit: Titel, die in derselben Hörsitzung wie deine Favoriten liefen, und Alben deiner Favoriten
- *  - Klang: Tempo, Energie und Helligkeit im Vergleich zu deinem typischen Klang ([features], falls schon gemessen)
+ *  - Klang: Tempo, Energie, Helligkeit sowie Dynamik, Puls und Bass im Vergleich zu deinem typischen Klang ([features], falls schon gemessen)
  *  - Wiederholungsschutz: Was du gerade erst gehört hast, steht seltener drin
  * Rund ein Fünftel der Plätze gehört Titeln, die du in letzter Zeit nicht gehört hast: neu hinzugekommene und
  * solche, die zu deinem Geschmack passen. Die Mischung wird dynamisch: Je mehr Hörverlauf da ist, desto mehr zählen
@@ -192,12 +219,19 @@ fun buildMix(
     var pW = 0.0; var pE = 0.0; var pB = 0.0
     var tW = 0.0; var tC = 0.0; var tS = 0.0
     var measured = 0
+    // Dynamik, Puls und Bass: nur aus Ankertiteln, die diese Merkmale schon haben (ältere werden im Hintergrund nachgemessen)
+    var xW = 0.0; var xD = 0.0; var xP = 0.0; var xS = 0.0
+    var measuredExt = 0
     for (id in seedIds) {
         val f = features(id) ?: continue
         if (f.failed) continue
         val w = (if (id in favorites) 2.0 else 1.0) + Math.min(songPlays[id] ?: 0.0, 5.0) * 0.5
         measured++
         pW += w; pE += w * f.energy; pB += w * f.brightness
+        if (f.extended) {
+            measuredExt++
+            xW += w; xD += w * f.dynamics; xP += w * f.pulse; xS += w * f.bass
+        }
         if (f.hasTempo) {
             val ang = 2.0 * Math.PI * tempoPos(f.bpm)
             tC += w * Math.cos(ang); tS += w * Math.sin(ang); tW += w
@@ -207,7 +241,8 @@ fun buildMix(
         val hasT = tW > 0.0 && tC * tC + tS * tS > 1e-9
         var pos = if (hasT) Math.atan2(tS, tC) / (2.0 * Math.PI) else 0.0
         if (pos < 0.0) pos += 1.0
-        MixProfile(pos, hasT, pE / pW, pB / pW, Math.min(1.0, measured / 15.0))
+        val ext = if (measuredExt >= 5 && xW > 0.0) ExtProfile(xD / xW, xP / xW, xS / xW) else null
+        MixProfile(pos, hasT, pE / pW, pB / pW, Math.min(1.0, measured / 15.0), ext)
     } else null
 
     val favW = 3.0 - confidence            // Favoriten: 3,0 (wenig Verlauf) bis 2,0 (viel Verlauf)
