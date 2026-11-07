@@ -193,6 +193,10 @@
     <string name="backup_failed">Backup fehlgeschlagen</string>
     <string name="backup_restored">Backup wiederhergestellt (%1$d von %2$d Titeln gefunden)</string>
     <string name="backup_invalid">Das ist keine gültige Backup-Datei</string>
+    <string name="backup_profile">Persönliches Hörprofil einschließen</string>
+    <string name="backup_profile_sub">Verlauf, Hörprotokoll und Neko-Mix-Daten, damit ein neues Gerät das Gelernte behält</string>
+    <string name="backup_restored_unclear">Backup wiederhergestellt (%1$d von %2$d Titeln gefunden, %3$d übersprungen, weil mehrere gleich gut passten)</string>
+    <string name="backup_restored_pending">Backup wiederhergestellt. Die Titel werden zugeordnet, sobald deine Bibliothek geladen ist</string>
     <string name="tab_home">Start</string>
     <string name="home_mix_title">Dein Neko Mix</string>
     <string name="home_mix_subtitle">Frisch für dich gemischt</string>
