@@ -89,14 +89,14 @@ abstract class BaseWidgetProvider : AppWidgetProvider() {
     private fun refreshNow(context: Context) {
         val u = WidgetHub.updater
         if (u != null) {
-            u.refresh(true)
+            u.refresh(full = true, force = true)   // neues Widget, Größe oder Launcher-Neustart: Inhalt komplett neu schicken
             return
         }
         val pending = goAsync()
         val app = context.applicationContext
         Thread {
             try {
-                WidgetRenderer.update(app, WidgetSnapshot.IDLE, true)
+                WidgetRenderer.update(app, WidgetSnapshot.IDLE, full = true, force = true)
             } catch (e: Exception) {
                 // Das Widget bleibt dann beim Startlayout
             } finally {
@@ -152,6 +152,7 @@ class WidgetUpdater(private val ctx: Context, private val player: Player) {
     private val power = ctx.getSystemService(Context.POWER_SERVICE) as PowerManager
     private val scheduled = AtomicBoolean(false)
     private val pendingFull = AtomicBoolean(false)
+    private val pendingForce = AtomicBoolean(false)
     @Volatile private var latest: WidgetSnapshot? = null
 
     private val tick = object : Runnable {
@@ -174,6 +175,8 @@ class WidgetUpdater(private val ctx: Context, private val player: Player) {
                     Player.EVENT_MEDIA_METADATA_CHANGED
                 )
             ) {
+                // Ob wirklich alles neu gezeichnet werden muss, entscheidet der Renderer: Hat sich weder Titel noch
+                // Zustand (Play/Pause, Zufall, Favorit, Cover) geändert, wird nur der Fortschritt aktualisiert
                 refresh(true)
                 main.removeCallbacks(tick)
                 if (player.isPlaying) main.postDelayed(tick, 1000L)
@@ -191,7 +194,10 @@ class WidgetUpdater(private val ctx: Context, private val player: Player) {
 
     // Änderungen in der App, die die Widgets zeigen: Favoriten, Fortschrittsstil, Sprache
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == "favorites" || key == "wave_progress" || key == "language") main.post { refresh(true) }
+        // Sprache steckt nicht im Zustand des Titels und erzwingt deshalb den Neuaufbau; Favoriten und
+        // Fortschrittsstil erkennt der Renderer selbst an seinem Zustandsschlüssel
+        if (key == "language") main.post { refresh(full = true, force = true) }
+        else if (key == "favorites" || key == "wave_progress") main.post { refresh(true) }
     }
 
     init {
@@ -222,7 +228,7 @@ class WidgetUpdater(private val ctx: Context, private val player: Player) {
         // Dienst beendet: Widgets zeigen wieder den Ruhezustand
         val app = ctx.applicationContext
         Thread {
-            try { WidgetRenderer.update(app, WidgetSnapshot.IDLE, true) } catch (e: Exception) {}
+            try { WidgetRenderer.update(app, WidgetSnapshot.IDLE, full = true, force = true) } catch (e: Exception) {}
         }.start()
     }
 
@@ -243,18 +249,23 @@ class WidgetUpdater(private val ctx: Context, private val player: Player) {
         )
     }
 
-    /** [full] = alles neu zeichnen (Titel-, Zustandswechsel); sonst nur Fortschritt und Zeiten. */
-    fun refresh(full: Boolean) {
+    /**
+     * [full] = alles neu zeichnen, wenn sich etwas Sichtbares geändert hat (Titel-, Zustandswechsel); sonst nur Fortschritt
+     * und Zeiten. [force] = auch ohne Änderung ganz neu zeichnen (neues Widget, Größe, Sprache).
+     */
+    fun refresh(full: Boolean, force: Boolean = false) {
         if (!WidgetRenderer.hasWidgets(ctx)) return
         latest = snapshot()
         if (full) pendingFull.set(true)
+        if (force) pendingForce.set(true)
         if (scheduled.compareAndSet(false, true)) {
             try {
                 worker.execute {
                     scheduled.set(false)
                     val s = latest ?: return@execute
                     val f = pendingFull.getAndSet(false)
-                    try { WidgetRenderer.update(ctx, s, f) } catch (e: Exception) {}
+                    val force = pendingForce.getAndSet(false)
+                    try { WidgetRenderer.update(ctx, s, f, force) } catch (e: Exception) {}
                 }
             } catch (e: Exception) {
                 scheduled.set(false)
@@ -288,29 +299,69 @@ object WidgetRenderer {
         assets?.let { if (it.songId == id && it.version == ver) return it }
         // Nur Kennung und Adresse werden gebraucht, um das Cover zu laden
         val song = Song(id = id, title = snap.title, artist = snap.artist, uri = uri, folder = "")
-        val cover = runBlocking { loadCoverBitmap(ctx, song, ver, 256) }
-        val small = runBlocking { loadCoverBitmap(ctx, song, ver, 96) }
+        // Das Cover wird nur einmal geladen (aus der Datei oder dem Platten-Cache); die kleineren Größen entstehen daraus
         val art = runBlocking { loadCoverBitmap(ctx, song, ver, 512) }
+        val cover = art?.let { scaledDown(it, 256) }
+        val small = art?.let { scaledDown(it, 96) }
         val a = Assets(id, ver, cover, art, widgetPaletteFor(small ?: cover))
         assets = a
         return a
     }
 
-    fun update(ctx: Context, snap: WidgetSnapshot, full: Boolean) {
+    /** Verkleinert [src] so, dass die längere Seite höchstens [px] misst (nie vergrößern). */
+    private fun scaledDown(src: Bitmap, px: Int): Bitmap {
+        val longest = max(src.width, src.height)
+        if (longest <= px) return src
+        val f = px.toFloat() / longest
+        return Bitmap.createScaledBitmap(
+            src, (src.width * f).roundToInt().coerceAtLeast(1), (src.height * f).roundToInt().coerceAtLeast(1), true
+        )
+    }
+
+    // Was zuletzt komplett gezeichnet wurde: Widgets (IDs) und der Zustand, den sie zeigen
+    private val drawnIds = HashSet<Int>()
+    private var drawnKey: String? = null
+
+    /** Alles, was ein Widget außer dem Fortschritt zeigt. Ändert sich nichts davon, genügt ein Teil-Update. */
+    private fun stateKey(snap: WidgetSnapshot, ver: Int, wave: Boolean): String =
+        "${snap.songId}|${snap.title}|${snap.artist}|${snap.playing}|${snap.shuffle}|${snap.favorite}|$ver|$wave"
+
+    /**
+     * Zeichnet die Widgets. [full] bedeutet: Es kann sich etwas Sichtbares geändert haben. Voll gezeichnet wird dann aber
+     * nur, wenn sich Titel oder Zustand wirklich geändert haben oder ein Widget noch nie voll gezeichnet wurde; sonst
+     * wird nur Fortschritt und Zeit aktualisiert. [force] zeichnet immer voll.
+     */
+    @Synchronized
+    fun update(ctx: Context, snap: WidgetSnapshot, full: Boolean, force: Boolean = false) {
         val mgr = AppWidgetManager.getInstance(ctx)
         val wave = readWaveProgress(ctx)
-        val a = assetsFor(ctx, snap)
-        // Ohne vorherigen vollen Aufbau gibt es nichts, wozu ein Teil-Update passen könnte
-        val doFull = full || assets == null && !snap.idle
-        for (cls in providers) {
+        val ver = snap.songId?.let { TagEvents.coverVersions[it] } ?: 0
+        val key = stateKey(snap, ver, wave)
+        val changed = key != drawnKey
+        val wantFull = force || (full && changed)
+        val allIds = HashSet<Int>()
+        val perClass = providers.map { cls ->
             val ids = mgr.getAppWidgetIds(ComponentName(ctx, cls))
+            allIds.addAll(ids.toList())
+            cls to ids
+        }
+        drawnIds.retainAll(allIds)   // entfernte Widgets vergessen
+        val a = assetsFor(ctx, snap)
+        for ((cls, ids) in perClass) {
             val isWide = cls == WideWidgetProvider::class.java
             for (id in ids) {
                 val size = sizeFor(ctx, mgr, id, isWide)
+                val doFull = wantFull || id !in drawnIds
                 val rv = if (doFull) buildFull(ctx, snap, a, isWide, size, wave) else buildPartial(ctx, snap, a, isWide, size, wave)
-                if (doFull) mgr.updateAppWidget(id, rv) else mgr.partiallyUpdateAppWidget(id, rv)
+                if (doFull) {
+                    mgr.updateAppWidget(id, rv)
+                    drawnIds.add(id)
+                } else {
+                    mgr.partiallyUpdateAppWidget(id, rv)
+                }
             }
         }
+        if (wantFull) drawnKey = key
     }
 
     /* ---------- Größen ---------- */
