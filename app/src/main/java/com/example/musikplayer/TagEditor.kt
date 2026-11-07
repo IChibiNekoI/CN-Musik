@@ -141,16 +141,17 @@ private fun writeTagValues(
 /** Sagt Android Bescheid, dass sich die Datei geändert hat, und löst danach ein Neuladen aus. */
 private fun rescanFile(ctx: Context, song: Song, coverChanged: Boolean) {
     try {
-        val path = ctx.contentResolver.query(
-            song.uri, arrayOf(MediaStore.Audio.Media.DATA), null, null, null
-        )?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+        val path = audioPathOf(ctx, song.uri)
         if (path != null) {
             MediaScannerConnection.scanFile(ctx, arrayOf(path), null) { _, _ ->
                 TagEvents.tick++
                 if (coverChanged) TagEvents.bumpCover(song.id)   // erst nach dem Scan, sonst kommt das alte Bild
             }
-        } else if (coverChanged) {
-            TagEvents.bumpCover(song.id)
+        } else {
+            // Android nennt keinen Pfad (z. B. anderer Speicher): kein Scan möglich, aber die Bibliothek wird neu geladen und
+            // liest die geänderten Tags direkt aus der Datei (refreshTagsFromFiles), das Cover wird neu geholt
+            TagEvents.tick++
+            if (coverChanged) TagEvents.bumpCover(song.id)
         }
     } catch (e: Exception) {
     }

@@ -167,7 +167,7 @@ suspend fun refreshTagsFromFiles(
 ): List<Song> =
     withContext(Dispatchers.IO) { lowPriority {
         // Pfad und Zeitpunkt des letzten Android-Scans je Song
-        val meta = HashMap<Long, Triple<String, Long, Long>>()
+        val meta = HashMap<Long, Triple<String?, Long, Long>>()
         ctx.contentResolver.query(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
             arrayOf(
@@ -177,8 +177,8 @@ suspend fun refreshTagsFromFiles(
             "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, null
         )?.use { c ->
             while (c.moveToNext()) {
-                val path = c.getString(1) ?: continue
-                meta[c.getLong(0)] = Triple(path, c.getLong(2), c.getLong(3))
+                // Der Pfad ist nur ein Hinweis (kann fehlen): ohne ihn wird die Datei über ihre Uri abgefragt, siehe statAudio
+                meta[c.getLong(0)] = Triple(c.getString(1), c.getLong(2), c.getLong(3))
             }
         }
         val cache = readTagCache(ctx)
@@ -187,10 +187,10 @@ suspend fun refreshTagsFromFiles(
         for (s in songs) {
             val m = meta[s.id]
             if (m == null) { out += s; continue }
-            val f = File(m.first)
-            val mtime = f.lastModified()
-            if (mtime <= 0L) { out += s; continue }
-            val size = f.length()
+            val info = statAudio(ctx, s.uri, m.first)
+            if (info == null) { out += s; continue }
+            val mtime = info.modifiedMs
+            val size = info.size
             val cached = cache[s.id]?.takeIf { it.mtime == mtime && it.size == size }
             val tags: TagInfo? = when {
                 cacheOnly -> cached
