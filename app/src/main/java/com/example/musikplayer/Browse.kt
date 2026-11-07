@@ -51,6 +51,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -62,6 +65,18 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+
+/**
+ * Stand aller Daten, die den Neko Mix beeinflussen (Favoriten, Wiedergaben, Skips). Gleicher Stand ergibt denselben Mix.
+ * Verglichen wird billig: Anzahl und jüngster Zeitpunkt reichen, weil Einträge nur hinten angehängt werden.
+ */
+private data class MixTaste(
+    val favorites: Set<Long>,
+    val plays: Int,
+    val lastPlay: Long,
+    val skips: Int,
+    val lastSkip: Long
+)
 
 @Composable
 fun LibraryScreen(
@@ -231,6 +246,33 @@ fun LibraryScreen(
     // aktuellen Daten neu und bringt die Titel in eine andere Reihenfolge.
     val mixSeed = remember { readMixSeed(ctx) }
     var mixOrderSeed by remember { mutableLongStateOf(readMixOrderSeed(ctx)) }
+    // Neue Wiedergaben, Favoriten und Skips fließen in den Mix ein, aber nicht live: Der Mix soll sich nicht unter den Augen
+    // ändern, während man ihn ansieht. [appliedTaste] ist der Stand, mit dem der angezeigte Mix gebaut wurde.
+    val mixTaste = remember(favorites, playLog, mixSkips) {
+        MixTaste(
+            favorites.toSet(), playLog.size, playLog.lastOrNull()?.time ?: 0L,
+            mixSkips.size, mixSkips.lastOrNull()?.time ?: 0L
+        )
+    }
+    var appliedTaste by remember { mutableStateOf(mixTaste) }
+    val latestTaste by rememberUpdatedState(mixTaste)
+    // Die App kommt zurück in den Vordergrund: aktuellen Stand übernehmen
+    DisposableEffect(ctx) {
+        val owner = ctx as? LifecycleOwner
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && appliedTaste != latestTaste) appliedTaste = latestTaste
+        }
+        owner?.lifecycle?.addObserver(observer)
+        onDispose { owner?.lifecycle?.removeObserver(observer) }
+    }
+    // Man verlässt die Startseite: neuen Stand übernehmen, sobald die Tab-Animation durch ist (sonst ruckelt sie).
+    // Die Startseite zeigt beim Zurückkommen also schon den aktualisierten Mix.
+    LaunchedEffect(tab, mixTaste) {
+        if (tab != HOME_TAB && appliedTaste != mixTaste) {
+            delay(Motion.MEDIUM + 100L)
+            appliedTaste = mixTaste
+        }
+    }
     // Album wurde von der Startseite aus geöffnet: Zurück geht dorthin statt in den Album-Tab
     var albumFromHome by remember { mutableStateOf(false) }
     fun closeAlbum() {
@@ -244,7 +286,7 @@ fun LibraryScreen(
         if (hiddenIds.isEmpty() && mixExcluded.isEmpty()) songs
         else songs.filter { it.id !in hiddenIds && it.id !in mixExcluded }
     }
-    val mix = remember(mixPool, mixOrderSeed, showHome) {
+    val mix = remember(mixPool, mixOrderSeed, showHome, appliedTaste) {
         if (!showHome) emptyList() else buildMix(
             mixPool, favorites.toSet(), playLog, mixSeed, mixOrderSeed,
             skips = mixSkips,
@@ -717,7 +759,7 @@ fun LibraryScreen(
                 onPlay = onPlay,
                 onPlayMix = { list -> onMixPlayed(list); onPlay(list, 0) },   // erst als Mix markieren, dann starten
                 onOpenAlbum = { name -> openPlaylist = null; openAlbum = name; albumFromHome = true; tab = 1 },
-                onReshuffle = { mixOrderSeed = newMixOrderSeed(ctx) },
+                onReshuffle = { mixOrderSeed = newMixOrderSeed(ctx); appliedTaste = mixTaste },   // Würfel: auch den neuesten Hörstand einrechnen
                 onAddToPlaylist = { addSong = it },
                 onToggleFavorite = onToggleFavorite,
                 modifier = Modifier.weight(1f)
