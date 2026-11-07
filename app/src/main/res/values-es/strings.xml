@@ -195,6 +195,10 @@
     <string name="backup_failed">Error en la copia de seguridad</string>
     <string name="backup_restored">Copia restaurada (%1$d de %2$d canciones encontradas)</string>
     <string name="backup_invalid">Este no es un archivo de copia de seguridad válido</string>
+    <string name="backup_profile">Incluir perfil de escucha</string>
+    <string name="backup_profile_sub">Historial, registro de reproducciones y datos de Neko Mix, para que un dispositivo nuevo conserve lo aprendido</string>
+    <string name="backup_restored_unclear">Copia restaurada (%1$d de %2$d canciones encontradas, %3$d omitidas porque varias coincidían por igual)</string>
+    <string name="backup_restored_pending">Copia restaurada. Las canciones se asignarán en cuanto se cargue tu biblioteca</string>
     <string name="tab_home">Inicio</string>
     <string name="home_mix_title">Tu Neko Mix</string>
     <string name="home_mix_subtitle">Recién mezclado para ti</string>
