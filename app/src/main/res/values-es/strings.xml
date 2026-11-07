@@ -14,6 +14,7 @@
     <string name="none">Ninguno</string>
     <string name="unknown">Desconocido</string>
     <string name="unknown_album">Álbum desconocido</string>
+    <string name="various_artists">Varios artistas</string>
     <string name="standard">Predeterminado</string>
     <string name="permission_needed">Permite el acceso a tu música.</string>
     <string name="style_list">Lista</string>
