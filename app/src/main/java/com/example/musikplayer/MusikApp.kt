@@ -570,7 +570,8 @@ fun MusikApp(
                 isFavorite = current.id in favorites,
                 onToggleFavorite = { toggleFavorite(current) },
                 onGoToAlbum = {
-                    albumRequest = current.album.ifBlank { str(R.string.unknown_album) }
+                    // Gleiche Albumliste wie in der Albenansicht, damit gleichnamige Alben nicht verwechselt werden
+                    albumRequest = albumLabelOf(current, groupAlbums(songs)) ?: current.album.ifBlank { str(R.string.unknown_album) }
                     showNow = false
                 },
                 onAddToPlaylist = { playlistRequest = current },

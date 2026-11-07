@@ -90,7 +90,8 @@ suspend fun rescanChanged(ctx: Context, force: Boolean): Int = withContext(Dispa
 
 private class TagInfo(
     val mtime: Long, val size: Long,
-    val title: String?, val artist: String?, val album: String?, val track: Int
+    val title: String?, val artist: String?, val album: String?, val track: Int,
+    val albumArtist: String? = null
 )
 
 private fun readTagCache(ctx: Context): MutableMap<Long, TagInfo> {
@@ -105,7 +106,8 @@ private fun readTagCache(ctx: Context): MutableMap<Long, TagInfo> {
                 e.optString("t").ifEmpty { null },
                 e.optString("a").ifEmpty { null },
                 e.optString("b").ifEmpty { null },
-                e.optInt("n", 0)
+                e.optInt("n", 0),
+                e.optString("aa").ifEmpty { null }
             )
         }
     } catch (e: Exception) {
@@ -121,7 +123,7 @@ private fun writeTagCache(ctx: Context, cache: Map<Long, TagInfo>) {
             id.toString(),
             JSONObject().put("m", t.mtime).put("s", t.size)
                 .put("t", t.title ?: "").put("a", t.artist ?: "").put("b", t.album ?: "")
-                .put("n", t.track)
+                .put("n", t.track).put("aa", t.albumArtist ?: "")
         )
     }
     prefs(ctx).edit().putString("tag_cache", o.toString()).apply()
@@ -141,7 +143,8 @@ private fun readTags(ctx: Context, uri: Uri, mtime: Long, size: Long): TagInfo {
             g(MediaMetadataRetriever.METADATA_KEY_TITLE),
             g(MediaMetadataRetriever.METADATA_KEY_ARTIST) ?: g(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST),
             g(MediaMetadataRetriever.METADATA_KEY_ALBUM),
-            if (disc > 0 && track > 0) disc * 1000 + track else track
+            if (disc > 0 && track > 0) disc * 1000 + track else track,
+            g(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)
         )
     } catch (e: Exception) {
         TagInfo(mtime, size, null, null, null, 0)
@@ -203,6 +206,7 @@ suspend fun refreshTagsFromFiles(
                 title = tags.title ?: s.title,
                 artist = tags.artist ?: s.artist,
                 album = tags.album ?: s.album,
+                albumArtist = tags.albumArtist ?: s.albumArtist,
                 track = if (tags.track > 0) tags.track else s.track
             )
         }
@@ -219,6 +223,7 @@ fun loadLibrary(ctx: Context): List<Song> {
         MediaStore.Audio.Media.TITLE,
         MediaStore.Audio.Media.ARTIST,
         MediaStore.Audio.Media.ALBUM,
+        MediaStore.Audio.Media.ALBUM_ARTIST,
         MediaStore.Audio.Media.DATE_ADDED,
         MediaStore.Audio.Media.DATE_MODIFIED,
         MediaStore.Audio.Media.TRACK,
@@ -234,6 +239,7 @@ fun loadLibrary(ctx: Context): List<Song> {
         val titleCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
         val artistCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
         val albumCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+        val albumArtistCol = c.getColumnIndex(MediaStore.Audio.Media.ALBUM_ARTIST)
         val dateCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
         val modCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
         val trackCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
@@ -252,6 +258,7 @@ fun loadLibrary(ctx: Context): List<Song> {
                 uri = ContentUris.withAppendedId(collection, id),
                 folder = folder,
                 album = c.getString(albumCol) ?: "",
+                albumArtist = if (albumArtistCol >= 0) c.getString(albumArtistCol) ?: "" else "",
                 dateAdded = c.getLong(dateCol),
                 dateModified = c.getLong(modCol),
                 track = c.getInt(trackCol),

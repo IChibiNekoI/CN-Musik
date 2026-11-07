@@ -12,6 +12,7 @@ data class Song(
     val uri: Uri,
         val folder: String,
     val album: String = "",
+    val albumArtist: String = "",   // Tag ALBUMARTIST, leer = unbekannt (Teil der Albumidentität, siehe Albums.kt)
     val dateAdded: Long = 0L,
     val track: Int = 0,
     val fileName: String = "",

@@ -316,7 +316,7 @@ internal fun AlbumCollection(
             gridItems(albums, key = { it.first }) { (albumName, list) ->
                 GridTile(
                     title = albumName,
-                    subtitle = list.first().artist,
+                    subtitle = albumArtistOf(list),
                     detail = trackMetaOf(list),
                     onClick = { onOpen(albumName) },
                     cover = { w -> Cover(list.first(), w) }
@@ -330,7 +330,7 @@ internal fun AlbumCollection(
                     headlineContent = { Text(albumName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     supportingContent = {
                         Column {
-                            Text(list.first().artist, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(albumArtistOf(list), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(
                                 trackMetaOf(list),
                                 style = MaterialTheme.typography.labelSmall,

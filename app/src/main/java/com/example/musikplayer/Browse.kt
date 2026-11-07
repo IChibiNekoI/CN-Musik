@@ -171,10 +171,8 @@ fun LibraryScreen(
     val sorted = remember(songs, sort) { sortSongs(songs, sort) }
     // Der Titel-Tab lässt ausgeblendete Titel weg. Alben, Playlists, Favoriten und Suche nutzen die volle Liste.
     val titleList = remember(sorted, hiddenIds) { if (hiddenIds.isEmpty()) sorted else sorted.filter { it.id !in hiddenIds } }
-    val albums = remember(songs) {
-        songs.groupBy { it.album.ifBlank { str(R.string.unknown_album) } }
-            .toList().sortedBy { it.first.lowercase() }
-    }
+    // Alben mit Identität aus Name + Albuminterpret (bzw. Ordner), siehe Albums.kt
+    val albums = remember(songs) { groupAlbums(songs) }
     val byId = remember(songs) { songs.associateBy { it.id } }
 
     // Playlist-Menü: Umbenennen, eigenes Bild, M3U-Export
@@ -361,7 +359,8 @@ fun LibraryScreen(
         val q = query.trim()
         if (q.isEmpty()) emptyList()
         else albums.filter { (name, list) ->
-            name.contains(q, ignoreCase = true) || list.any { it.artist.contains(q, ignoreCase = true) }
+            name.contains(q, ignoreCase = true) ||
+                list.any { it.artist.contains(q, ignoreCase = true) || it.albumArtist.contains(q, ignoreCase = true) }
         }
     }
 
@@ -386,7 +385,7 @@ fun LibraryScreen(
                         albumDetailState.headerJump(kind, ordered.indexOfFirst { it.id.toString() == curId })
                     } else {
                         val idx = if (curSong == null) -1
-                            else albums.indexOfFirst { it.first == curSong.album.ifBlank { null } ?: str(R.string.unknown_album) }
+                            else albums.indexOfFirst { (_, l) -> l.any { it.id == curSong.id } }
                         if (albumStyle.grid) albumsGridState.headerJump(kind, idx) else albumsListState.headerJump(kind, idx)
                     }
                 }
@@ -804,7 +803,7 @@ fun LibraryScreen(
                         gridItems(albums, key = { it.first }) { (albumName, list) ->
                             GridTile(
                                 title = albumName,
-                                subtitle = list.first().artist,
+                                subtitle = albumArtistOf(list),
                                 detail = trackMetaOf(list),
                                 onClick = { openAlbum = albumName },
                                 cover = { w -> Cover(list.first(), w) }
@@ -820,7 +819,7 @@ fun LibraryScreen(
                                 },
                                 supportingContent = {
                                     Column {
-                                        Text(list.first().artist, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(albumArtistOf(list), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         Text(
                                             trackMetaOf(list),
                                             style = MaterialTheme.typography.labelSmall,

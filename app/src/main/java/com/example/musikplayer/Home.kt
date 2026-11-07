@@ -48,11 +48,9 @@ fun HomeScreen(
     onToggleFavorite: (Song) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val unknown = str(R.string.unknown_album)
     // Alben nach dem jüngsten Titel: so taucht ein neu hinzugefügtes Album ganz vorn auf
-    val recentAlbums = remember(songs, unknown) {
-        songs.groupBy { it.album.ifBlank { unknown } }
-            .toList()
+    val recentAlbums = remember(songs) {
+        groupAlbums(songs)
             .sortedByDescending { (_, list) -> list.maxOf { it.dateAdded } }
             .take(HOME_ALBUMS)
     }

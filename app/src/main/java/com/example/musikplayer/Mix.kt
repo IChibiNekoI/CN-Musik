@@ -182,7 +182,9 @@ fun buildMix(
     }
     val seedAlbums = HashMap<String, Int>()
     for (id in seedIds) {
-        val al = byId[id]?.album?.takeIf { it.isNotBlank() } ?: continue
+        val s = byId[id] ?: continue
+        if (s.album.isBlank()) continue
+        val al = albumKeyOf(s)   // Albumidentität: gleichnamige Alben anderer Künstler zählen nicht mit
         seedAlbums[al] = (seedAlbums[al] ?: 0) + 1
     }
 
@@ -216,7 +218,7 @@ fun buildMix(
         val isFav = s.id in favorites
         val plays = songPlays[s.id] ?: 0.0
         val artistScore = Math.min((artistPlays[s.artist] ?: 0.0) * 0.4 + (favArtists[s.artist] ?: 0) * 0.5, 5.0)
-        val similar = Math.min(coListen[s.id] ?: 0.0, 4.0) * 0.5 + Math.min(seedAlbums[s.album] ?: 0, 3) * 0.25
+        val similar = Math.min(coListen[s.id] ?: 0.0, 4.0) * 0.5 + Math.min(if (seedAlbums.isEmpty() || s.album.isBlank()) 0 else (seedAlbums[albumKeyOf(s)] ?: 0), 3) * 0.25
         val sound = soundMatch(features(s.id), profile) * 2.0 * (profile?.confidence ?: 0.0)
         var w: Double
         if (isFav || plays > 0.0) {
