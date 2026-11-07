@@ -306,10 +306,25 @@ fun MusikApp(
         c.addListener(l)
         onDispose { c.removeListener(l) }
     }
+    // Davor die Datei-Stempel der Bibliothek merken (Größe + Änderungszeit): Messwerte zu veränderten Dateien gelten dann
+    // als veraltet und werden neu gemessen; die Mess-Dateien werden dabei kompakt neu geschrieben.
+    val stampKey by produceState(0, allSongs) {
+        value = withContext(Dispatchers.Default) {
+            val key = AudioStamps.update(allSongs)
+            if (allSongs.isNotEmpty()) {
+                val keep = HashSet<Long>(allSongs.size * 2)
+                for (s in allSongs) keep.add(s.id)
+                keep.addAll(TrackIdentity.knownIds(ctx))   // kürzlich verschwundene Titel behalten ihre Werte (Wiedererkennung)
+                LoudnessCache.tidy(ctx, keep)
+                TrackFeatureCache.tidy(ctx, keep)
+            }
+            key
+        }
+    }
     // Titel ohne Messwert im Hintergrund nachmessen (schon gemessene werden übersprungen), nur am Ladegerät:
     // Lautheit (Auto-Gain) und Klangmerkmale (Neko Mix) entstehen im selben Durchlauf
-    LaunchedEffect(songs.size) {
-        if (songs.isNotEmpty()) {
+    LaunchedEffect(songs.size, stampKey) {
+        if (songs.isNotEmpty() && stampKey != 0) {
             LoudnessScanner.start(ctx, songs.map { it.id to it.uri })
         } else {
             LoudnessScanner.stop()

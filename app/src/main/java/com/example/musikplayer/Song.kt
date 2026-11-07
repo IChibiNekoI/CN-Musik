@@ -18,5 +18,6 @@ data class Song(
     val fileName: String = "",
     val dateModified: Long = 0L,   // Sekunden, zuletzt geändert
     val year: Int = 0,             // Erscheinungsjahr laut Tag, 0 = unbekannt
-    val durationMs: Long = 0L      // Laufzeit in Millisekunden, 0 = unbekannt
+    val durationMs: Long = 0L,     // Laufzeit in Millisekunden, 0 = unbekannt
+    val size: Long = 0L            // Dateigröße in Bytes, 0 = unbekannt (Teil des Datei-Stempels, siehe AudioStamp.kt)
 )

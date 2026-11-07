@@ -201,7 +201,7 @@ suspend fun refreshTagsFromFiles(
                     readTags(ctx, s.uri, mtime, size).also { cache[s.id] = it; cacheChanged = true }
                 else -> null
             }
-            val base = if (mtime > 0L) s.copy(dateModified = mtime / 1000) else s
+            val base = s.copy(dateModified = mtime / 1000, size = size)
             out += if (tags == null) base else base.copy(
                 title = tags.title ?: s.title,
                 artist = tags.artist ?: s.artist,
@@ -230,6 +230,7 @@ fun loadLibrary(ctx: Context): List<Song> {
         MediaStore.Audio.Media.DISPLAY_NAME,
         MediaStore.Audio.Media.YEAR,
         MediaStore.Audio.Media.DURATION,
+        MediaStore.Audio.Media.SIZE,
         folderField
     )
     ctx.contentResolver.query(
@@ -247,6 +248,7 @@ fun loadLibrary(ctx: Context): List<Song> {
         val folderCol = c.getColumnIndexOrThrow(folderField)
         val yearCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
         val durCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+        val sizeCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
         while (c.moveToNext()) {
             val id = c.getLong(idCol)
             val raw = c.getString(folderCol) ?: ""
@@ -264,7 +266,8 @@ fun loadLibrary(ctx: Context): List<Song> {
                 track = c.getInt(trackCol),
                 fileName = c.getString(nameCol) ?: "",
                 year = c.getInt(yearCol),
-                durationMs = c.getLong(durCol)
+                durationMs = c.getLong(durCol),
+                size = c.getLong(sizeCol)
             )
         }
     }

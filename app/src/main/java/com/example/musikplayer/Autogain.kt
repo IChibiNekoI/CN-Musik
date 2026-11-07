@@ -231,8 +231,10 @@ object LoudnessCache {
     var onChange: (() -> Unit)? = null
 
     private val map = ConcurrentHashMap<Long, Entry>()
+    private val stamps = ConcurrentHashMap<Long, AudioStamp>()   // Datei-Stempel zum Messwert (fehlt bei älteren Einträgen)
     private var loaded = false
     private var file: File? = null
+    private var lineCount = 0   // Zeilen in der Datei: mehr als Einträge heißt, es liegen veraltete Doppelte darin
 
     @Synchronized
     private fun ensureLoaded(ctx: Context) {
@@ -241,13 +243,17 @@ object LoudnessCache {
         val f = File(ctx.filesDir, "loudness.txt").also { file = it }
         if (!f.exists()) return
         try {
+            // Format: id,lufs,peak[,größe,änderungszeit]. Spätere Zeilen ersetzen frühere.
             f.forEachLine { line ->
                 val p = line.split(',')
-                if (p.size == 3) {
+                if (p.size == 3 || p.size == 5) {
                     val id = p[0].toLongOrNull() ?: return@forEachLine
                     val l = p[1].toFloatOrNull() ?: return@forEachLine
                     val pk = p[2].toFloatOrNull() ?: return@forEachLine
                     map[id] = Entry(l, pk)
+                    val st = if (p.size == 5) AudioStamps.parse(p[3], p[4]) else null
+                    if (st != null) stamps[id] = st else stamps.remove(id)
+                    lineCount++
                 }
             }
         } catch (e: Exception) {
@@ -255,17 +261,25 @@ object LoudnessCache {
         }
     }
 
+    /** Messwert des Titels. Hat sich die Datei seit der Messung verändert, gibt es keinen (der Titel wird neu gemessen). */
     fun get(ctx: Context, id: Long): Entry? {
         ensureLoaded(ctx)
-        return map[id]
+        val e = map[id] ?: return null
+        return if (AudioStamps.fits(stamps[id], id)) e else null
     }
+
+    private fun lineOf(id: Long, e: Entry, st: AudioStamp?): String =
+        if (st != null) "$id,${e.lufs},${e.peak},${st.size},${st.modified}" else "$id,${e.lufs},${e.peak}"
 
     @Synchronized
     fun put(ctx: Context, id: Long, entry: Entry) {
         ensureLoaded(ctx)
         map[id] = entry
+        val st = AudioStamps.of(id)
+        if (st != null) stamps[id] = st else stamps.remove(id)
         try {
-            file?.appendText("$id,${entry.lufs},${entry.peak}\n")
+            file?.appendText(lineOf(id, entry, st) + "\n")
+            lineCount++
         } catch (e: Exception) {
             // Speichern ist optional: ohne Datei wird beim nächsten Start neu gemessen
         }
@@ -277,18 +291,53 @@ object LoudnessCache {
     fun carryOver(ctx: Context, remap: Map<Long, Long>) {
         ensureLoaded(ctx)
         val sb = StringBuilder()
+        var n = 0
         for ((old, new) in remap) {
             if (old == new) continue
             val e = map[old] ?: continue
             if (map.containsKey(new)) continue
             map[new] = e
-            sb.append("$new,${e.lufs},${e.peak}\n")
+            // Der alte Stempel wandert mit: Hat sich die Datei beim Umzug verändert, passt er nicht mehr und es wird neu gemessen
+            val st = stamps[old]
+            if (st != null) stamps[new] = st else stamps.remove(new)
+            sb.append(lineOf(new, e, st)).append('\n')
+            n++
         }
-        if (sb.isEmpty()) return
+        if (n == 0) return
         try {
             file?.appendText(sb.toString())
+            lineCount += n
         } catch (e: Exception) {
             // Speichern ist optional
+        }
+    }
+
+    /**
+     * Räumt auf und schreibt die Datei kompakt neu: eine Zeile je Titel, Einträge zu Titeln, die es nicht mehr gibt
+     * ([keep]) oder deren Datei sich verändert hat, fallen weg, ältere Einträge ohne Stempel bekommen den aktuellen.
+     * Gehört nach AudioStamps.update auf einen Hintergrund-Thread. Eine leere [keep]-Menge (Bibliothek nicht verfügbar) ändert nichts.
+     */
+    @Synchronized
+    fun tidy(ctx: Context, keep: Set<Long>) {
+        ensureLoaded(ctx)
+        if (keep.isEmpty()) return
+        var dirty = lineCount > map.size
+        val it = map.keys.iterator()
+        while (it.hasNext()) {
+            val id = it.next()
+            val stale = !AudioStamps.fits(stamps[id], id)
+            if (id !in keep || stale) { it.remove(); stamps.remove(id); dirty = true }
+        }
+        for (id in map.keys) {
+            if (stamps[id] == null) AudioStamps.of(id)?.let { stamps[id] = it; dirty = true }
+        }
+        if (!dirty) return
+        val f = file ?: return
+        try {
+            rewriteAtomically(f, map.entries.asSequence().map { (id, e) -> lineOf(id, e, stamps[id]) })
+            lineCount = map.size
+        } catch (e: Exception) {
+            // Aufräumen ist optional: die alte Datei bleibt gültig
         }
     }
 }

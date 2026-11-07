@@ -165,6 +165,10 @@ object TrackIdentity {
         return moved
     }
 
+    /** IDs aller Titel, die die App kennt: aktuelle und kürzlich verschwundene (für das Aufräumen der Mess-Caches). */
+    @Synchronized
+    fun knownIds(ctx: Context): Set<Long> = HashSet(load(ctx).keys)
+
     /** Schreibt alle gespeicherten Verweise von alten auf neue IDs um. */
     private fun applyRemap(ctx: Context, m: Map<Long, Long>) {
         val p = prefs(ctx)

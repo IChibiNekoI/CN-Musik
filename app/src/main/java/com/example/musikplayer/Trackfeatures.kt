@@ -39,13 +39,17 @@ class TrackFeatures(
 }
 
 /**
- * Gespeicherte Merkmale pro Titel (Datei "features.txt", eine Zeile pro Titel: id,bpm,energie,helligkeit,dynamik,puls,bass).
- * Ältere Zeilen mit nur vier Werten bleiben gültig und werden im Hintergrund nach und nach neu gemessen (die neuere Zeile gewinnt).
+ * Gespeicherte Merkmale pro Titel (Datei "features.txt", eine Zeile pro Titel: id,bpm,energie,helligkeit,dynamik,puls,bass,größe,änderungszeit).
+ * Größe und Änderungszeit sind der Datei-Stempel: Hat sich die Datei verändert, gilt der Eintrag nicht mehr und wird neu gemessen.
+ * Ältere Zeilen mit nur vier oder sieben Werten bleiben gültig (die mit vier werden im Hintergrund nach und nach neu gemessen,
+ * die neuere Zeile gewinnt). Beim Aufräumen ([tidy]) wird die Datei kompakt neu geschrieben.
  */
 object TrackFeatureCache {
     private val map = ConcurrentHashMap<Long, TrackFeatures>()
+    private val stamps = ConcurrentHashMap<Long, AudioStamp>()   // fehlt bei älteren Einträgen
     private var loaded = false
     private var file: File? = null
+    private var lineCount = 0   // Zeilen in der Datei: mehr als Einträge heißt, es liegen veraltete Doppelte darin
 
     @Synchronized
     private fun ensureLoaded(ctx: Context) {
@@ -56,12 +60,12 @@ object TrackFeatureCache {
         try {
             f.forEachLine { line ->
                 val p = line.split(',')
-                if (p.size == 4 || p.size == 7) {
+                if (p.size == 4 || p.size == 7 || p.size == 9) {
                     val id = p[0].toLongOrNull() ?: return@forEachLine
                     val bpm = p[1].toFloatOrNull() ?: return@forEachLine
                     val energy = p[2].toFloatOrNull() ?: return@forEachLine
                     val bright = p[3].toFloatOrNull() ?: return@forEachLine
-                    map[id] = if (p.size == 7) {
+                    map[id] = if (p.size >= 7) {
                         TrackFeatures(
                             bpm, energy, bright,
                             p[4].toFloatOrNull() ?: return@forEachLine,
@@ -69,6 +73,9 @@ object TrackFeatureCache {
                             p[6].toFloatOrNull() ?: return@forEachLine
                         )
                     } else TrackFeatures(bpm, energy, bright)
+                    val st = if (p.size == 9) AudioStamps.parse(p[7], p[8]) else null
+                    if (st != null) stamps[id] = st else stamps.remove(id)
+                    lineCount++
                 }
             }
         } catch (e: Exception) {
@@ -76,20 +83,27 @@ object TrackFeatureCache {
         }
     }
 
+    /** Merkmale des Titels. Hat sich die Datei seit der Messung verändert, gibt es keine (der Titel wird neu gemessen). */
     fun get(ctx: Context, id: Long): TrackFeatures? {
         ensureLoaded(ctx)
-        return map[id]
+        val f = map[id] ?: return null
+        return if (AudioStamps.fits(stamps[id], id)) f else null
+    }
+
+    private fun lineOf(id: Long, f: TrackFeatures, st: AudioStamp?): String {
+        val base = "$id,${f.bpm},${f.energy},${f.brightness},${f.dynamics},${f.pulse},${f.bass}"
+        return if (st != null) "$base,${st.size},${st.modified}" else base
     }
 
     @Synchronized
     fun put(ctx: Context, id: Long, features: TrackFeatures) {
         ensureLoaded(ctx)
         map[id] = features
+        val st = AudioStamps.of(id)
+        if (st != null) stamps[id] = st else stamps.remove(id)
         try {
-            file?.appendText(
-                "$id,${features.bpm},${features.energy},${features.brightness}," +
-                    "${features.dynamics},${features.pulse},${features.bass}\n"
-            )
+            file?.appendText(lineOf(id, features, st) + "\n")
+            lineCount++
         } catch (e: Exception) {
             // Speichern ist optional: ohne Datei wird beim nächsten Start neu gemessen
         }
@@ -100,18 +114,53 @@ object TrackFeatureCache {
     fun carryOver(ctx: Context, remap: Map<Long, Long>) {
         ensureLoaded(ctx)
         val sb = StringBuilder()
+        var n = 0
         for ((old, new) in remap) {
             if (old == new) continue
             val f = map[old] ?: continue
             if (map.containsKey(new)) continue
             map[new] = f
-            sb.append("$new,${f.bpm},${f.energy},${f.brightness},${f.dynamics},${f.pulse},${f.bass}\n")
+            // Der alte Stempel wandert mit: Hat sich die Datei beim Umzug verändert, passt er nicht mehr und es wird neu gemessen
+            val st = stamps[old]
+            if (st != null) stamps[new] = st else stamps.remove(new)
+            sb.append(lineOf(new, f, st)).append('\n')
+            n++
         }
-        if (sb.isEmpty()) return
+        if (n == 0) return
         try {
             file?.appendText(sb.toString())
+            lineCount += n
         } catch (e: Exception) {
             // Speichern ist optional
+        }
+    }
+
+    /**
+     * Räumt auf und schreibt die Datei kompakt neu: eine Zeile je Titel, Einträge zu Titeln, die es nicht mehr gibt
+     * ([keep]) oder deren Datei sich verändert hat, fallen weg, ältere Einträge ohne Stempel bekommen den aktuellen.
+     * Gehört nach AudioStamps.update auf einen Hintergrund-Thread. Eine leere [keep]-Menge (Bibliothek nicht verfügbar) ändert nichts.
+     */
+    @Synchronized
+    fun tidy(ctx: Context, keep: Set<Long>) {
+        ensureLoaded(ctx)
+        if (keep.isEmpty()) return
+        var dirty = lineCount > map.size
+        val it = map.keys.iterator()
+        while (it.hasNext()) {
+            val id = it.next()
+            val stale = !AudioStamps.fits(stamps[id], id)
+            if (id !in keep || stale) { it.remove(); stamps.remove(id); dirty = true }
+        }
+        for (id in map.keys) {
+            if (stamps[id] == null) AudioStamps.of(id)?.let { stamps[id] = it; dirty = true }
+        }
+        if (!dirty) return
+        val f = file ?: return
+        try {
+            rewriteAtomically(f, map.entries.asSequence().map { (id, v) -> lineOf(id, v, stamps[id]) })
+            lineCount = map.size
+        } catch (e: Exception) {
+            // Aufräumen ist optional: die alte Datei bleibt gültig
         }
     }
 }
