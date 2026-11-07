@@ -271,6 +271,26 @@ object LoudnessCache {
         }
         onChange?.invoke()
     }
+
+    /** Übernimmt Messwerte auf neue IDs (alt -> neu), wenn ein Titel nach einem Refresh wiedererkannt wurde. */
+    @Synchronized
+    fun carryOver(ctx: Context, remap: Map<Long, Long>) {
+        ensureLoaded(ctx)
+        val sb = StringBuilder()
+        for ((old, new) in remap) {
+            if (old == new) continue
+            val e = map[old] ?: continue
+            if (map.containsKey(new)) continue
+            map[new] = e
+            sb.append("$new,${e.lufs},${e.peak}\n")
+        }
+        if (sb.isEmpty()) return
+        try {
+            file?.appendText(sb.toString())
+        } catch (e: Exception) {
+            // Speichern ist optional
+        }
+    }
 }
 
 /**

@@ -94,6 +94,26 @@ object TrackFeatureCache {
             // Speichern ist optional: ohne Datei wird beim nächsten Start neu gemessen
         }
     }
+
+    /** Übernimmt Merkmale auf neue IDs (alt -> neu), wenn ein Titel nach einem Refresh wiedererkannt wurde. */
+    @Synchronized
+    fun carryOver(ctx: Context, remap: Map<Long, Long>) {
+        ensureLoaded(ctx)
+        val sb = StringBuilder()
+        for ((old, new) in remap) {
+            if (old == new) continue
+            val f = map[old] ?: continue
+            if (map.containsKey(new)) continue
+            map[new] = f
+            sb.append("$new,${f.bpm},${f.energy},${f.brightness},${f.dynamics},${f.pulse},${f.bass}\n")
+        }
+        if (sb.isEmpty()) return
+        try {
+            file?.appendText(sb.toString())
+        } catch (e: Exception) {
+            // Speichern ist optional
+        }
+    }
 }
 
 private val LN2 = ln(2.0)
