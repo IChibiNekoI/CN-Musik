@@ -12,8 +12,8 @@ android {
         targetSdk = 36
         // Feste Zahlen (kein Wert aus der Umgebung)
         // versionCode bei jeder neuen Version erhöhen, Schema: Major*10000 + Minor*100 + Patch (1.5.1 -> 10501)
-        versionCode = 20706
-        versionName = "2.7.6"
+        versionCode = 20708
+        versionName = "2.7.8"
     }
     signingConfigs {
         create("musik") {
