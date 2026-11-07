@@ -47,7 +47,7 @@ import kotlin.math.tanh
  */
 
 /** Zielpegel in LUFS, auf den Titel gebracht werden. */
-private const val TARGET_LUFS = -14f
+private const val TARGET_LUFS = -8f
 
 /** Stärkste Anhebung und Absenkung in dB. */
 private const val MAX_BOOST_DB = 6f
