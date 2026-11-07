@@ -282,9 +282,56 @@ fun recordPlay(ctx: Context, id: Long, log: List<PlayEvent>): List<PlayEvent> {
     val newLog = pruneLog(log + PlayEvent(id, now), now)
     prefs(ctx).edit()
         .putString("play_log", newLog.joinToString(",") { "${it.id}:${it.time / 1000L}" })
+        .putString("play_totals", addPlayTotal(ctx, id, now))
         .remove("play_counts")   // alter Gesamtzähler, ersetzt durch das 30-Tage-Protokoll
         .apply()
     return newLog
+}
+
+/**
+ * Langzeit-Hörstatistik je Titel: wie oft er insgesamt gezählt wurde und wann zuletzt. Das 30-Tage-Protokoll vergisst
+ * schnell; mit dieser Statistik erkennt der Mix Titel, die du früher oft gehört hast und lange nicht mehr (Wiederentdecken).
+ * Gespeichert als "id:anzahl:sekunden,...". Sie bleibt klein: höchstens [TOTALS_MAX] Titel, die selten und lange her gehörten fallen zuerst weg.
+ */
+class PlayTotal(val count: Int, val lastMs: Long)
+
+private const val TOTALS_MAX = 4000
+private const val TOTALS_COUNT_CAP = 500
+
+private fun parseTotals(raw: String): HashMap<Long, PlayTotal> {
+    val out = HashMap<Long, PlayTotal>()
+    for (part in raw.split(',')) {
+        val p = part.split(':')
+        if (p.size != 3) continue
+        val id = p[0].toLongOrNull() ?: continue
+        val n = p[1].toIntOrNull() ?: continue
+        val t = (p[2].toLongOrNull() ?: continue) * 1000L
+        out[id] = PlayTotal(n, t)
+    }
+    return out
+}
+
+fun readPlayTotals(ctx: Context): Map<Long, PlayTotal> {
+    val raw = prefs(ctx).getString("play_totals", null)
+    if (raw != null) return parseTotals(raw)
+    // Noch keine Statistik (App-Update): aus dem 30-Tage-Protokoll aufbauen; ab jetzt wächst sie mit jeder Wiedergabe
+    val out = HashMap<Long, PlayTotal>()
+    for (e in readPlayLog(ctx)) {
+        val o = out[e.id]
+        out[e.id] = PlayTotal((o?.count ?: 0) + 1, Math.max(o?.lastMs ?: 0L, e.time))
+    }
+    return out
+}
+
+private fun addPlayTotal(ctx: Context, id: Long, now: Long): String {
+    val m = HashMap(readPlayTotals(ctx))
+    val o = m[id]
+    m[id] = PlayTotal(Math.min((o?.count ?: 0) + 1, TOTALS_COUNT_CAP), now)
+    if (m.size > TOTALS_MAX) {
+        val drop = m.entries.sortedWith(compareBy<Map.Entry<Long, PlayTotal>>({ it.value.count }, { it.value.lastMs })).take(m.size - TOTALS_MAX)
+        for (e in drop) m.remove(e.key)
+    }
+    return m.entries.joinToString(",") { "${it.key}:${it.value.count}:${it.value.lastMs / 1000L}" }
 }
 
 /** Titel, die aus der Warteschlange des Mixes entfernt wurden (Titel-ID -> Zeitpunkt in ms). Sie bleiben 30 Tage aus dem Mix. */

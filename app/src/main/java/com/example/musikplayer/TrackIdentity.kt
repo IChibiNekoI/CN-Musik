@@ -190,7 +190,7 @@ object TrackIdentity {
         idList("q_ids", false)
 
         // Einträge der Form "id:..." (Hörprotokoll, Mix-Entfernungen, Mix-Skips)
-        for (key in listOf("play_log", "mix_dislikes", "mix_skips")) {
+        for (key in listOf("play_log", "play_totals", "mix_dislikes", "mix_skips")) {
             val raw = p.getString(key, null) ?: continue
             var changed = false
             val out = raw.split(',').map { part ->

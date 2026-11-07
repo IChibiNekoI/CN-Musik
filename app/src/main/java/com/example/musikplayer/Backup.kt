@@ -34,11 +34,11 @@ object Backup {
     )
 
     /** Persönliches Hörprofil: nur im Backup, wenn gewünscht; Wiederherstellen ersetzt es nur, wenn das Backup es enthält */
-    private val PROFILE = setOf("history", "play_log", "mix_dislikes", "mix_skips", "mix_seed", "mix_order_seed")
+    private val PROFILE = setOf("history", "play_log", "play_totals", "mix_dislikes", "mix_skips", "mix_seed", "mix_order_seed")
 
     /** Einstellungen, die Titel-IDs enthalten und beim Wiederherstellen umgerechnet werden müssen */
     private val ID_LISTS = listOf("hidden_songs", "favorites", "history")       // "id,id,id"
-    private val ID_ENTRIES = listOf("play_log", "mix_dislikes", "mix_skips")    // "id:...,id:..."
+    private val ID_ENTRIES = listOf("play_log", "play_totals", "mix_dislikes", "mix_skips")    // "id:...,id:..."
     private const val PLAYLISTS = "playlists"                                   // JSON
 
     /**

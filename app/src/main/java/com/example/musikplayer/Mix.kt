@@ -15,6 +15,21 @@ private const val DAY_MS = 86_400_000.0
 private const val HOUR_MS = 3_600_000L
 private const val SESSION_GAP_MS = 20L * 60 * 1000
 private const val MIX_DISCOVER_SHARE = 0.2   // Anteil der Plätze für Titel, die du in letzter Zeit nicht gehört hast
+private const val REDISCOVER_MIN_PLAYS = 3    // so oft früher gehört: zählt als "früher oft gehört"
+private const val NEW_MAX_PLAYS = 2           // so selten gehört: zählt als "neu für dich"
+
+/** Wie ein Titel in den Mix kam, soweit er aus der Entdecken-Auswahl stammt. */
+enum class MixKind {
+    /** Früher oft gehört, seit langer Zeit nicht mehr. */
+    REDISCOVER,
+    /** Noch nie oder kaum gehört, passt aber zu deinem Klangprofil, Künstlern oder neu in der Bibliothek. */
+    NEW_TO_YOU,
+    /** Liegt etwas außerhalb deines üblichen Klangs, ist aber über Künstler, Album oder Hörsitzungen mit deinem Hören verbunden. */
+    STRETCH
+}
+
+/** Der Mix und, für Titel aus der Entdecken-Auswahl, die Art der Entdeckung (alle anderen fehlen in [kinds]). */
+class MixResult(val songs: List<Song>, val kinds: Map<Long, MixKind>)
 
 /** Gewicht eines Ereignisses, das [ageMs] zurückliegt, wenn es alle [days] Tage halb so viel zählen soll. */
 private fun decay(ageMs: Long, days: Double): Double = Math.pow(0.5, ageMs / (days * DAY_MS))
@@ -126,8 +141,13 @@ private fun flowOrder(list: List<Song>, orderSeed: Long, features: (Long) -> Tra
  *  - Ähnlichkeit: Titel, die in derselben Hörsitzung wie deine Favoriten liefen, und Alben deiner Favoriten
  *  - Klang: Tempo, Energie, Helligkeit sowie Dynamik, Puls und Bass im Vergleich zu deinem typischen Klang ([features], falls schon gemessen)
  *  - Wiederholungsschutz: Was du gerade erst gehört hast, steht seltener drin
- * Rund ein Fünftel der Plätze gehört Titeln, die du in letzter Zeit nicht gehört hast: neu hinzugekommene und
- * solche, die zu deinem Geschmack passen. Die Mischung wird dynamisch: Je mehr Hörverlauf da ist, desto mehr zählen
+ * Rund ein Fünftel der Plätze gehört Titeln, die du in letzter Zeit nicht gehört hast, in drei Arten der Entdeckung
+ * (gleichmäßig verteilt, fehlt eine Art, übernehmen die anderen):
+ *  - Wiederentdecken: früher oft gehört (Langzeit-Statistik), seit langem nicht mehr; je länger her, desto eher
+ *  - Neu für dich: noch nie oder kaum gehört, aber passend zu Klang, Künstlern oder neu in der Bibliothek
+ *  - Etwas anderes: Klang etwas außerhalb deines üblichen, aber über Künstler, Album oder Hörsitzungen verbunden
+ * Das sind keine zusätzlichen Playlists, sondern drei Auswahlstrategien innerhalb desselben Mixes.
+ * Die Mischung wird dynamisch: Je mehr Hörverlauf da ist, desto mehr zählen
  * Wiedergaben gegenüber Favoriten.
  *
  * Jeder Titel bekommt aus Startwert und Titel-ID einen festen Zufallswert, damit der Mix stabil bleibt: Er ändert sich
@@ -142,9 +162,23 @@ fun buildMix(
     orderSeed: Long,
     size: Int = 30,
     skips: List<MixSkip> = emptyList(),
+    totals: Map<Long, PlayTotal> = emptyMap(),
     features: (Long) -> TrackFeatures? = { null }
-): List<Song> {
-    if (songs.isEmpty()) return emptyList()
+): List<Song> = buildMixDetailed(songs, favorites, playLog, seed, orderSeed, size, skips, totals, features).songs
+
+/** Wie [buildMix], liefert aber zusätzlich zu jedem Entdecken-Titel die Art der Entdeckung (für eine spätere Anzeige). */
+fun buildMixDetailed(
+    songs: List<Song>,
+    favorites: Set<Long>,
+    playLog: List<PlayEvent>,
+    seed: Long,
+    orderSeed: Long,
+    size: Int = 30,
+    skips: List<MixSkip> = emptyList(),
+    totals: Map<Long, PlayTotal> = emptyMap(),
+    features: (Long) -> TrackFeatures? = { null }
+): MixResult {
+    if (songs.isEmpty()) return MixResult(emptyList(), emptyMap())
     val nowMs = System.currentTimeMillis()
     val nowSec = nowMs / 1000L
     val byId = songs.associateBy { it.id }
@@ -248,13 +282,18 @@ fun buildMix(
     val favW = 3.0 - confidence            // Favoriten: 3,0 (wenig Verlauf) bis 2,0 (viel Verlauf)
     val playW = 0.3 + 0.3 * confidence     // Wiedergaben: 0,3 bis 0,6 je Wiedergabe
     val known = ArrayList<Pair<Song, Double>>()   // Favoriten und kürzlich gehörte
-    val fresh = ArrayList<Pair<Song, Double>>()   // in 30 Tagen nicht gehört, keine Favoriten
+    // Entdecken: Titel, die in 30 Tagen nicht gehört wurden und keine Favoriten sind, je nach Art der Entdeckung bewertet
+    val rediscover = ArrayList<Pair<Song, Double>>()
+    val newToYou = ArrayList<Pair<Song, Double>>()
+    val stretch = ArrayList<Pair<Song, Double>>()
     for (s in songs) {
         val isFav = s.id in favorites
         val plays = songPlays[s.id] ?: 0.0
         val artistScore = Math.min((artistPlays[s.artist] ?: 0.0) * 0.4 + (favArtists[s.artist] ?: 0) * 0.5, 5.0)
         val similar = Math.min(coListen[s.id] ?: 0.0, 4.0) * 0.5 + Math.min(if (seedAlbums.isEmpty() || s.album.isBlank()) 0 else (seedAlbums[albumKeyOf(s)] ?: 0), 3) * 0.25
-        val sound = soundMatch(features(s.id), profile) * 2.0 * (profile?.confidence ?: 0.0)
+        val f = features(s.id)
+        val match = soundMatch(f, profile)
+        val sound = match * 2.0 * (profile?.confidence ?: 0.0)
         var w: Double
         if (isFav || plays > 0.0) {
             w = 1.0 + (if (isFav) favW else 0.0) + Math.min(plays, 6.0) * playW + artistScore * 0.8 + similar + sound
@@ -269,16 +308,90 @@ fun buildMix(
             // gewichtetes Ziehen ohne Zurücklegen (Efraimidis-Spirakis) mit festem Zufallswert je Titel
             known += s to Math.pow(unitFor(seed, s.id), 1.0 / w)
         } else {
+            val tot = totals[s.id]
+            val count = tot?.count ?: 0
+            val skipDiv = 1.0 + 0.9 * (songSkips[s.id] ?: 0.0)
+            val connection = artistScore * 0.4 + similar   // Verbindung zu deinem Hören über Künstler, Album, Sitzungen
             val ageDays = if (s.dateAdded > 0L) Math.max(0.0, (nowSec - s.dateAdded) / 86400.0) else 365.0
-            w = 0.5 + artistScore * 0.4 + similar + sound + 1.5 * Math.exp(-ageDays / 45.0)
-            w /= 1.0 + 0.9 * (songSkips[s.id] ?: 0.0)
-            fresh += s to Math.pow(unitFor(seed, s.id), 1.0 / w)
+
+            if (count >= REDISCOVER_MIN_PLAYS && tot != null) {
+                // Wiederentdecken: früher oft gehört; je länger her, desto reizvoller (ab einem Jahr nicht mehr steigend)
+                val gapDays = Math.max(0.0, (nowMs - tot.lastMs) / DAY_MS)
+                val past = 0.5 + Math.log(count.toDouble())
+                val gap = 0.6 + 0.8 * Math.min(gapDays, 365.0) / 365.0
+                w = (past * gap + connection * 0.5 + sound * 0.5) / skipDiv
+                w /= 1.0 + 0.12 * Math.min(artistSkips[s.artist] ?: 0.0, 5.0)
+                rediscover += s to Math.pow(unitFor(seed + 101L, s.id), 1.0 / w)
+            } else if (count <= NEW_MAX_PLAYS) {
+                // Neu für dich: noch nie oder kaum gehört; Klang, Künstler, Sitzungen und frisch Hinzugekommenes zählen
+                w = (0.5 + connection + sound + 1.5 * Math.exp(-ageDays / 45.0)) / skipDiv
+                newToYou += s to Math.pow(unitFor(seed + 202L, s.id), 1.0 / w)
+            }
+
+            // Etwas anderes: Klang etwas außerhalb deines üblichen (mittlere Passung, nicht zu nah, nicht zu fern), aber mit
+            // Verbindung zu deinem Hören. Braucht ein Klangprofil und einen gemessenen Titel.
+            if (profile != null && f != null && !f.failed && connection >= 0.2 && (songSkips[s.id] ?: 0.0) < 1.5) {
+                val band = gauss(match - 0.45, 0.18)
+                w = (0.2 + connection) * band / skipDiv
+                if (w > 0.02) stretch += s to Math.pow(unitFor(seed + 303L, s.id), 1.0 / w)
+            }
         }
     }
 
-    val freshSlots = Math.min(Math.round(size * MIX_DISCOVER_SHARE).toInt(), fresh.size)
+    // Plätze für das Entdecken, gleichmäßig auf die drei Arten verteilt; fehlt einer Art die Auswahl, übernehmen die anderen
+    val pools = listOf(
+        MixKind.REDISCOVER to rediscover.sortedByDescending { it.second },
+        MixKind.NEW_TO_YOU to newToYou.sortedByDescending { it.second },
+        MixKind.STRETCH to stretch.sortedByDescending { it.second }
+    )
+    val distinct = HashSet<Long>()
+    for ((_, list) in pools) for (c in list) distinct += c.first.id
+    val discoverSlots = Math.min(Math.round(size * MIX_DISCOVER_SHARE).toInt(), distinct.size)
+
+    val pickedIds = HashSet<Long>()
+    val kinds = HashMap<Long, MixKind>()
+    val discovered = ArrayList<Song>()
+    fun take(kind: MixKind, list: List<Pair<Song, Double>>, n: Int): Int {
+        var got = 0
+        for (c in list) {
+            if (got >= n) break
+            if (!pickedIds.add(c.first.id)) continue
+            kinds[c.first.id] = kind
+            discovered += c.first
+            got++
+        }
+        return got
+    }
+    // Erst der gleichmäßige Anteil je Art ...
+    for ((i, p) in pools.withIndex()) {
+        val share = discoverSlots / 3 + if (i < discoverSlots % 3) 1 else 0
+        take(p.first, p.second, share)
+    }
+    // ... dann Restplätze reihum: zuerst "neu für dich" (die größte Auswahl), dann Wiederentdecken, dann Etwas anderes
+    val restOrder = listOf(1, 0, 2)
+    var progress = true
+    while (discovered.size < discoverSlots && progress) {
+        progress = false
+        for (i in restOrder) {
+            if (discovered.size >= discoverSlots) break
+            if (take(pools[i].first, pools[i].second, 1) > 0) progress = true
+        }
+    }
+
     val picked = ArrayList<Song>(size)
-    for (c in known.sortedByDescending { it.second }.take(size - freshSlots)) picked += c.first
-    for (c in fresh.sortedByDescending { it.second }.take(size - picked.size)) picked += c.first
-    return flowOrder(picked, orderSeed, features)
+    for (c in known.sortedByDescending { it.second }.take(size - discovered.size)) picked += c.first
+    picked += discovered
+    // Zu wenig bekannte Titel (kleine Bibliothek, wenig Verlauf): mit weiteren Entdecken-Kandidaten auffüllen
+    if (picked.size < size) {
+        val rest = pools.flatMap { (kind, list) -> list.map { Triple(kind, it.first, it.second) } }
+            .sortedByDescending { it.third }
+        for ((kind, song, _) in rest) {
+            if (picked.size >= size) break
+            if (!pickedIds.add(song.id)) continue
+            kinds[song.id] = kind
+            picked += song
+        }
+    }
+    val ordered = flowOrder(picked, orderSeed, features)
+    return MixResult(ordered, kinds)
 }

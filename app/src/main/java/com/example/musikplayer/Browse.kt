@@ -288,6 +288,7 @@ fun LibraryScreen(
         if (!showHome) emptyList() else buildMix(
             mixPool, favorites.toSet(), playLog, mixSeed, mixOrderSeed,
             skips = mixSkips,
+            totals = readPlayTotals(ctx),
             features = { id -> TrackFeatureCache.get(ctx, id) }
         )
     }
