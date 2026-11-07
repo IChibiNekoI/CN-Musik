@@ -193,6 +193,10 @@
     <string name="backup_failed">Backup failed</string>
     <string name="backup_restored">Backup restored (%1$d of %2$d tracks found)</string>
     <string name="backup_invalid">This is not a valid backup file</string>
+    <string name="backup_profile">Include listening profile</string>
+    <string name="backup_profile_sub">History, play log and Neko Mix data, so a new device keeps what the app has learned</string>
+    <string name="backup_restored_unclear">Backup restored (%1$d of %2$d tracks found, %3$d skipped because several matched equally well)</string>
+    <string name="backup_restored_pending">Backup restored. Tracks are matched as soon as your library has loaded</string>
     <string name="tab_home">Home</string>
     <string name="home_mix_title">Your Neko Mix</string>
     <string name="home_mix_subtitle">Freshly mixed for you</string>
