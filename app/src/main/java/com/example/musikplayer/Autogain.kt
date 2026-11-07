@@ -53,8 +53,23 @@ private const val TARGET_LUFS = -14f
 private const val MAX_BOOST_DB = 6f
 private const val MAX_CUT_DB = -20f
 
-/** Länge des Messausschnitts in Mikrosekunden. */
-private const val WINDOW_US = 40_000_000L
+/** Messausschnitt der schnellen Messung (laufender Titel) und der Klangmerkmale: 40 s ab 25 % der Laufzeit (kurze Titel ab Anfang). */
+private const val FEATURE_WINDOW_S = 40.0
+
+/** Gründliche Messung: drei Ausschnitte je 20 s (Anfang, Mitte, Ende bei 15 %, 50 % und 85 % der Laufzeit); kurze Titel ganz. */
+private const val LOUD_WINDOW_S = 20.0
+private const val SHORT_TRACK_S = 80.0
+
+/** Höchstens so lange rechnen (Nanosekunden) pro Titel; die gründliche Messung decodiert den ganzen Titel für den Spitzenpegel. */
+private const val MEASURE_DEADLINE_NS = 30_000_000_000L
+
+/**
+ * Wie ein Messwert entstanden ist: 1 = schnell (ein Ausschnitt, Spitzenpegel nur daraus; für den laufenden Titel, damit
+ * die Verstärkung sofort da ist), 2 = gründlich (drei Ausschnitte, Spitzenpegel über den ganzen Titel; im Hintergrundlauf).
+ * Ältere Einträge ohne Angabe zählen als 1 und werden im Hintergrund gründlich neu gemessen.
+ */
+const val LOUDNESS_QUICK = 1
+const val LOUDNESS_FULL = 2
 
 /** Verstärkung in dB aus gemessener Lautheit und Spitzenpegel (linear, 0 = unbekannt). */
 fun autoGainDb(lufs: Float, peak: Float): Float {
@@ -232,6 +247,7 @@ object LoudnessCache {
 
     private val map = ConcurrentHashMap<Long, Entry>()
     private val stamps = ConcurrentHashMap<Long, AudioStamp>()   // Datei-Stempel zum Messwert (fehlt bei älteren Einträgen)
+    private val versions = ConcurrentHashMap<Long, Int>()        // Art der Messung (LOUDNESS_QUICK/FULL; fehlt bei älteren Einträgen = schnell)
     private var loaded = false
     private var file: File? = null
     private var lineCount = 0   // Zeilen in der Datei: mehr als Einträge heißt, es liegen veraltete Doppelte darin
@@ -243,16 +259,17 @@ object LoudnessCache {
         val f = File(ctx.filesDir, "loudness.txt").also { file = it }
         if (!f.exists()) return
         try {
-            // Format: id,lufs,peak[,größe,änderungszeit]. Spätere Zeilen ersetzen frühere.
+            // Format: id,lufs,peak[,größe,änderungszeit[,messart]]. Spätere Zeilen ersetzen frühere.
             f.forEachLine { line ->
                 val p = line.split(',')
-                if (p.size == 3 || p.size == 5) {
+                if (p.size == 3 || p.size == 5 || p.size == 6) {
                     val id = p[0].toLongOrNull() ?: return@forEachLine
                     val l = p[1].toFloatOrNull() ?: return@forEachLine
                     val pk = p[2].toFloatOrNull() ?: return@forEachLine
                     map[id] = Entry(l, pk)
-                    val st = if (p.size == 5) AudioStamps.parse(p[3], p[4]) else null
+                    val st = if (p.size >= 5) AudioStamps.parse(p[3], p[4]) else null
                     if (st != null) stamps[id] = st else stamps.remove(id)
+                    versions[id] = if (p.size == 6) (p[5].toIntOrNull() ?: LOUDNESS_QUICK) else LOUDNESS_QUICK
                     lineCount++
                 }
             }
@@ -268,17 +285,28 @@ object LoudnessCache {
         return if (AudioStamps.fits(stamps[id], id)) e else null
     }
 
-    private fun lineOf(id: Long, e: Entry, st: AudioStamp?): String =
-        if (st != null) "$id,${e.lufs},${e.peak},${st.size},${st.modified}" else "$id,${e.lufs},${e.peak}"
+    /** Ist der Messwert gründlich gemessen (oder noch nicht vorhanden/veraltet = nein)? Nur dann überspringt der Hintergrundlauf den Titel. */
+    fun isFull(ctx: Context, id: Long): Boolean {
+        if (get(ctx, id) == null) return false
+        return (versions[id] ?: LOUDNESS_QUICK) >= LOUDNESS_FULL
+    }
 
+    private fun lineOf(id: Long, e: Entry, st: AudioStamp?, ver: Int): String = when {
+        ver >= LOUDNESS_FULL -> "$id,${e.lufs},${e.peak},${st?.size ?: 0},${st?.modified ?: 0},$ver"
+        st != null -> "$id,${e.lufs},${e.peak},${st.size},${st.modified}"
+        else -> "$id,${e.lufs},${e.peak}"
+    }
+
+    /** [version]: wie gemessen wurde; die schnelle Messung (laufender Titel) ist der Standard, der Hintergrundlauf gibt LOUDNESS_FULL an. */
     @Synchronized
-    fun put(ctx: Context, id: Long, entry: Entry) {
+    fun put(ctx: Context, id: Long, entry: Entry, version: Int = LOUDNESS_QUICK) {
         ensureLoaded(ctx)
         map[id] = entry
+        versions[id] = version
         val st = AudioStamps.of(id)
         if (st != null) stamps[id] = st else stamps.remove(id)
         try {
-            file?.appendText(lineOf(id, entry, st) + "\n")
+            file?.appendText(lineOf(id, entry, st, version) + "\n")
             lineCount++
         } catch (e: Exception) {
             // Speichern ist optional: ohne Datei wird beim nächsten Start neu gemessen
@@ -300,7 +328,9 @@ object LoudnessCache {
             // Der alte Stempel wandert mit: Hat sich die Datei beim Umzug verändert, passt er nicht mehr und es wird neu gemessen
             val st = stamps[old]
             if (st != null) stamps[new] = st else stamps.remove(new)
-            sb.append(lineOf(new, e, st)).append('\n')
+            val ver = versions[old] ?: LOUDNESS_QUICK
+            versions[new] = ver
+            sb.append(lineOf(new, e, st, ver)).append('\n')
             n++
         }
         if (n == 0) return
@@ -326,7 +356,7 @@ object LoudnessCache {
         while (it.hasNext()) {
             val id = it.next()
             val stale = !AudioStamps.fits(stamps[id], id)
-            if (id !in keep || stale) { it.remove(); stamps.remove(id); dirty = true }
+            if (id !in keep || stale) { it.remove(); stamps.remove(id); versions.remove(id); dirty = true }
         }
         for (id in map.keys) {
             if (stamps[id] == null) AudioStamps.of(id)?.let { stamps[id] = it; dirty = true }
@@ -334,7 +364,7 @@ object LoudnessCache {
         if (!dirty) return
         val f = file ?: return
         try {
-            rewriteAtomically(f, map.entries.asSequence().map { (id, e) -> lineOf(id, e, stamps[id]) })
+            rewriteAtomically(f, map.entries.asSequence().map { (id, e) -> lineOf(id, e, stamps[id], versions[id] ?: LOUDNESS_QUICK) })
             lineCount = map.size
         } catch (e: Exception) {
             // Aufräumen ist optional: die alte Datei bleibt gültig
@@ -382,7 +412,8 @@ object LoudnessScanner {
             for ((id, uri) in items) {
                 if (cancelled()) return@Thread
                 // Pro Titel fehlen Lautheit und/oder Klangmerkmale (Neko Mix): beides entsteht im selben Durchlauf
-                val haveLoudness = LoudnessCache.get(app, id) != null
+                // (gründlich gemessen: ältere, schnell gemessene Werte werden hier nach und nach neu gemessen)
+                val haveLoudness = LoudnessCache.isFull(app, id)
                 // Ältere Einträge ohne Dynamik, Puls und Bass zählen als fehlend und werden hier nach und nach neu gemessen
                 val haveFeatures = TrackFeatureCache.get(app, id)?.extended == true
                 if (haveLoudness && haveFeatures) continue
@@ -393,9 +424,13 @@ object LoudnessScanner {
                 if (!inFlight.add(id)) continue
                 try {
                     val entry = try {
-                        LoudnessAnalyzer.analyze(app, uri, 0L, { TrackFeatureCache.put(app, id, it) }, requireFeatures = !haveFeatures)
+                        LoudnessAnalyzer.analyze(
+                            app, uri, 0L,
+                            if (haveFeatures) null else { f -> TrackFeatureCache.put(app, id, f) },
+                            requireFeatures = !haveFeatures, full = true
+                        )
                     } catch (e: Exception) { null }
-                    if (!haveLoudness) LoudnessCache.put(app, id, entry ?: LoudnessCache.FAILED)
+                    if (!haveLoudness) LoudnessCache.put(app, id, entry ?: LoudnessCache.FAILED, LOUDNESS_FULL)
                     // gescheiterte Merkmale merken, damit der Titel nicht bei jedem Start neu versucht wird
                     if (TrackFeatureCache.get(app, id) == null) TrackFeatureCache.put(app, id, TrackFeatures.FAILED)
                 } finally {
@@ -415,6 +450,9 @@ object LoudnessScanner {
 object LoudnessAnalyzer {
 
     /**
+     * [full] = gründliche Messung (Hintergrundlauf): Lautheit aus drei Ausschnitten (Anfang, Mitte, Ende) und Spitzenpegel
+     * über den ganzen Titel. Ohne [full] die schnelle Messung für den laufenden Titel: ein Ausschnitt, damit die
+     * Verstärkung sofort da ist.
      * [featureSink] bekommt die Klangmerkmale, wenn der Titel ohnehin decodiert wird. Hat der Titel einen ReplayGain-Tag,
      * wird er nur mit [requireFeatures] = true trotzdem decodiert (Hintergrundlauf), sonst bleibt es beim Tag.
      */
@@ -423,11 +461,12 @@ object LoudnessAnalyzer {
         uri: Uri,
         durationHintMs: Long,
         featureSink: ((TrackFeatures) -> Unit)? = null,
-        requireFeatures: Boolean = false
+        requireFeatures: Boolean = false,
+        full: Boolean = false
     ): LoudnessCache.Entry? {
         val tagged = fromReplayGain(ctx, uri)
         if (tagged != null && !requireFeatures) return tagged
-        val measured = measure(ctx, uri, durationHintMs, featureSink)
+        val measured = measure(ctx, uri, durationHintMs, featureSink, full)
         return tagged ?: measured
     }
 
@@ -483,11 +522,32 @@ object LoudnessAnalyzer {
         return shelf to hp
     }
 
+    /** Messausschnitte (Sekunden) für die Lautheit. */
+    private fun loudnessWindows(durS: Double, full: Boolean): List<Pair<Double, Double>> {
+        val feat = featureWindow(durS)
+        // Schnelle Messung, oder Laufzeit unbekannt: ein Ausschnitt (derselbe wie für die Klangmerkmale)
+        if (!full || durS <= 0.0) return listOf(feat)
+        // Kurze Titel ganz
+        if (durS <= SHORT_TRACK_S) return listOf(0.0 to durS)
+        // Anfang, Mitte, Ende
+        return listOf(0.15, 0.5, 0.85).map { c ->
+            val start = (durS * c - LOUD_WINDOW_S / 2).coerceIn(0.0, durS - LOUD_WINDOW_S)
+            start to start + LOUD_WINDOW_S
+        }
+    }
+
+    /** Zusammenhängender Ausschnitt für die Klangmerkmale: 40 s ab 25 % der Laufzeit, kurze Titel ab Anfang. */
+    private fun featureWindow(durS: Double): Pair<Double, Double> {
+        val start = if (durS > 90.0) durS * 0.25 else 0.0
+        return start to start + FEATURE_WINDOW_S
+    }
+
     private fun measure(
         ctx: Context,
         uri: Uri,
         durationHintMs: Long,
-        featureSink: ((TrackFeatures) -> Unit)? = null
+        featureSink: ((TrackFeatures) -> Unit)? = null,
+        full: Boolean = false
     ): LoudnessCache.Entry? {
         val ex = MediaExtractor()
         var codec: MediaCodec? = null
@@ -506,9 +566,13 @@ object LoudnessAnalyzer {
             val mime = fmt.getString(MediaFormat.KEY_MIME) ?: return null
             val durUs = if (fmt.containsKey(MediaFormat.KEY_DURATION)) fmt.getLong(MediaFormat.KEY_DURATION)
             else durationHintMs * 1000L
-            // Ausschnitt aus der Mitte des Titels (bei kurzen Titeln alles)
-            val startUs = if (durUs > 90_000_000L) (durUs * 0.25).toLong() else 0L
-            if (startUs > 0L) ex.seekTo(startUs, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
+            val durS = durUs / 1_000_000.0
+            val loudWins = loudnessWindows(durS, full)
+            val featWin = featureWindow(durS)
+            // Schnell: gleich zum Ausschnitt springen. Gründlich: ganzen Titel von vorn decodieren (Spitzenpegel), ohne Springen.
+            val baseS = if (full) 0.0 else featWin.first
+            if (baseS > 0.0) ex.seekTo((baseS * 1_000_000.0).toLong(), MediaExtractor.SEEK_TO_CLOSEST_SYNC)
+            val endUs = ((featWin.second) * 1_000_000.0).toLong()
 
             codec = MediaCodec.createDecoderByType(mime)
             codec.configure(fmt, null, null, 0)
@@ -523,17 +587,18 @@ object LoudnessAnalyzer {
             var hopFrames = sampleRate / 10   // 100 ms
             var hopCount = 0
             var hopSum = 0.0
-            val hops = ArrayList<Double>()
-            var peak = 0f
+            // Abschnitte zu 100 ms, je Messausschnitt eine eigene Liste (Blöcke dürfen nicht über eine Lücke hinweg reichen)
+            val winHops = ArrayList<ArrayList<Double>>()
+            var activeWin = -1
+            var peak = 0f   // über alles, was decodiert wird: gründlich also der ganze Titel
             var framesDone = 0L
-            val maxFrames = { sampleRate.toLong() * (WINDOW_US / 1_000_000L) }
-            // Klangmerkmale für den Neko Mix aus demselben Ton (nur, wenn jemand sie haben will)
+            // Klangmerkmale für den Neko Mix aus demselben Ton (nur, wenn jemand sie haben will), aus dem zusammenhängenden Ausschnitt
             var fx: TrackFeatureExtractor? = if (featureSink != null) TrackFeatureExtractor(sampleRate) else null
 
             val info = MediaCodec.BufferInfo()
             var inputDone = false
             var outputDone = false
-            val deadline = System.nanoTime() + 20_000_000_000L   // höchstens 20 s Rechenzeit
+            val deadline = System.nanoTime() + MEASURE_DEADLINE_NS
             while (!outputDone && System.nanoTime() < deadline) {
                 if (!inputDone) {
                     val ii = codec.dequeueInputBuffer(5_000)
@@ -541,7 +606,8 @@ object LoudnessAnalyzer {
                         val buf = codec.getInputBuffer(ii)!!
                         val n = ex.readSampleData(buf, 0)
                         val t = ex.sampleTime
-                        if (n < 0 || (t >= 0 && t > startUs + WINDOW_US)) {
+                        // Schnell: nach dem Ausschnitt Schluss. Gründlich: bis zum Ende des Titels.
+                        if (n < 0 || (!full && t >= 0 && t > endUs)) {
                             codec.queueInputBuffer(ii, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                             inputDone = true
                         } else {
@@ -563,6 +629,7 @@ object LoudnessAnalyzer {
                         hopFrames = sampleRate / 10
                         hopCount = 0
                         hopSum = 0.0
+                        activeWin = -1
                         if (fx != null) fx = TrackFeatureExtractor(sampleRate)
                     }
                     oi >= 0 -> {
@@ -575,6 +642,24 @@ object LoudnessAnalyzer {
                             val bps = if (floatPcm) 4 else 2
                             val frames = info.size / (bps * ch)
                             for (f in 0 until frames) {
+                                // Stelle im Titel in Sekunden (die Zählung beginnt am Sprungziel, sonst bei 0)
+                                val pos = baseS + (framesDone + f).toDouble() / sampleRate
+                                var w = -1
+                                for (i in loudWins.indices) {
+                                    if (pos >= loudWins[i].first && pos < loudWins[i].second) { w = i; break }
+                                }
+                                if (w != activeWin) {
+                                    activeWin = w
+                                    if (w >= 0) {
+                                        // Neuer Ausschnitt: Filter und Abschnitt von vorn, eigene Liste
+                                        shelf = Array(2) { kWeighting(sampleRate.toDouble()).first }
+                                        hp = Array(2) { kWeighting(sampleRate.toDouble()).second }
+                                        hopCount = 0
+                                        hopSum = 0.0
+                                        winHops.add(ArrayList())
+                                    }
+                                }
+                                val inFeat = fx != null && pos >= featWin.first && pos < featWin.second
                                 var frameEnergy = 0.0
                                 var mono = 0f
                                 for (c in 0 until ch) {
@@ -582,35 +667,43 @@ object LoudnessAnalyzer {
                                     if (c < 2) {
                                         mono += s
                                         peak = max(peak, abs(s))
-                                        val k = hp[c].process(shelf[c].process(s.toDouble()))
-                                        frameEnergy += k * k
+                                        if (w >= 0) {
+                                            val k = hp[c].process(shelf[c].process(s.toDouble()))
+                                            frameEnergy += k * k
+                                        }
                                     }
                                 }
-                                // Mono zählt wie zwei gleiche Kanäle
-                                if (ch == 1) frameEnergy *= 2.0
-                                fx?.add(if (ch == 1) mono else mono * 0.5f)
-                                hopSum += frameEnergy
-                                if (++hopCount >= hopFrames) {
-                                    hops.add(hopSum / hopCount)
-                                    hopSum = 0.0
-                                    hopCount = 0
+                                if (inFeat) fx?.add(if (ch == 1) mono else mono * 0.5f)
+                                if (w >= 0) {
+                                    // Mono zählt wie zwei gleiche Kanäle
+                                    if (ch == 1) frameEnergy *= 2.0
+                                    hopSum += frameEnergy
+                                    if (++hopCount >= hopFrames) {
+                                        winHops[winHops.size - 1].add(hopSum / hopCount)
+                                        hopSum = 0.0
+                                        hopCount = 0
+                                    }
                                 }
                             }
                             framesDone += frames
                         }
                         if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) outputDone = true
                         codec.releaseOutputBuffer(oi, false)
-                        if (framesDone >= maxFrames()) outputDone = true
+                        // Schnell: nach dem Ausschnitt fertig (der Eingang ist dann schon beendet, das ist nur die Absicherung)
+                        if (!full && baseS + framesDone.toDouble() / sampleRate >= featWin.second) outputDone = true
                     }
                 }
             }
 
             featureSink?.invoke(fx?.finish() ?: TrackFeatures.FAILED)
 
-            // Blöcke zu 400 ms (4 Abschnitte, 75 % Überlappung), dann Gating nach BS.1770
-            if (hops.size < 4) return null
+            // Blöcke zu 400 ms (4 Abschnitte, 75 % Überlappung) je Ausschnitt, dann Gating nach BS.1770 über alle Blöcke zusammen
             val blocks = ArrayList<Double>()
-            for (i in 0..hops.size - 4) blocks.add((hops[i] + hops[i + 1] + hops[i + 2] + hops[i + 3]) / 4.0)
+            for (hops in winHops) {
+                if (hops.size < 4) continue
+                for (i in 0..hops.size - 4) blocks.add((hops[i] + hops[i + 1] + hops[i + 2] + hops[i + 3]) / 4.0)
+            }
+            if (blocks.isEmpty()) return null
             fun lufs(z: Double) = -0.691 + 10.0 * log10(z)
             val aboveAbs = blocks.filter { it > 0.0 && lufs(it) > -70.0 }
             if (aboveAbs.isEmpty()) return null
