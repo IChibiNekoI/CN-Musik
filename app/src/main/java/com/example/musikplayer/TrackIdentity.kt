@@ -17,6 +17,9 @@ import java.util.Locale
  * Zugeordnet wird nur eindeutig (genau ein verschwundener Titel passt zu genau einem neuen) und in Stufen, vom
  * sichersten zum unsichersten Merkmal. Ein falscher Treffer wäre schlimmer als ein verpasster, deshalb gibt es
  * keine Zuordnung allein über den Dateinamen, und mehrdeutige Fälle (z. B. zwei Kopien desselben Titels) bleiben liegen.
+ * Auch derselbe Pfad genügt nicht, wenn Titel und Interpret auf beiden Seiten bekannt sind und beide nicht zusammenpassen:
+ * Dann liegt an der Stelle vermutlich ein anderer Titel (Datei ersetzt), und Favoriten, Verlauf und Playlists würden sonst
+ * auf ihn übergehen. Eine neu oder anders getaggte Datei (bisher ungetaggt, Tippfehler, "(Remastered)") ist dagegen kein Widerspruch.
  * Ein Hash über die Audiodaten wäre zu teuer für die ganze Bibliothek und ist hier nicht nötig.
  */
 object TrackIdentity {
@@ -50,6 +53,22 @@ object TrackIdentity {
     )
 
     private fun close(a: Long, b: Long) = a > 0L && b > 0L && kotlin.math.abs(a - b) <= DURATION_TOLERANCE_MS
+
+    /** Passen zwei Tag-Werte zusammen? Gleich oder einer enthält den anderen; ist eine Seite unbekannt (leer), gilt das als vereinbar. */
+    private fun similar(a: String, b: String): Boolean {
+        if (a.isEmpty() || b.isEmpty() || a == b) return true
+        return minOf(a.length, b.length) >= 3 && (a.contains(b) || b.contains(a))
+    }
+
+    /**
+     * Widerspruch zwischen einem verschwundenen und einem neuen Titel: Titel UND Interpret sind auf beiden Seiten bekannt
+     * und passen beide nicht zusammen. Bewusst streng gefasst, damit eine umgetaggte Datei weiter erkannt wird.
+     * [unknownArtist] sind die Platzhalter für einen unbekannten Interpreten (zählen wie leer).
+     */
+    private fun contradicts(g: Fp, f: Fp, unknownArtist: Set<String>): Boolean {
+        fun artist(s: String) = if (s in unknownArtist) "" else s
+        return !similar(g.title, f.title) && !similar(artist(g.artist), artist(f.artist))
+    }
 
     @Synchronized
     private fun load(ctx: Context): HashMap<Long, Fp> {
@@ -104,6 +123,8 @@ object TrackIdentity {
         val now = System.currentTimeMillis()
         val day = now / DAY_MS
         val unknown = str(R.string.unknown)
+        // Platzhalter für "Interpret unbekannt": die von Android gelieferte und die der App, in beiden Sprachen
+        val unknownArtist = setOf("<unknown>", "unknown", "unbekannt", norm(unknown))
         val current = HashMap<Long, Fp>(songs.size * 2)
         for (s in songs) current[s.id] = fpOf(s, day, unknown)
 
@@ -131,9 +152,11 @@ object TrackIdentity {
                         fresh.remove(f)
                     }
                 }
-                // 1. Gleicher Pfad: dieselbe Datei, nur neu registriert (Laufzeit darf fehlen)
+                // 1. Gleicher Pfad: dieselbe Datei, nur neu registriert (Laufzeit darf fehlen, Tags dürfen sich geändert haben,
+                //    aber nicht so, dass ein anderer Titel dahintersteckt)
                 stage({ it.path.takeIf { p -> p.isNotEmpty() } }) { g, f ->
-                    g.durationMs <= 0L || f.durationMs <= 0L || close(g.durationMs, f.durationMs)
+                    (g.durationMs <= 0L || f.durationMs <= 0L || close(g.durationMs, f.durationMs)) &&
+                        !contradicts(g, f, unknownArtist)
                 }
                 // 2. Gleiche Tags und Laufzeit: Datei verschoben oder umbenannt
                 stage({ if (it.title.isEmpty()) null else "${it.title}|${it.artist}|${it.album}" }) { g, f ->
