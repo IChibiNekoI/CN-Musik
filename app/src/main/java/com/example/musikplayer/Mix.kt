@@ -19,7 +19,6 @@ private const val REDISCOVER_MIN_PLAYS = 3    // so oft früher gehört: zählt 
 private const val NEW_MAX_PLAYS = 2           // so selten gehört: zählt als "neu für dich"
 
 // Feineinstellung der Personalisierung (0 schaltet die jeweilige Wirkung ab)
-private const val MIX_MAX_ARTIST_SHARE = 0.13    // so viel vom Mix darf höchstens von einem Künstler kommen (bei 30 Titeln: 4)
 private const val MIX_DAYS_WEIGHT = 0.15         // Bonus je weiterem Hörtag eines Titels (Beständigkeit statt Serienhören an einem Tag)
 private const val MIX_ERA_WEIGHT = 0.5           // Einfluss deines Zeitgeschmacks (Erscheinungsjahr der Titel)
 private const val MIX_SOUND_SKIP_WEIGHT = 0.12   // Einfluss von "klingt wie das, was du im Mix überspringst"
@@ -284,7 +283,12 @@ private fun flowOrder(list: List<Song>, orderSeed: Long, features: (Long) -> Tra
  *  - Künstler, die du magst
  *  - Skips im Mix (nur dort): übersprungene Titel und ihre Künstler werden seltener gewählt
  *  - Ähnlichkeit: Titel, die in derselben Hörsitzung wie deine Favoriten liefen, und Alben deiner Favoriten
- *  - Klang: Tempo, Energie, Helligkeit sowie Dynamik, Puls und Bass im Vergleich zu deinem typischen Klang ([features], falls schon gemessen)
+ *  - Klang: Tempo, Energie, Helligkeit sowie Dynamik, Puls und Bass im Vergleich zu deinem typischen Klang ([features], falls schon gemessen).
+ *    Bei sehr verschiedenem Geschmack gibt es bis zu drei Geschmacksgruppen; ein Titel zählt mit der Gruppe, zu der er am besten passt
+ *  - Klang der Skips: Was ähnlich klingt wie oft übersprungene Titel, wird seltener gewählt
+ *  - Beständigkeit: Titel, die an mehreren Tagen liefen, zählen mehr als Serien an einem Tag
+ *  - Zeitgeschmack: Erscheinungsjahre deiner Ankertitel (leichter Einfluss, nur mit genug Jahresangaben)
+ *  - Entdeckerlust: Der Anteil des Entdeckens (12 bis 30 %) hängt davon ab, wie vielfältig du hörst
  *  - Wiederholungsschutz: Was du gerade erst gehört hast, steht seltener drin
  * Rund ein Fünftel der Plätze gehört Titeln, die du in letzter Zeit nicht gehört hast, in drei Arten der Entdeckung
  * (gleichmäßig verteilt, fehlt eine Art, übernehmen die anderen):
@@ -571,33 +575,9 @@ fun buildMixDetailed(
         }
     }
 
-    // Vielfalt: Von einem Künstler kommen höchstens ein paar Titel (nur wenn genug andere da sind, sonst wird aufgefüllt)
     val picked = ArrayList<Song>(size)
-    val artistCount = HashMap<String, Int>()
-    val artistCap = Math.max(2, Math.round(size * MIX_MAX_ARTIST_SHARE).toInt())
-    fun addPicked(song: Song) {
-        picked += song
-        if (song.artist.isNotBlank()) artistCount[song.artist] = (artistCount[song.artist] ?: 0) + 1
-    }
-    for (song in discovered) addPicked(song)
-    val knownNeeded = size - discovered.size
-    var knownTaken = 0
-    val deferred = ArrayList<Song>()
-    for (c in known.sortedByDescending { it.second }) {
-        if (knownTaken >= knownNeeded) break
-        val song = c.first
-        if (song.artist.isBlank() || (artistCount[song.artist] ?: 0) < artistCap) {
-            addPicked(song)
-            knownTaken++
-        } else {
-            deferred += song
-        }
-    }
-    for (song in deferred) {
-        if (knownTaken >= knownNeeded) break
-        addPicked(song)
-        knownTaken++
-    }
+    for (c in known.sortedByDescending { it.second }.take(size - discovered.size)) picked += c.first
+    picked += discovered
     // Zu wenig bekannte Titel (kleine Bibliothek, wenig Verlauf): mit weiteren Entdecken-Kandidaten auffüllen
     if (picked.size < size) {
         val rest = pools.flatMap { (kind, list) -> list.map { Triple(kind, it.first, it.second) } }
