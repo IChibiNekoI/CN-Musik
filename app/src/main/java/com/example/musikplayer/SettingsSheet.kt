@@ -124,7 +124,7 @@ fun AppSettingsSheet(
     val restoreBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val text = try {
-                backupCtx.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+                backupCtx.contentResolver.openInputStream(uri)?.use { Backup.readLimited(it) }
             } catch (e: Exception) {
                 null
             }

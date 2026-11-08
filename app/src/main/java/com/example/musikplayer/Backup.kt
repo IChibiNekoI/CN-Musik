@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.InputStream
 import java.util.Locale
 
 /**
@@ -27,6 +28,9 @@ object Backup {
     private const val PENDING_FILE = "backup_pending.json"
     private const val DURATION_TOLERANCE_MS = 2_000L
 
+    /** Größer darf eine Backup-Datei nicht sein (eine echte ist deutlich kleiner); schützt vor Speicherproblemen */
+    private const val MAX_BACKUP_BYTES = 16 * 1024 * 1024
+
     /** Zwischenspeicher und Laufzeit-Zustand: werden nicht gesichert (entstehen von selbst neu) */
     private val SKIP = setOf(
         "tag_cache", "last_scan", "q_ids", "q_index", "cover_seed_h", "cover_seed_s", "cover_seed_n",
@@ -40,6 +44,26 @@ object Backup {
     private val ID_LISTS = listOf("hidden_songs", "favorites", "history")       // "id,id,id"
     private val ID_ENTRIES = listOf("play_log", "play_totals", "mix_dislikes", "mix_skips")    // "id:...,id:..."
     private const val PLAYLISTS = "playlists"                                   // JSON
+
+    /**
+     * Einstellungen, die beim Wiederherstellen übernommen werden dürfen, mit ihrem Typ (b = Boolean, i = Int, l = Long,
+     * f = Float, s = String, set = Menge von Strings). Die App liest jede Einstellung mit genau diesem Typ; ein anderer
+     * Typ in der Datei würde sie beim nächsten Start zum Absturz bringen. Unbekannte Schlüssel und falsche Typen werden
+     * deshalb übersprungen. Kommt in der App eine Einstellung dazu, muss sie hier eingetragen werden, sonst wird sie
+     * beim Wiederherstellen nicht mehr übernommen. (Zwischenspeicher aus [SKIP] stehen bewusst nicht darin.)
+     */
+    private val PREF_TYPES: Map<String, String> =
+        listOf(
+            "audio_info", "auto_gain", "cover_shadow", "fox_unlocked", "haptics", "header_logo", "menu_unified",
+            "mix_shuffle", "show_home", "show_output_device", "show_song_duration", "shuffle", "swipe_header", "wave_progress"
+        ).associateWith { "b" } +
+            listOf("mix_repeat", "repeat").associateWith { "i" } +
+            listOf("mix_order_seed", "mix_seed", "q_pos").associateWith { "l" } +
+            listOf(
+                "album_style", "corner_style", "favorites", "header_style", "hidden_songs", "history", "language",
+                "mix_dislikes", "mix_skips", "play_log", "play_totals", "player_bg", "playlist_style", "playlists", "sort"
+            ).associateWith { "s" } +
+            listOf("folder_exclude", "folder_include", "folders").associateWith { "set" }
 
     /**
      * [ok] = Datei gültig und eingespielt, [matched] von [total] verwendeten Titeln wurden in der Bibliothek gefunden,
@@ -58,6 +82,19 @@ object Backup {
 
     private fun idsOfEntries(raw: String?): List<Long> =
         raw?.split(',')?.mapNotNull { it.substringBefore(':').trim().toLongOrNull() } ?: emptyList()
+
+    /** Liest eine Backup-Datei als Text. Null, wenn sie größer als [MAX_BACKUP_BYTES] ist. */
+    fun readLimited(input: InputStream): String? {
+        val out = java.io.ByteArrayOutputStream()
+        val buf = ByteArray(64 * 1024)
+        while (true) {
+            val n = input.read(buf)
+            if (n < 0) break
+            if (out.size() + n > MAX_BACKUP_BYTES) return null
+            out.write(buf, 0, n)
+        }
+        return out.toByteArray().toString(Charsets.UTF_8)
+    }
 
     fun create(ctx: Context, songs: List<Song>, includeProfile: Boolean = false): String {
         val p = prefs(ctx)
@@ -222,32 +259,96 @@ object Backup {
         }
     }
 
-    fun restore(ctx: Context, text: String, songs: List<Song>): Result {
+    /** Liest den Wert einer Einstellung in genau dem erwarteten Typ; null, wenn er fehlt oder nicht passt. */
+    private fun parsePrefValue(type: String, o: JSONObject): Any? = try {
+        when (type) {
+            "b" -> o.getBoolean("v")
+            "i" -> o.getInt("v")
+            "l" -> o.getLong("v")
+            "f" -> o.getDouble("v").takeIf { it.isFinite() }?.toFloat()
+            "s" -> o.getString("v")
+            "set" -> o.getJSONArray("v").let { a -> (0 until a.length()).map { a.getString(it) }.toSet() }
+            else -> null
+        }
+    } catch (e: Exception) {
+        null
+    }
+
+    /**
+     * Prüft die Playlists aus einer Backup-Datei und baut sie neu auf: Nur Name, Titel-IDs, ID und Bildname bleiben, alles
+     * andere fällt weg. ID und Bildname werden später als Dateiname benutzt und müssen deshalb schlicht sein; eine
+     * ungültige oder doppelte ID wird ersetzt, ein ungültiger Bildname entfällt. Null, wenn die Daten unlesbar sind.
+     */
+    private fun sanitizePlaylists(raw: String): String? = try {
+        val arr = JSONArray(raw)
+        val out = JSONArray()
+        val usedIds = HashSet<String>()
+        val stamp = System.currentTimeMillis()
+        for (i in 0 until arr.length()) {
+            val pl = arr.optJSONObject(i) ?: continue
+            val name = pl.opt("name") as? String ?: continue
+            val songsIn = pl.optJSONArray("songs") ?: continue
+            val songsOut = JSONArray()
+            for (j in 0 until songsIn.length()) {
+                val n = songsIn.opt(j) as? Number ?: continue
+                songsOut.put(n.toLong())
+            }
+            val given = pl.opt("id") as? String
+            val id = if (given != null && isSafePlaylistId(given) && usedIds.add(given)) given
+            else "r${stamp}_$i".also { usedIds.add(it) }
+            val o = JSONObject().put("id", id).put("name", name).put("songs", songsOut)
+            val cover = pl.opt("cover") as? String
+            if (cover != null && isSafeCoverName(cover)) o.put("cover", cover)
+            out.put(o)
+        }
+        out.toString()
+    } catch (e: Exception) {
+        null
+    }
+
+    /** Stellt aus einer Backup-Datei wieder her. Eine beschädigte oder manipulierte Datei ergibt [Result] mit ok = false, nie einen Absturz. */
+    fun restore(ctx: Context, text: String, songs: List<Song>): Result =
+        try {
+            restoreChecked(ctx, text, songs)
+        } catch (e: Exception) {
+            Result(false)
+        }
+
+    private fun restoreChecked(ctx: Context, text: String, songs: List<Song>): Result {
         val root = try { JSONObject(text) } catch (e: Exception) { return Result(false) }
         if (root.optString("format") != FORMAT) return Result(false)
+        // Eine Datei aus einer neueren App-Version kennt vielleicht Dinge, die diese Version falsch deuten würde
+        if (root.optInt("version", 0) !in 1..VERSION) return Result(false)
         val prefsJson = root.optJSONObject("prefs") ?: return Result(false)
         val songsJson = root.optJSONObject("songs") ?: JSONObject()
+
+        // Erst alles prüfen, dann schreiben: nur bekannte Einstellungen, jede im erwarteten Typ
+        val staged = LinkedHashMap<String, Any>()
+        val keys = prefsJson.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            if (key in SKIP) continue
+            val type = PREF_TYPES[key] ?: continue
+            val o = prefsJson.optJSONObject(key) ?: continue
+            if (o.optString("t") != type) continue
+            var value: Any = parsePrefValue(type, o) ?: continue
+            if (key == PLAYLISTS) value = sanitizePlaylists(value as String) ?: continue
+            staged[key] = value
+        }
 
         val p = prefs(ctx)
         val edit = p.edit()
         // Vorhandene Einstellungen ersetzen (Zwischenspeicher und Warteschlange bleiben, wie sie sind; das Hörprofil
         // wird nur ersetzt, wenn das Backup eines enthält)
         for (key in p.all.keys) if (key !in SKIP && key !in PROFILE) edit.remove(key)
-        val keys = prefsJson.keys()
-        while (keys.hasNext()) {
-            val key = keys.next()
-            if (key in SKIP) continue
-            val o = prefsJson.optJSONObject(key) ?: continue
-            when (o.optString("t")) {
-                "b" -> edit.putBoolean(key, o.getBoolean("v"))
-                "i" -> edit.putInt(key, o.getInt("v"))
-                "l" -> edit.putLong(key, o.getLong("v"))
-                "f" -> edit.putFloat(key, o.getDouble("v").toFloat())
-                "s" -> edit.putString(key, o.getString("v"))
-                "set" -> {
-                    val arr = o.getJSONArray("v")
-                    edit.putStringSet(key, (0 until arr.length()).map { arr.getString(it) }.toSet())
-                }
+        for ((key, v) in staged) {
+            when (v) {
+                is Boolean -> edit.putBoolean(key, v)
+                is Int -> edit.putInt(key, v)
+                is Long -> edit.putLong(key, v)
+                is Float -> edit.putFloat(key, v)
+                is String -> edit.putString(key, v)
+                is Set<*> -> edit.putStringSet(key, v.map { it.toString() }.toSet())
             }
         }
 
@@ -264,7 +365,7 @@ object Backup {
 
         // Titel-Listen mit neu zugeordneten IDs; nicht gefundene und mehrdeutige Titel fallen heraus
         val mapper = Mapper(songsJson, songs)
-        remapAll({ key -> prefsJson.optJSONObject(key)?.takeIf { it.has("v") }?.optString("v") }, edit, mapper)
+        remapAll({ key -> staged[key] as? String }, edit, mapper)
         val ok = edit.commit()
         if (ok) pendingFile.delete()   // ein früheres, noch offenes Nachordnen ist damit überholt
         return Result(ok, mapper.found.size, mapper.seen.size, mapper.ambiguous.size)

@@ -47,7 +47,7 @@ import kotlin.math.tanh
  */
 
 /** Zielpegel in LUFS, auf den Titel gebracht werden. */
-private const val TARGET_LUFS = -8f
+private const val TARGET_LUFS = -14f
 
 /** Stärkste Anhebung und Absenkung in dB. */
 private const val MAX_BOOST_DB = 6f
@@ -455,6 +455,9 @@ object LoudnessAnalyzer {
      * Verstärkung sofort da ist.
      * [featureSink] bekommt die Klangmerkmale, wenn der Titel ohnehin decodiert wird. Hat der Titel einen ReplayGain-Tag,
      * wird er nur mit [requireFeatures] = true trotzdem decodiert (Hintergrundlauf), sonst bleibt es beim Tag.
+     * Fehlt dem Tag der Spitzenpegel, wird im gründlichen Lauf ([full]) ebenfalls decodiert: Die Lautheit bleibt die aus dem
+     * Tag, der Spitzenpegel kommt aus der Messung. (Die schnelle Messung sieht nur einen Ausschnitt, ihr Spitzenpegel
+     * wäre zu niedrig und würde zu stark anheben, deshalb wird er hier nie übernommen.)
      */
     fun analyze(
         ctx: Context,
@@ -465,9 +468,13 @@ object LoudnessAnalyzer {
         full: Boolean = false
     ): LoudnessCache.Entry? {
         val tagged = fromReplayGain(ctx, uri)
-        if (tagged != null && !requireFeatures) return tagged
+        val needPeak = full && tagged != null && tagged.peak <= 0f
+        if (tagged != null && !requireFeatures && !needPeak) return tagged
         val measured = measure(ctx, uri, durationHintMs, featureSink, full)
-        return tagged ?: measured
+        if (tagged == null) return measured
+        // Tag bevorzugt, aber ein fehlender Spitzenpegel wird aus der gründlichen Messung ergänzt
+        if (needPeak && measured != null && measured.peak > 0f) return LoudnessCache.Entry(tagged.lufs, measured.peak)
+        return tagged
     }
 
     /** REPLAYGAIN_TRACK_GAIN bezieht sich auf -18 LUFS. */
