@@ -254,4 +254,44 @@
         <item quantity="one">%d folder</item>
         <item quantity="other">%d folders</item>
     </plurals>
+    <string name="stats_title">Statistics</string>
+    <string name="stats_sub">Charts and rankings of your listening</string>
+    <string name="stats_library">Library</string>
+    <string name="stats_tracks">Tracks</string>
+    <string name="stats_albums">Albums</string>
+    <string name="stats_artists">Artists</string>
+    <string name="stats_library_duration">Library length</string>
+    <string name="stats_period">Period</string>
+    <string name="stats_plays">Plays</string>
+    <string name="stats_listen_time">Listening time (approx.)</string>
+    <string name="stats_days">Days</string>
+    <string name="stats_streak">Longest streak</string>
+    <string name="stats_cumulative">Total played</string>
+    <string name="stats_days_chart">Days</string>
+    <string name="stats_clock">Listening clock</string>
+    <string name="stats_peak">Peak</string>
+    <string name="stats_habits">Habits</string>
+    <string name="stats_repeat_rate">Repeat rate</string>
+    <string name="stats_twice">Played 2+ times</string>
+    <string name="stats_ten">Played 10+ times</string>
+    <string name="stats_library_use">Library used</string>
+    <string name="stats_earliest">Earliest</string>
+    <string name="stats_latest">Latest</string>
+    <string name="stats_obsession">Obsession</string>
+    <string name="stats_obsession_sub">Most played in a single day</string>
+    <string name="stats_discoveries">Discoveries</string>
+    <string name="stats_discoveries_sub">Heard for the first time in this period</string>
+    <string name="stats_top_tracks">Top tracks</string>
+    <string name="stats_top_artists">Top artists</string>
+    <string name="stats_artist">Artist</string>
+    <string name="stats_album">Album</string>
+    <string name="stats_completed_albums">Completed albums</string>
+    <string name="stats_listen_total">Total listening time</string>
+    <string name="stats_decades">Decades</string>
+    <string name="stats_show_more">Show more</string>
+    <string name="stats_show_less">Show less</string>
+    <plurals name="n_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
 </resources>
