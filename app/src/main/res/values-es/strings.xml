@@ -257,4 +257,45 @@
         <item quantity="many">%d de carpetas</item>
         <item quantity="other">%d carpetas</item>
     </plurals>
+    <string name="stats_title">Estadísticas</string>
+    <string name="stats_sub">Gráficos y rankings de tu escucha</string>
+    <string name="stats_library">Biblioteca</string>
+    <string name="stats_tracks">Canciones</string>
+    <string name="stats_albums">Álbumes</string>
+    <string name="stats_artists">Artistas</string>
+    <string name="stats_library_duration">Duración de la biblioteca</string>
+    <string name="stats_period">Periodo</string>
+    <string name="stats_plays">Reproducciones</string>
+    <string name="stats_listen_time">Tiempo de escucha (aprox.)</string>
+    <string name="stats_days">Días</string>
+    <string name="stats_streak">Racha más larga</string>
+    <string name="stats_cumulative">Total escuchado</string>
+    <string name="stats_days_chart">Días</string>
+    <string name="stats_clock">Reloj de escucha</string>
+    <string name="stats_peak">Pico</string>
+    <string name="stats_habits">Hábitos</string>
+    <string name="stats_repeat_rate">Tasa de repetición</string>
+    <string name="stats_twice">Escuchadas 2+ veces</string>
+    <string name="stats_ten">Escuchadas 10+ veces</string>
+    <string name="stats_library_use">Biblioteca usada</string>
+    <string name="stats_earliest">Más temprano</string>
+    <string name="stats_latest">Más tarde</string>
+    <string name="stats_obsession">Obsesión</string>
+    <string name="stats_obsession_sub">Lo más escuchado en un solo día</string>
+    <string name="stats_discoveries">Descubrimientos</string>
+    <string name="stats_discoveries_sub">Escuchado por primera vez en este periodo</string>
+    <string name="stats_top_tracks">Canciones top</string>
+    <string name="stats_top_artists">Artistas top</string>
+    <string name="stats_artist">Artista</string>
+    <string name="stats_album">Álbum</string>
+    <string name="stats_completed_albums">Álbumes completados</string>
+    <string name="stats_listen_total">Tiempo total de escucha</string>
+    <string name="stats_decades">Décadas</string>
+    <string name="stats_show_more">Mostrar más</string>
+    <string name="stats_show_less">Mostrar menos</string>
+    <plurals name="n_days">
+        <item quantity="one">%d día</item>
+        <item quantity="many">%d de días</item>
+        <item quantity="other">%d días</item>
+    </plurals>
 </resources>
