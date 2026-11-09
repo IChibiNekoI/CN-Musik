@@ -254,4 +254,44 @@
         <item quantity="one">%d Ordner</item>
         <item quantity="other">%d Ordner</item>
     </plurals>
+    <string name="stats_title">Statistik</string>
+    <string name="stats_sub">Diagramme und Ranglisten deines Hörens</string>
+    <string name="stats_library">Bibliothek</string>
+    <string name="stats_tracks">Titel</string>
+    <string name="stats_albums">Alben</string>
+    <string name="stats_artists">Künstler</string>
+    <string name="stats_library_duration">Gesamte Titeldauer</string>
+    <string name="stats_period">Zeitraum</string>
+    <string name="stats_plays">Wiedergaben</string>
+    <string name="stats_listen_time">Hördauer (ca.)</string>
+    <string name="stats_days">Tage</string>
+    <string name="stats_streak">Längste Serie</string>
+    <string name="stats_cumulative">Gesamt angehört</string>
+    <string name="stats_days_chart">Tage</string>
+    <string name="stats_clock">Höruhr</string>
+    <string name="stats_peak">Spitze</string>
+    <string name="stats_habits">Gewohnheiten</string>
+    <string name="stats_repeat_rate">Wiederholrate</string>
+    <string name="stats_twice">Mindestens 2× gehört</string>
+    <string name="stats_ten">Mindestens 10× gehört</string>
+    <string name="stats_library_use">Bibliothek genutzt</string>
+    <string name="stats_earliest">Früheste</string>
+    <string name="stats_latest">Späteste</string>
+    <string name="stats_obsession">Obsession</string>
+    <string name="stats_obsession_sub">An einem Tag am häufigsten gespielt</string>
+    <string name="stats_discoveries">Entdeckungen</string>
+    <string name="stats_discoveries_sub">In diesem Zeitraum zum ersten Mal gehört</string>
+    <string name="stats_top_tracks">Top Titel</string>
+    <string name="stats_top_artists">Top Künstler</string>
+    <string name="stats_artist">Künstler</string>
+    <string name="stats_album">Album</string>
+    <string name="stats_completed_albums">Abgeschlossene Alben</string>
+    <string name="stats_listen_total">Gesamte Hördauer</string>
+    <string name="stats_decades">Jahrzehnte</string>
+    <string name="stats_show_more">Mehr anzeigen</string>
+    <string name="stats_show_less">Weniger anzeigen</string>
+    <plurals name="n_days">
+        <item quantity="one">%d Tag</item>
+        <item quantity="other">%d Tage</item>
+    </plurals>
 </resources>
