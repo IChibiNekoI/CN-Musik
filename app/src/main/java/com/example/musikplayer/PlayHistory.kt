@@ -131,6 +131,17 @@ object PlayHistory {
         }
     }
 
+    /** Kopie des ganzen Verlaufs (Titel-IDs und Zeitpunkte in Sekunden) für die Statistik; [firstSec] = ältester Eintrag, 0 ohne Verlauf. */
+    class Snapshot(val ids: LongArray, val secs: LongArray, val firstSec: Long)
+
+    /** Gehört auf einen Hintergrund-Thread. */
+    fun snapshot(ctx: Context): Snapshot = synchronized(lock) {
+        ensureLoaded(ctx)
+        var first = 0L
+        for (i in 0 until size) if (first == 0L || times[i] < first) first = times[i]
+        Snapshot(ids.copyOf(size), times.copyOf(size), first)
+    }
+
     /** Der ganze Verlauf als "id:sekunden,id:sekunden,..." für das Backup (gleiches Format wie das 30-Tage-Protokoll). */
     fun exportRaw(ctx: Context): String = synchronized(lock) {
         ensureLoaded(ctx)

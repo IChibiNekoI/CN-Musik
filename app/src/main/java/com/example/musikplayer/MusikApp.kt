@@ -7,6 +7,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.AnimatedVisibility
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.slideInVertically
@@ -123,6 +127,7 @@ fun MusikApp(
     var albumStyle by remember { mutableStateOf(readAlbumStyle(ctx)) }
     var playlistStyle by remember { mutableStateOf(readPlaylistStyle(ctx)) }
     var showSettings by remember { mutableStateOf(false) }
+    var statsOpen by remember { mutableStateOf(false) }   // Statistik als eigene Seite
     var albumRequest by remember { mutableStateOf<String?>(null) }
     var playlistRequest by remember { mutableStateOf<Song?>(null) }
     var refreshTick by remember { mutableIntStateOf(0) }
@@ -564,6 +569,22 @@ fun MusikApp(
                 )
             }
         }
+        // Statistik: eigene Seite über der Hauptseite, der Miniplayer bleibt davor
+        AnimatedVisibility(
+            visible = statsOpen,
+            enter = slideInHorizontally(tween(Motion.MEDIUM, easing = Motion.Ease)) { it / 6 } + fadeIn(tween(Motion.MEDIUM)),
+            exit = slideOutHorizontally(tween(Motion.MEDIUM, easing = Motion.Ease)) { it / 6 } + fadeOut(tween(Motion.MEDIUM))
+        ) {
+            val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+            // Auch ausgeblendete Titel zählen in der Statistik; die Liste bleibt dieselbe, solange sich nichts ändert
+            val statSongs = remember(allSongs, hiddenSongs) { (allSongs + hiddenSongs).distinctBy { it.id } }
+            StatsScreen(
+                songs = statSongs,
+                bottomSpace = navBottom + if (miniVisible) 100.dp else 0.dp,
+                onBack = { statsOpen = false }
+            )
+        }
+        BackHandler(enabled = statsOpen) { statsOpen = false }
         if (current != null && controller != null) {
             Box(
                 Modifier
@@ -702,6 +723,7 @@ fun MusikApp(
                         Toast.makeText(ctx, plural(R.plurals.library_updated, n), Toast.LENGTH_SHORT).show()
                     }
                 },
+                onOpenStats = { showSettings = false; statsOpen = true },
                 onDismiss = { showSettings = false }
             )
         }

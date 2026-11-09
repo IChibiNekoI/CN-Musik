@@ -99,6 +99,7 @@ fun AppSettingsSheet(
     onLanguage: (AppLang) -> Unit,
     rescanning: Boolean,
     onRescan: () -> Unit,
+    onOpenStats: () -> Unit,
     onDismiss: () -> Unit
 ) {
     var page by remember { mutableStateOf("main") }
@@ -277,6 +278,14 @@ fun AppSettingsSheet(
                     },
                     colors = clear,
                     modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { page = "hidden" }
+                )
+                ListItem(
+                    headlineContent = { Text(str(R.string.stats_title)) },
+                    supportingContent = { Text(str(R.string.stats_sub)) },
+                    leadingContent = { StatsIcon() },
+                    trailingContent = { ChevronRightIcon() },
+                    colors = clear,
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f, haptic = false) { onOpenStats() }
                 )
                 HorizontalDivider(Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
                 Text(
