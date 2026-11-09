@@ -228,6 +228,8 @@ fun MusikApp(
     var currentId by remember { mutableStateOf<String?>(null) }
     var shuffle by remember { mutableStateOf(false) }
     var repeat by remember { mutableIntStateOf(Player.REPEAT_MODE_OFF) }
+    // Steigt, wenn derselbe Titel durch "Wiederholen" von vorn beginnt: Das zählt als neue Wiedergabe
+    var repeatTick by remember { mutableIntStateOf(0) }
     var showNow by remember { mutableStateOf(false) }
     var origin by remember { mutableStateOf<MiniOrigin?>(null) }
     // zuletzt bekannte Position des Miniplayers: Ziel beim Schließen, auch wenn der Player über die Benachrichtigung geöffnet wurde
@@ -289,6 +291,7 @@ fun MusikApp(
             }
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                 currentId = item?.mediaId
+                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) repeatTick++
                 // ganze Warteschlange nur speichern, wenn sie neu ist; sonst reicht die Position
                 saveQueueState(ctx, c, full = reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED)
             }
@@ -297,6 +300,11 @@ fun MusikApp(
                 newPosition: Player.PositionInfo,
                 reason: Int
             ) {
+                // Derselbe Titel beginnt von vorn (Wiederholen): zur Sicherheit auch hier erkennen, falls der Player keinen Wechsel meldet
+                if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION &&
+                    oldPosition.mediaItemIndex == newPosition.mediaItemIndex &&
+                    newPosition.positionMs < oldPosition.positionMs
+                ) repeatTick++
                 // Skip im Neko Mix: Nur Weiterschalten per Hand zählt (kein automatisches Ende, kein Entfernen aus der Warteschlange),
                 // nur nach vorn, nur für Titel, die der Mix gestartet hat, und nur, wenn der Titel noch nicht lange lief.
                 if (reason != Player.DISCONTINUITY_REASON_SEEK) return
@@ -352,11 +360,17 @@ fun MusikApp(
     var lastHistoryId by remember { mutableStateOf<String?>(null) }
     var lastCountedId by remember { mutableStateOf<String?>(null) }
     var lastSeenId by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(currentId, isPlaying) {
+    var lastRepeatTick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(currentId, isPlaying, repeatTick) {
         // Ein anderer Titel als zuvor: Was früher gezählt wurde, zählt bei einem neuen Anspielen wieder. Sonst ginge A, dann B
         // (schnell übersprungen) und wieder A verloren, weil A noch als "zuletzt gezählt" gälte. Pause und Weiter beim selben Titel zählt nicht doppelt.
         if (currentId != lastSeenId) {
             lastSeenId = currentId
+            lastCountedId = null
+        }
+        // Wiederholen: Der Titel beginnt von vorn und zählt nach 3 Sekunden erneut
+        if (repeatTick != lastRepeatTick) {
+            lastRepeatTick = repeatTick
             lastCountedId = null
         }
         // Läuft ein anderer Titel als der vorgemerkte, wurde der vorgemerkte übersprungen und zählt nicht
