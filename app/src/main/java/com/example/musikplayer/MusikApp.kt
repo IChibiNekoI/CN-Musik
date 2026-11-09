@@ -347,11 +347,20 @@ fun MusikApp(
         }
     }
     // Zuletzt gehört: Sobald ein Titel läuft (egal von wo gestartet), steht er im Verlauf. Pause und Weiter
-    // beim selben Titel schiebt ihn nicht erneut nach vorn. Fürs Hörprotokoll des Mixes (30 Tage) zählt eine Wiedergabe erst nach 10 Sekunden,
+    // beim selben Titel schiebt ihn nicht erneut nach vorn. Fürs Hörprotokoll des Mixes (30 Tage) zählt eine Wiedergabe erst nach 3 Sekunden,
     // damit Durchskippen es nicht verfälscht.
     var lastHistoryId by remember { mutableStateOf<String?>(null) }
     var lastCountedId by remember { mutableStateOf<String?>(null) }
+    var lastSeenId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(currentId, isPlaying) {
+        // Ein anderer Titel als zuvor: Was früher gezählt wurde, zählt bei einem neuen Anspielen wieder. Sonst ginge A, dann B
+        // (schnell übersprungen) und wieder A verloren, weil A noch als "zuletzt gezählt" gälte. Pause und Weiter beim selben Titel zählt nicht doppelt.
+        if (currentId != lastSeenId) {
+            lastSeenId = currentId
+            lastCountedId = null
+        }
+        // Läuft ein anderer Titel als der vorgemerkte, wurde der vorgemerkte übersprungen und zählt nicht
+        if (PlayHistory.pending?.id != currentId?.toLongOrNull()) PlayHistory.markPending(null)
         val id = currentId?.toLongOrNull() ?: return@LaunchedEffect
         if (!isPlaying) return@LaunchedEffect
         if (currentId != lastHistoryId) {
@@ -359,9 +368,14 @@ fun MusikApp(
             history = recordHistory(ctx, id, history)
         }
         if (currentId != lastCountedId) {
-            delay(10_000)
+            PlayHistory.markPending(id)   // zählt erst nach 3 Sekunden, "Meistens gespielt" rechnet ihn aber schon mit
+            delay(3_000)
             lastCountedId = currentId
             playLog = recordPlay(ctx, id, playLog)
+            // dauerhafter Verlauf für "Meistens gespielt"; NonCancellable, damit ein Titelwechsel genau jetzt die Wiedergabe nicht verschluckt
+            withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) { PlayHistory.record(ctx, id) }
+        } else {
+            PlayHistory.markPending(null)   // dieser Titel ist schon gezählt
         }
     }
     // Beim Abspielen alle 15 Sekunden die Position sichern (falls die App im Hintergrund beendet wird)

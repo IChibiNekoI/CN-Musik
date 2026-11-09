@@ -26,6 +26,9 @@ object Backup {
     private const val FORMAT = "cn-musik-backup"
     private const val VERSION = 1
     private const val PENDING_FILE = "backup_pending.json"
+    // Der dauerhafte Hörverlauf ("Meistens gespielt") liegt in einer eigenen Datei und steht im Backup nur mit dem Hörprofil
+    private const val HISTORY_KEY = "play_history"
+    private const val HISTORY_PENDING_FILE = "backup_history_pending.txt"
     private const val DURATION_TOLERANCE_MS = 2_000L
 
     /** Größer darf eine Backup-Datei nicht sein (eine echte ist deutlich kleiner); schützt vor Speicherproblemen */
@@ -57,7 +60,7 @@ object Backup {
             "audio_info", "auto_gain", "cover_shadow", "fox_unlocked", "haptics", "header_logo", "menu_unified",
             "mix_shuffle", "show_home", "show_output_device", "show_song_duration", "shuffle", "swipe_header", "wave_progress"
         ).associateWith { "b" } +
-            listOf("mix_repeat", "repeat").associateWith { "i" } +
+            listOf("mix_repeat", "most_played_range", "repeat").associateWith { "i" } +
             listOf("mix_order_seed", "mix_seed", "q_pos").associateWith { "l" } +
             listOf(
                 "album_style", "corner_style", "favorites", "header_style", "hidden_songs", "history", "language",
@@ -117,12 +120,15 @@ object Backup {
 
         // Alle Titel, auf die sich Ausgeblendete, Favoriten, Playlists (und das Hörprofil) beziehen, mit Merkmalen zum Wiederfinden
         val used = linkedSetOf<Long>()
+        var historyRaw = ""
         used += readHiddenSongs(ctx)
         used += readFavorites(ctx)
         readPlaylists(ctx).forEach { used += it.songIds }
         if (includeProfile) {
             used += idsOfList(p.getString("history", null))
             for (key in ID_ENTRIES) used += idsOfEntries(p.getString(key, null))
+            historyRaw = PlayHistory.exportRaw(ctx)
+            used += idsOfEntries(historyRaw)
         }
         val byId = songs.associateBy { it.id }
         val songsJson = JSONObject()
@@ -135,6 +141,8 @@ object Backup {
                     .put("folder", s.folder).put("fileName", s.fileName).put("durationMs", s.durationMs)
             )
         }
+
+        if (historyRaw.isNotEmpty()) prefsJson.put(HISTORY_KEY, JSONObject().put("t", "s").put("v", historyRaw))
 
         return JSONObject()
             .put("format", FORMAT)
@@ -336,6 +344,10 @@ object Backup {
             staged[key] = value
         }
 
+        // Hörverlauf ("Meistens gespielt"): nur wenn das Backup einen enthält, ersetzt er den vorhandenen
+        val historyRaw = prefsJson.optJSONObject(HISTORY_KEY)
+            ?.takeIf { it.optString("t") == "s" }?.optString("v")?.takeIf { it.isNotEmpty() }
+
         val p = prefs(ctx)
         val edit = p.edit()
         // Vorhandene Einstellungen ersetzen (Zwischenspeicher und Warteschlange bleiben, wie sie sind; das Hörprofil
@@ -353,12 +365,17 @@ object Backup {
         }
 
         val pendingFile = File(ctx.filesDir, PENDING_FILE)
+        val historyPending = File(ctx.filesDir, HISTORY_PENDING_FILE)
         if (songs.isEmpty()) {
             // Bibliothek noch nicht geladen: die alten IDs bleiben vorerst stehen (sonst gingen alle Verweise verloren).
             // Die Merkmale werden gemerkt, und sobald die Bibliothek da ist, ordnet resolvePending die Titel zu.
             val ok = edit.commit()
             if (ok) {
                 try { pendingFile.writeText(songsJson.toString()) } catch (e: Exception) { /* dann bleiben die alten IDs */ }
+                // Der Hörverlauf wartet mit seinen alten IDs, bis resolvePending ihn zuordnet
+                try {
+                    if (historyRaw != null) historyPending.writeText(historyRaw) else historyPending.delete()
+                } catch (e: Exception) { /* dann bleibt der bisherige Verlauf */ }
             }
             return Result(ok, pending = true)
         }
@@ -367,7 +384,11 @@ object Backup {
         val mapper = Mapper(songsJson, songs)
         remapAll({ key -> staged[key] as? String }, edit, mapper)
         val ok = edit.commit()
-        if (ok) pendingFile.delete()   // ein früheres, noch offenes Nachordnen ist damit überholt
+        if (ok) {
+            pendingFile.delete()   // ein früheres, noch offenes Nachordnen ist damit überholt
+            historyPending.delete()
+            if (historyRaw != null) PlayHistory.replaceFromRaw(ctx, remapEntries(historyRaw) { mapper.lookup(it) })
+        }
         return Result(ok, mapper.found.size, mapper.seen.size, mapper.ambiguous.size)
     }
 
@@ -383,13 +404,22 @@ object Backup {
     fun resolvePending(ctx: Context, songs: List<Song>): Result? {
         val f = File(ctx.filesDir, PENDING_FILE)
         if (!f.exists() || songs.isEmpty()) return null
-        val songsJson = try { JSONObject(f.readText()) } catch (e: Exception) { f.delete(); return null }
+        val historyPending = File(ctx.filesDir, HISTORY_PENDING_FILE)
+        val songsJson = try { JSONObject(f.readText()) } catch (e: Exception) { f.delete(); historyPending.delete(); return null }
         val p = prefs(ctx)
         val edit = p.edit()
         val mapper = Mapper(songsJson, songs)
         remapAll({ key -> p.getString(key, null) }, edit, mapper)
         val ok = edit.commit()
-        if (ok) f.delete()
+        if (ok) {
+            f.delete()
+            if (historyPending.exists()) {
+                try {
+                    PlayHistory.replaceFromRaw(ctx, remapEntries(historyPending.readText()) { mapper.lookup(it) })
+                } catch (e: Exception) { /* dann bleibt der bisherige Verlauf */ }
+                historyPending.delete()
+            }
+        }
         return Result(ok, mapper.found.size, mapper.seen.size, mapper.ambiguous.size)
     }
 }

@@ -10,24 +10,29 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** Kennung des Start-Tabs. Die übrigen Tabs behalten ihre Nummern (0 Titel, 1 Alben, 2 Playlists, 3 Favoriten). */
 const val HOME_TAB = -1
 
 /** So viele Alben und Titel zeigt die Startseite höchstens. */
 private const val HOME_ALBUMS = 12
-private const val HOME_TRACKS = 20
+private const val HOME_TRACKS = 10
 
 /**
- * Startseite: Dein Mix, zuletzt hinzugefügte Alben, zuletzt gehörte Titel.
+ * Startseite: Dein Mix, zuletzt hinzugefügte Alben, zuletzt gehörte Titel und ganz unten "Meistens gespielt".
  * Alles entsteht aus der Bibliothek und dem Verlauf; ohne Verlauf bleibt der Titel-Abschnitt mit einem Hinweis leer.
  */
 @Composable
@@ -44,6 +49,7 @@ fun HomeScreen(
     onPlayMix: (List<Song>) -> Unit,
     onOpenAlbum: (String) -> Unit,
     onReshuffle: () -> Unit,
+    onOpenMostPlayed: () -> Unit,
     onAddToPlaylist: (Song) -> Unit,
     onToggleFavorite: (Song) -> Unit,
     modifier: Modifier = Modifier
@@ -56,6 +62,20 @@ fun HomeScreen(
     }
     val byId = remember(songs) { songs.associateBy { it.id } }
     val recentTracks = remember(history, byId) { history.mapNotNull { byId[it] }.take(HOME_TRACKS) }
+
+    // Meistgehörte Titel der letzten 30 Tage für die Karte unten; wird im Hintergrund gelesen
+    val ctx = LocalContext.current
+    val topRanked by produceState(initialValue = emptyList<PlayHistory.Ranked>(), history.firstOrNull(), songs.isEmpty(), PlayHistory.version) {
+        value = withContext(Dispatchers.IO) {
+            val now = System.currentTimeMillis() / 1000L
+            PlayHistory.ranking(ctx, now - 30L * 86_400L, now + 1L)
+        }
+    }
+    // Der laufende Titel zählt schon ab dem Start mit (vorläufig, bis er nach 3 Sekunden gespeichert wird)
+    val pending = PlayHistory.pending
+    val topSongs = remember(topRanked, pending, byId) {
+        PlayHistory.withPending(topRanked, pending, System.currentTimeMillis() / 1000L).mapNotNull { byId[it.id] }
+    }
 
     // Bewusst ohne Item-Schlüssel: Beim Start laden Bibliothek und Verlauf nach. Mit Schlüsseln hält die Liste den
     // gerade sichtbaren Abschnitt fest, und Mix und Alben, die oberhalb dazukommen, schieben die Ansicht nach unten.
@@ -122,6 +142,17 @@ fun HomeScreen(
                     onToggleFavorite = { onToggleFavorite(s) }
                 )
             }
+        }
+        // Immer sichtbar: Auch ohne Wiedergaben der letzten 30 Tage führt die Karte in die Ansicht (dort gibt es weitere Zeiträume)
+        item {
+            SearchSectionHeader(
+                icon = { HeadphonesIcon(iconSize = 22.dp, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                title = str(R.string.most_played_title),
+                topPadding = 24.dp
+            )
+        }
+        item {
+            MostPlayedCard(top = topSongs, onClick = onOpenMostPlayed)
         }
     }
 }

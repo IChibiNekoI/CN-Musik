@@ -273,6 +273,7 @@ fun LibraryScreen(
     }
     // Album wurde von der Startseite aus geöffnet: Zurück geht dorthin statt in den Album-Tab
     var albumFromHome by remember { mutableStateOf(false) }
+    var mostPlayedOpen by remember { mutableStateOf(false) }   // "Meistens gespielt" auf dem Start-Tab
     fun closeAlbum() {
         openAlbum = null
         if (albumFromHome) { albumFromHome = false; tab = HOME_TAB }
@@ -319,6 +320,9 @@ fun LibraryScreen(
         openPlaylist = null
         closeAlbum()
     }
+    BackHandler(enabled = mostPlayedOpen) { mostPlayedOpen = false }
+    // Beim Wechsel zu einem anderen Tab schließt sich "Meistens gespielt"
+    LaunchedEffect(tab) { if (tab != HOME_TAB) mostPlayedOpen = false }
     BackHandler(enabled = searching) {
         searching = false
         query = ""
@@ -747,7 +751,19 @@ fun LibraryScreen(
         ) { t ->
         Column(Modifier.fillMaxSize()) {
         when (t) {
-            HOME_TAB -> HomeScreen(
+            HOME_TAB -> if (mostPlayedOpen) {
+                MostPlayedScreen(
+                    songs = songs,
+                    currentId = currentId,
+                    favSet = favSet,
+                    bottomSpace = bottomSpace,
+                    onPlay = onPlay,
+                    onShufflePlay = onShufflePlay,
+                    onAddToPlaylist = { addSong = it },
+                    onToggleFavorite = onToggleFavorite,
+                    modifier = Modifier.weight(1f)
+                )
+            } else HomeScreen(
                 songs = songs,
                 mix = mix,
                 history = history,
@@ -760,6 +776,7 @@ fun LibraryScreen(
                 onPlayMix = { list -> onMixPlayed(list); onPlay(list, 0) },   // erst als Mix markieren, dann starten
                 onOpenAlbum = { name -> openPlaylist = null; openAlbum = name; albumFromHome = true; tab = 1 },
                 onReshuffle = { mixOrderSeed = newMixOrderSeed(ctx); appliedTaste = mixTaste },   // Würfel: auch den neuesten Hörstand einrechnen
+                onOpenMostPlayed = { mostPlayedOpen = true },
                 onAddToPlaylist = { addSong = it },
                 onToggleFavorite = onToggleFavorite,
                 modifier = Modifier.weight(1f)

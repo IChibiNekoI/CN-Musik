@@ -44,6 +44,8 @@ fun SongRow(
     onToggleFavorite: () -> Unit = {},
     // Tracknummer links vor dem Cover (nur in der Albenansicht), null = keine
     trackNumber: Int? = null,
+    // Anzahl der Wiedergaben als kleine Marke vor der Dauer (nur in "Meistens gespielt"), null = keine
+    playCount: Int? = null,
     modifier: Modifier = Modifier
 ) {
     // Die Hervorhebung des laufenden Titels erscheint sofort (kein Aufleuchten) und federt dabei mit kleinem
@@ -115,6 +117,23 @@ fun SongRow(
         trailingContent = {
             // Optional: Dauer des Liedes links neben dem Drei-Punkte-Menü
             Row(verticalAlignment = Alignment.CenterVertically) {
+            if (playCount != null) {
+                Box(
+                    Modifier
+                        .padding(end = 14.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .padding(horizontal = 9.dp, vertical = 3.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "$playCount",
+                        style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        maxLines = 1
+                    )
+                }
+            }
             if (CornerSettings.showSongDuration && song.durationMs > 0L) {
                 Text(
                     formatSongDuration(song.durationMs),
