@@ -75,7 +75,8 @@ fun MusikApp(
         if (needed.isNotEmpty()) launcher.launch(needed.toTypedArray())
     }
 
-    var allSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
+    // Beim Start sofort die zuletzt gespeicherte Titelliste zeigen; die Bibliothek wird im Hintergrund neu gelesen
+    var allSongs by remember { mutableStateOf<List<Song>>(if (granted) LibrarySnapshot.read(ctx) else emptyList()) }
     var folderRules by remember { mutableStateOf(readFolderRules(ctx)) }
     var sort by remember { mutableStateOf(readSort(ctx)) }
     var playlists by remember { mutableStateOf(readPlaylists(ctx)) }
@@ -147,17 +148,21 @@ fun MusikApp(
     }
     var startupDone by remember { mutableStateOf(false) }
     // Erst wenn die Bibliothek einmal geladen ist, darf "Keine Songs gefunden" erscheinen (nicht schon beim Start)
-    var libraryLoaded by remember { mutableStateOf(false) }
+    var libraryLoaded by remember { mutableStateOf(allSongs.isNotEmpty()) }
     LaunchedEffect(granted, refreshTick, TagEvents.tick) {
         if (!granted) return@LaunchedEffect
         // Die rohen Tags aus der Android-Datenbank werden nie angezeigt, sonst springen sie später um:
         // erst sofort mit den gespeicherten Datei-Tags anzeigen (liest keine Dateien),
         // dann geänderte Dateien nachlesen.
         suspend fun showWithFileTags(b: List<Song>) {
-            allSongs = refreshTagsFromFiles(ctx, b, force = false, cacheOnly = true)
+            // Nur ersetzen, wenn sich etwas geändert hat: So bleiben Startseite und Mix stehen, statt neu zu rechnen
+            val quick = refreshTagsFromFiles(ctx, b, force = false, cacheOnly = true)
+            if (quick != allSongs) allSongs = quick
             if (allSongs.isNotEmpty()) libraryLoaded = true
-            allSongs = refreshTagsFromFiles(ctx, b, force = false)
+            val full = refreshTagsFromFiles(ctx, b, force = false)
+            if (full != allSongs) allSongs = full
             libraryLoaded = true
+            withContext(Dispatchers.IO) { LibrarySnapshot.write(ctx, full) }   // Kopie für den nächsten Start
         }
         var base = withContext(Dispatchers.IO) { loadLibrary(ctx) }
         showWithFileTags(base)
