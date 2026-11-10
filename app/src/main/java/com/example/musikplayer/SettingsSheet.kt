@@ -281,7 +281,6 @@ fun AppSettingsSheet(
                 )
                 ListItem(
                     headlineContent = { Text(str(R.string.stats_title)) },
-                    supportingContent = { Text(str(R.string.stats_sub)) },
                     leadingContent = { StatsIcon() },
                     trailingContent = { ChevronRightIcon() },
                     colors = clear,

@@ -1,6 +1,8 @@
 package com.example.musikplayer
 
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.HashMap
 import java.util.Locale
@@ -21,8 +23,14 @@ class StatAlbum(val name: String, val tracks: Int, val plays: Int)
 /** Zeitfenster der Statistik in lokalen Tagen. [days] = 0 steht für die gesamte Zeit. */
 class StatsWindow(val fromSec: Long, val toSec: Long, val startDay: Long, val endDay: Long, val days: Int)
 
+/**
+ * Bitrate-Verteilung der Bibliothek: [buckets] zählt die Titel je Stufe (unter 128, 128 bis 255, 256 bis 319 und ab 320 kbps),
+ * [lossless] die verlustfreien davon, [counted] alle Titel, deren Bitrate oder Format bekannt ist.
+ */
+class AudioFacts(val buckets: IntArray, val lossless: Int, val counted: Int)
+
 /** Zahlen zur ganzen Bibliothek, unabhängig vom Zeitraum. */
-class LibraryFacts(val tracks: Int, val albums: Int, val artists: Int, val durationMs: Long)
+class LibraryFacts(val tracks: Int, val albums: Int, val artists: Int, val durationMs: Long, val audio: AudioFacts)
 
 /** Alles, was die Statistik für ein Zeitfenster zeigt. */
 class StatsResult(
@@ -35,11 +43,19 @@ class StatsResult(
     val streak: Int,
     val barValues: IntArray,
     val barLabels: List<String>,
+    /** Je Balken der Text für den Tooltip: Datum, Zeitspanne, Monat oder Jahr. */
+    val barTips: List<String>,
     /** Wiedergaben je Tag als Tabelle: Index = Woche * 7 + Wochentag (Montag = 0); -1 liegt außerhalb des Fensters. */
     val heat: IntArray,
     val heatWeeks: Int,
+    /** Nummer des lokalen Tages, auf den die erste Spalte der Tabelle ([heat]) beginnt (ein Montag). */
+    val heatStartDay: Long,
+    /** Monatsname über einer Spalte der Tabelle, wo ein neuer Monat beginnt, sonst leer. */
+    val heatMonths: List<String>,
     val hours: IntArray,
     val weekdays: IntArray,
+    /** Wiedergaben je Wochentag und Stunde: Index = Wochentag (Montag = 0) * 24 + Stunde. */
+    val weekHours: IntArray,
     val topTracks: List<StatTrack>,
     val topArtists: List<StatName>,
     val topAlbums: List<StatName>,
@@ -87,16 +103,51 @@ internal fun statDuration(ms: Long): String {
 /** Uhrzeit aus Minuten seit Mitternacht: "16:36". */
 internal fun statClock(minute: Int): String = String.format(Locale.US, "%02d:%02d", minute / 60, minute % 60)
 
+/** Bitrate eines Titels in kbps: laut MediaStore, sonst aus Dateigröße und Laufzeit geschätzt; 0 = unbekannt. */
+internal fun statKbps(s: Song): Int {
+    if (s.bitrate > 0) return (s.bitrate + 500) / 1000
+    if (s.size > 0L && s.durationMs > 0L) return (s.size * 8L / s.durationMs).toInt()
+    return 0
+}
+
+private val LOSSLESS_EXTENSIONS = setOf("flac", "wav", "wave", "aif", "aiff", "aifc", "ape", "wv", "alac", "dsf", "dff")
+
+/** Verlustfrei nach Dateiendung. ALAC steckt wie AAC in .m4a: AAC bleibt unter etwa 512 kbps, ALAC liegt meist deutlich darüber. */
+internal fun statIsLossless(s: Song, kbps: Int): Boolean {
+    val ext = s.fileName.substringAfterLast('.', "").lowercase(Locale.ROOT)
+    if (ext in LOSSLESS_EXTENSIONS) return true
+    return (ext == "m4a" || ext == "mp4") && kbps >= 600
+}
+
+/** Stufe der Bitrate: 0 = unter 128, 1 = 128 bis 255, 2 = 256 bis 319, 3 = ab 320 kbps. */
+internal fun statBitrateBucket(kbps: Int): Int = when {
+    kbps < 128 -> 0
+    kbps < 256 -> 1
+    kbps < 320 -> 2
+    else -> 3
+}
+
 internal fun libraryFacts(songs: List<Song>): LibraryFacts {
     val albums = HashSet<String>()
     val artists = HashSet<String>()
     var duration = 0L
+    val bitrates = IntArray(4)
+    var lossless = 0
+    var counted = 0
     for (s in songs) {
         if (s.album.isNotBlank()) albums.add(albumKeyOf(s))
         if (usable(s.artist)) artists.add(s.artist)
         duration += s.durationMs
+        val kbps = statKbps(s)
+        val isLossless = statIsLossless(s, kbps)
+        if (kbps > 0 || isLossless) {
+            counted++
+            // Verlustfrei ohne bekannte Bitrate gehört zur höchsten Stufe
+            bitrates[if (kbps > 0) statBitrateBucket(kbps) else 3]++
+            if (isLossless) lossless++
+        }
     }
-    return LibraryFacts(songs.size, albums.size, artists.size, duration)
+    return LibraryFacts(songs.size, albums.size, artists.size, duration, AudioFacts(bitrates, lossless, counted))
 }
 
 private fun weekdayShort(day: Long, locale: Locale): String =
@@ -105,9 +156,15 @@ private fun weekdayShort(day: Long, locale: Locale): String =
 private fun monthShort(date: LocalDate, locale: Locale): String =
     date.month.getDisplayName(TextStyle.SHORT, locale).removeSuffix(".").take(3)
 
-/** Balken des Wiedergaben-Diagramms: je nach Zeitraum je Tag, je Woche oder je Monat, mit sparsamen Beschriftungen. */
-private fun buckets(dayCounts: IntArray, w: StatsWindow, locale: Locale): Pair<IntArray, List<String>> {
+/**
+ * Balken des Wiedergaben-Diagramms: je nach Zeitraum je Tag, je Woche oder je Monat, mit sparsamen Beschriftungen.
+ * Dazu je Balken der volle Text für den Tooltip (Datum, Zeitspanne, Monat oder Jahr).
+ */
+private fun buckets(dayCounts: IntArray, w: StatsWindow, locale: Locale): Triple<IntArray, List<String>, List<String>> {
     val n = dayCounts.size
+    val dateFmt = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
+    fun date(day: Long): String = dateFmt.format(LocalDate.ofEpochDay(day))
+    fun span(a: Long, b: Long): String = if (a >= b) date(a) else date(a) + " – " + date(b)
     if (w.days in 1..31) {
         // Woche und Monat: je Tag ein Balken
         val labels = List(n) { i ->
@@ -118,7 +175,8 @@ private fun buckets(dayCounts: IntArray, w: StatsWindow, locale: Locale): Pair<I
                 else -> ""
             }
         }
-        return dayCounts.copyOf() to labels
+        val tips = List(n) { i -> date(w.startDay + i) }
+        return Triple(dayCounts.copyOf(), labels, tips)
     }
     if (w.days in 32..200) {
         // 3 und 6 Monate: je Woche ein Balken
@@ -128,7 +186,8 @@ private fun buckets(dayCounts: IntArray, w: StatsWindow, locale: Locale): Pair<I
         val labels = List(weeks) { k ->
             if (k % 4 == 0) monthShort(LocalDate.ofEpochDay(w.startDay + k * 7L), locale) else ""
         }
-        return v to labels
+        val tips = List(weeks) { k -> span(w.startDay + k * 7L, minOf(w.startDay + k * 7L + 6L, w.endDay)) }
+        return Triple(v, labels, tips)
     }
     if (w.days > 200) {
         // Jahr: zwölf Balken zu je gut 30 Tagen
@@ -137,7 +196,13 @@ private fun buckets(dayCounts: IntArray, w: StatsWindow, locale: Locale): Pair<I
         val labels = List(12) { k ->
             if (k % 2 == 0) monthShort(LocalDate.ofEpochDay(w.startDay + k.toLong() * n / 12), locale) else ""
         }
-        return v to labels
+        // Balken k deckt die Tage i mit i * 12 / n == k ab
+        val tips = List(12) { k ->
+            val from = (k * n + 11) / 12
+            val to = ((k + 1) * n + 11) / 12 - 1
+            span(w.startDay + from, w.startDay + to)
+        }
+        return Triple(v, labels, tips)
     }
     // Gesamte Zeit: je Monat, bei mehr als drei Jahren je Jahr
     val months = LinkedHashMap<Int, Int>()
@@ -149,13 +214,16 @@ private fun buckets(dayCounts: IntArray, w: StatsWindow, locale: Locale): Pair<I
     if (months.size > 36) {
         val years = LinkedHashMap<Int, Int>()
         for ((key, c) in months) years[key / 12] = (years[key / 12] ?: 0) + c
-        return years.values.toIntArray() to years.keys.map { it.toString() }
+        val names = years.keys.map { it.toString() }
+        return Triple(years.values.toIntArray(), names, names)
     }
     val keys = months.keys.toList()
     val labels = keys.mapIndexed { idx, key ->
         if (idx % 3 == 0) monthShort(LocalDate.of(key / 12, key % 12 + 1, 1), locale) else ""
     }
-    return months.values.toIntArray() to labels
+    val monthFmt = DateTimeFormatter.ofPattern("LLLL yyyy", locale)
+    val tips = keys.map { key -> monthFmt.format(LocalDate.of(key / 12, key % 12 + 1, 1)) }
+    return Triple(months.values.toIntArray(), labels, tips)
 }
 
 /**
@@ -189,6 +257,7 @@ internal fun computeStats(
     val perDayById = HashMap<Long, Int>()   // Schlüssel: Titel * 20000 + Tag im Fenster
     val hours = IntArray(24)
     val weekdays = IntArray(7)
+    val weekHours = IntArray(7 * 24)
     var plays = 0
     var listenMs = 0L
     var earliest = -1
@@ -210,6 +279,7 @@ internal fun computeStats(
         val secOfDay = Math.floorMod(local, DAY_S).toInt()
         hours[secOfDay / 3600]++
         weekdays[statWeekday(day)]++
+        weekHours[statWeekday(day) * 24 + secOfDay / 3600]++
         val minute = secOfDay / 60
         if (earliest < 0 || minute < earliest) earliest = minute
         if (minute > latest) latest = minute
@@ -229,7 +299,7 @@ internal fun computeStats(
         } else run = 0
     }
 
-    val (barValues, barLabels) = buckets(dayCounts, w, locale)
+    val (barValues, barLabels, barTips) = buckets(dayCounts, w, locale)
 
     // Tage-Tabelle (Wochen als Spalten); bei gesamter Zeit nur die letzten gut 53 Wochen
     var heatStart = w.startDay
@@ -241,6 +311,12 @@ internal fun computeStats(
     while (d <= w.endDay) {
         heat[((d - firstMonday) / 7).toInt() * 7 + statWeekday(d)] = dayCounts[(d - w.startDay).toInt()]
         d++
+    }
+
+    // Monatsnamen über der Tabelle: dort, wo eine Spalte in einem neuen Monat beginnt
+    val heatMonths = List(heatWeeks) { wk ->
+        val date = LocalDate.ofEpochDay(firstMonday + wk * 7L)
+        if (wk == 0 || LocalDate.ofEpochDay(firstMonday + wk * 7L - 7L).monthValue != date.monthValue) monthShort(date, locale) else ""
     }
 
     // Ranglisten
@@ -320,10 +396,14 @@ internal fun computeStats(
         streak = streak,
         barValues = barValues,
         barLabels = barLabels,
+        barTips = barTips,
         heat = heat,
         heatWeeks = heatWeeks,
+        heatStartDay = firstMonday,
+        heatMonths = heatMonths,
         hours = hours,
         weekdays = weekdays,
+        weekHours = weekHours,
         topTracks = ranked.take(20),
         topArtists = names(artistCounts).take(10),
         topAlbums = names(albumCounts).take(10),

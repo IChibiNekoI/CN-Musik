@@ -16,9 +16,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
@@ -40,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -54,6 +57,9 @@ import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Date
+
+/** Farben der Bitrate-Stufen (unter 128, 128 bis 255, 256 bis 319, ab 320 kbps): feste Farben, damit die Stufen unterscheidbar bleiben. */
+private val BITRATE_COLORS = listOf(Color(0xFFC96F66), Color(0xFFB38A74), Color(0xFF6FA774), Color(0xFF7186B5))
 
 /** Karte im Stil der Mix-Karte: abgerundet, mit Symbol und Titel in der Kopfzeile. */
 @Composable
@@ -209,6 +215,14 @@ fun StatsPage(songs: List<Song>, bottomExtra: Dp, modifier: Modifier = Modifier)
     val weekdayNames = remember(locale) {
         List(7) { LocalDate.of(2024, 1, 1 + it).dayOfWeek.getDisplayName(TextStyle.SHORT, locale).removeSuffix(".").take(2) }
     }
+    val weekdayFull = remember(locale) {
+        List(7) { LocalDate.of(2024, 1, 1 + it).dayOfWeek.getDisplayName(TextStyle.FULL, locale) }
+    }
+    val percent = remember(locale) {
+        NumberFormat.getPercentInstance(locale).apply { minimumFractionDigits = 1; maximumFractionDigits = 1 }
+    }
+    // Wert in den Tooltips: "24 Wiedergaben"
+    val playsText: (Int) -> String = { n -> plural(R.plurals.n_plays, n) }
 
     Column(
         modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -225,6 +239,45 @@ fun StatsPage(songs: List<Song>, bottomExtra: Dp, modifier: Modifier = Modifier)
                         statDuration(lib.durationMs) to str(R.string.stats_library_duration)
                     )
                 )
+            }
+            // Audio: Verteilung der Bitrate und wie viele Titel verlustfrei sind
+            val audio = lib.audio
+            if (audio.counted > 0) {
+                StatCard(str(R.string.stats_audio), { HeadphonesIcon() }) {
+                    val names = listOf("< 128 kbps", "128 – 255 kbps", "256 – 319 kbps", "320+ kbps")
+                    Row(
+                        Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        StatDonut(
+                            List(4) { DonutSlice(audio.buckets[it], BITRATE_COLORS[it]) },
+                            nf.format(audio.counted), str(R.string.stats_bitrate), diameter = 128.dp
+                        )
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            for (i in 0 until 4) {
+                                if (audio.buckets[i] <= 0) continue
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Box(Modifier.size(10.dp).clip(CircleShape).background(BITRATE_COLORS[i]))
+                                    Text(
+                                        names[i], modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                    Text(
+                                        percent.format(audio.buckets[i].toDouble() / audio.counted),
+                                        style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    StatPills(
+                        listOf(
+                            nf.format(audio.lossless) to str(R.string.stats_lossless),
+                            nf.format(audio.counted - audio.lossless) to str(R.string.stats_lossy)
+                        )
+                    )
+                }
             }
         }
 
@@ -284,13 +337,16 @@ fun StatsPage(songs: List<Song>, bottomExtra: Dp, modifier: Modifier = Modifier)
         }
         if (r != null && r.plays > 0) {
             StatCard(str(R.string.stats_plays), { MusicNoteIcon() }) {
-                StatBars(r.barValues, r.barLabels)
+                StatBars(r.barValues, r.barLabels, tipTitles = r.barTips, tipValue = playsText)
             }
             StatCard(str(R.string.stats_cumulative), { ClockIcon() }) {
-                StatCumulative(r.barValues, r.barLabels)
+                StatCumulative(r.barValues, r.barLabels, tipTitles = r.barTips, tipValue = playsText)
             }
             StatCard(str(R.string.stats_days_chart), { CalendarIcon() }) {
-                StatHeatmap(r.heat, r.heatWeeks)
+                StatHeatmap(
+                    r.heat, r.heatWeeks, r.heatStartDay, r.heatMonths, weekdayNames,
+                    tipTitle = { day -> dateFmt.format(Date(statDayStart(day) * 1000L)) }, tipValue = playsText
+                )
             }
 
             // Höruhr: zu welcher Tageszeit und an welchem Wochentag du hörst
@@ -298,9 +354,13 @@ fun StatsPage(songs: List<Song>, bottomExtra: Dp, modifier: Modifier = Modifier)
                 var peak = 0
                 for (h in 1 until 24) if (r.hours[h] > r.hours[peak]) peak = h
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    StatClock(r.hours, statClock(peak * 60), str(R.string.stats_peak))
+                    StatClock(r.hours, statClock(peak * 60), str(R.string.stats_peak), tipValue = playsText)
                 }
-                StatBars(r.weekdays, weekdayNames, chartHeight = 80.dp)
+                StatBars(r.weekdays, weekdayNames, chartHeight = 80.dp, tipTitles = weekdayFull, tipValue = playsText)
+                StatWeekHours(
+                    r.weekHours, weekdayNames,
+                    tipTitle = { d, h -> weekdayFull[d] + " · " + statClock(h * 60) }, tipValue = playsText
+                )
             }
 
             StatCard(str(R.string.stats_habits), { TrendIcon() }) {
@@ -403,10 +463,11 @@ fun StatsPage(songs: List<Song>, bottomExtra: Dp, modifier: Modifier = Modifier)
 
             if (r.decades.isNotEmpty()) {
                 StatCard(str(R.string.stats_decades), { CalendarIcon() }) {
+                    val decadeNames = r.decades.map { it.name + "s" }
                     StatBars(
                         IntArray(r.decades.size) { r.decades[it].count },
-                        r.decades.map { it.name + "s" },
-                        chartHeight = 90.dp
+                        decadeNames,
+                        chartHeight = 90.dp, tipTitles = decadeNames, tipValue = playsText
                     )
                 }
             }

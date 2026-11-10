@@ -231,6 +231,7 @@ fun loadLibrary(ctx: Context): List<Song> {
         MediaStore.Audio.Media.YEAR,
         MediaStore.Audio.Media.DURATION,
         MediaStore.Audio.Media.SIZE,
+        MediaStore.Audio.Media.BITRATE,
         folderField
     )
     ctx.contentResolver.query(
@@ -249,6 +250,7 @@ fun loadLibrary(ctx: Context): List<Song> {
         val yearCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
         val durCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
         val sizeCol = c.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
+        val bitrateCol = c.getColumnIndex(MediaStore.Audio.Media.BITRATE)
         while (c.moveToNext()) {
             val id = c.getLong(idCol)
             val raw = c.getString(folderCol) ?: ""
@@ -267,7 +269,8 @@ fun loadLibrary(ctx: Context): List<Song> {
                 fileName = c.getString(nameCol) ?: "",
                 year = c.getInt(yearCol),
                 durationMs = c.getLong(durCol),
-                size = c.getLong(sizeCol)
+                size = c.getLong(sizeCol),
+                bitrate = if (bitrateCol >= 0) c.getInt(bitrateCol) else 0
             )
         }
     }
