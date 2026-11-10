@@ -371,7 +371,8 @@ fun StatClock(
         detectTapGestures { p ->
             val dx = p.x - size.width / 2f
             val dy = p.y - size.height / 2f
-            val outer = size.minDimension / 2f - labelRoom.toPx()
+            // Hier ist size die Größe in ganzen Pixeln (IntSize) und hat kein minDimension wie die Zeichenfläche
+            val outer = minOf(size.width, size.height) / 2f - labelRoom.toPx()
             val inner = outer * 0.5f
             val r = sqrt(dx * dx + dy * dy)
             var hit = -1
