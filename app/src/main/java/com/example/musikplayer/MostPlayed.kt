@@ -281,7 +281,7 @@ fun MostPlayedScreen(
 
 /** Karte der Startseite: führt in "Meistens gespielt". Das Cover zeigt die meistgehörten Titel der letzten 30 Tage. */
 @Composable
-fun MostPlayedCard(top: List<Song>, onClick: () -> Unit) {
+fun MostPlayedCard(top: List<Song>, total: Int, onClick: () -> Unit) {
     val card = MaterialTheme.colorScheme.surfaceContainerHigh
     Row(
         Modifier
@@ -303,7 +303,7 @@ fun MostPlayedCard(top: List<Song>, onClick: () -> Unit) {
                 maxLines = 1, overflow = TextOverflow.Ellipsis
             )
             Text(
-                if (top.isEmpty()) str(R.string.most_played_empty) else plural(R.plurals.n_tracks, top.size),
+                if (total <= 0) str(R.string.most_played_empty) else plural(R.plurals.n_tracks, total),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1, overflow = TextOverflow.Ellipsis

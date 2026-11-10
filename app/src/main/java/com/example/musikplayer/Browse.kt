@@ -765,6 +765,7 @@ fun LibraryScreen(
                 )
             } else HomeScreen(
                 songs = songs,
+                loaded = loaded,
                 mix = mix,
                 history = history,
                 currentId = currentId,
