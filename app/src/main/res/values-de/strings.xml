@@ -128,6 +128,10 @@
         <item quantity="one">%d Titel</item>
         <item quantity="other">%d Titel</item>
     </plurals>
+    <plurals name="n_plays">
+        <item quantity="one">%d Wiedergabe</item>
+        <item quantity="other">%d Wiedergaben</item>
+    </plurals>
     <plurals name="n_songs">
         <item quantity="one">%d Song</item>
         <item quantity="other">%d Songs</item>
@@ -255,7 +259,6 @@
         <item quantity="other">%d Ordner</item>
     </plurals>
     <string name="stats_title">Statistik</string>
-    <string name="stats_sub">Diagramme und Ranglisten deines Hörens</string>
     <string name="stats_library">Bibliothek</string>
     <string name="stats_tracks">Titel</string>
     <string name="stats_albums">Alben</string>
@@ -288,6 +291,10 @@
     <string name="stats_completed_albums">Abgeschlossene Alben</string>
     <string name="stats_listen_total">Gesamte Hördauer</string>
     <string name="stats_decades">Jahrzehnte</string>
+    <string name="stats_audio">Audio</string>
+    <string name="stats_bitrate">Bitrate</string>
+    <string name="stats_lossless">Verlustfrei</string>
+    <string name="stats_lossy">Andere</string>
     <string name="stats_show_more">Mehr anzeigen</string>
     <string name="stats_show_less">Weniger anzeigen</string>
     <plurals name="n_days">
