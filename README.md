@@ -4,6 +4,8 @@
 
 # Musik
 
+<img width="1374" height="2863" alt="CN-Music1" src="https://github.com/user-attachments/assets/1f18d1c7-9f44-4e73-9c51-d06b8e815e6e" />
+
 **A lightweight, local-first music player for Android.**
 
 Listen to the music on your device with playlists, favorites, a built-in tag editor and a carefully crafted interface — without accounts, ads or tracking.
