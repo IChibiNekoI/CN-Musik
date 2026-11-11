@@ -66,6 +66,19 @@ internal fun AnimatedContentTransitionScope<String?>.pushPop(): ContentTransform
     return (enter togetherWith exit) using SizeTransform(clip = false)
 }
 
+/** Wie [pushPop], aber für eine Ansicht, die sich nur öffnet (true) oder schließt (false), z. B. "Meistens gespielt" auf der Startseite */
+internal fun AnimatedContentTransitionScope<Boolean>.pushPopFlag(): ContentTransform {
+    val push = targetState
+    val move = spring<IntOffset>(dampingRatio = 1f, stiffness = 380f, visibilityThreshold = IntOffset.VisibilityThreshold)
+    val enter = slideInHorizontally(move) { w -> if (push) w / 4 else -w / 8 } +
+        fadeIn(tween(Motion.MEDIUM, delayMillis = 40)) +
+        scaleIn(tween(Motion.MEDIUM, easing = Motion.Ease), initialScale = if (push) 0.96f else 1.03f)
+    val exit = slideOutHorizontally(move) { w -> if (push) -w / 8 else w / 4 } +
+        fadeOut(tween(Motion.FAST)) +
+        scaleOut(tween(Motion.MEDIUM, easing = Motion.Ease), targetScale = if (push) 1.03f else 0.96f)
+    return (enter togetherWith exit) using SizeTransform(clip = false)
+}
+
 /** Welche Ansicht die Suche gerade zeigt: Treffer, alle Alben oder ein geöffnetes Album. [depth] bestimmt die Richtung des Übergangs. */
 internal data class SearchView(val all: Boolean = false, val album: String? = null) {
     val depth: Int get() = (if (all) 1 else 0) + (if (album != null) 1 else 0)

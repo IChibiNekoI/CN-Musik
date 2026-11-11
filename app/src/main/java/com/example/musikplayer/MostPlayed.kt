@@ -63,6 +63,12 @@ enum class PlayRange(val days: Int, @StringRes val label: Int) {
 private const val DAY_SEC = 86_400L
 private const val RANGE_KEY = "most_played_range"
 
+/** Letzte Rangliste dieser Ansicht: Beim erneuten Öffnen steht sie sofort da (sonst glitte eine leere Liste herein), im Hintergrund wird neu gelesen. */
+private object RankCache {
+    var key = Long.MIN_VALUE
+    var value: List<PlayHistory.Ranked> = emptyList()
+}
+
 /** So weit lässt sich das Zeitfenster mindestens zurückschieben, auch wenn der Verlauf noch jung ist (dann sind die älteren Fenster leer). */
 private const val MIN_SLIDE_DAYS = 30L
 
@@ -127,8 +133,9 @@ fun MostPlayedScreen(
     val fromSec = if (n == 0L) 0L else startOfDay(end - n + 1)
     val toSec = if (n == 0L) Long.MAX_VALUE else startOfDay(end + 1)
 
-    var ranked by remember { mutableStateOf<List<PlayHistory.Ranked>>(emptyList()) }
-    var ready by remember { mutableStateOf(false) }
+    val cacheKey = range.ordinal * 100_000L + end
+    var ranked by remember { mutableStateOf(if (RankCache.key == cacheKey) RankCache.value else emptyList()) }
+    var ready by remember { mutableStateOf(RankCache.key == cacheKey) }
     // Mit jeder gezählten Wiedergabe neu laden, damit Zähler und Reihenfolge live stimmen
     val version = PlayHistory.version
     LaunchedEffect(range, end, version) {
@@ -136,6 +143,8 @@ fun MostPlayedScreen(
             if (range == PlayRange.ALL) PlayHistory.allTime(ctx) else PlayHistory.ranking(ctx, fromSec, toSec)
         }
         ready = true
+        RankCache.key = cacheKey
+        RankCache.value = ranked
     }
 
     val byId = remember(songs) { songs.associateBy { it.id } }

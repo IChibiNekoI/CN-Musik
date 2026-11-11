@@ -751,7 +751,14 @@ fun LibraryScreen(
         ) { t ->
         Column(Modifier.fillMaxSize()) {
         when (t) {
-            HOME_TAB -> if (mostPlayedOpen) {
+            // Wie Album und Playlist: "Meistens gespielt" schiebt sich weich herein und beim Zurückgehen wieder hinaus
+            HOME_TAB -> AnimatedContent(
+                targetState = mostPlayedOpen,
+                modifier = Modifier.weight(1f),
+                transitionSpec = { pushPopFlag() },
+                label = "mostPlayed"
+            ) { statsPage ->
+            if (statsPage) {
                 MostPlayedScreen(
                     songs = songs,
                     currentId = currentId,
@@ -761,9 +768,10 @@ fun LibraryScreen(
                     onShufflePlay = onShufflePlay,
                     onAddToPlaylist = { addSong = it },
                     onToggleFavorite = onToggleFavorite,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.fillMaxSize()
                 )
-            } else HomeScreen(
+            } else {
+              HomeScreen(
                 songs = songs,
                 loaded = loaded,
                 mix = mix,
@@ -780,8 +788,10 @@ fun LibraryScreen(
                 onOpenMostPlayed = { mostPlayedOpen = true },
                 onAddToPlaylist = { addSong = it },
                 onToggleFavorite = onToggleFavorite,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.fillMaxSize()
             )
+            }
+            }
             0 -> {
                 // Beim Start ist die Liste kurz leer, weil die Bibliothek noch lädt: dann keine Fehlermeldung zeigen
                 if (loaded && titleList.isEmpty()) {
