@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +27,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -109,6 +111,10 @@ fun MostPlayedScreen(
     onShufflePlay: (List<Song>) -> Unit,
     onAddToPlaylist: (Song) -> Unit,
     onToggleFavorite: (Song) -> Unit,
+    // Liste von außen: Die Wischgesten der Kopfzeile (Anfang, Ende, zum laufenden Titel) scrollen darin
+    listState: LazyListState = rememberLazyListState(),
+    // Meldet, an welcher Stelle der Liste der laufende Titel steht (-1 = nicht enthalten)
+    onCurrentIndexChanged: (Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val ctx = LocalContext.current
@@ -156,8 +162,10 @@ fun MostPlayedScreen(
     }
     val rows = remember(shown, byId) { shown.mapNotNull { r -> byId[r.id]?.let { it to r.count } } }
     val list = remember(rows) { rows.map { it.first } }
-    val listState = rememberLazyListState()
     LaunchedEffect(range, end) { listState.scrollToItem(0) }
+    val currentIdx = remember(rows, currentId) { rows.indexOfFirst { it.first.id.toString() == currentId } }
+    val reportIdx by rememberUpdatedState(onCurrentIndexChanged)
+    LaunchedEffect(currentIdx) { reportIdx(currentIdx) }
 
     Column(modifier) {
         DetailHeader(

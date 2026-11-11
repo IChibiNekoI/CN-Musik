@@ -280,6 +280,9 @@ fun LibraryScreen(
     }
     val homeState = rememberLazyListState()
     val homeAlbumsRowState = rememberLazyListState()
+    // "Meistens gespielt": Liste und Position des laufenden Titels liegen hier, damit die Wischgesten der Kopfzeile darauf wirken
+    val mostPlayedState = rememberLazyListState()
+    var mostPlayedCurrentIdx by remember { mutableIntStateOf(-1) }
     // Ausgeblendete Titel sind komplett draußen: weder im Mix noch als Gewicht für Künstler
     val mixPool = remember(songs, hiddenIds, mixExcluded) {
         if (hiddenIds.isEmpty() && mixExcluded.isEmpty()) songs
@@ -380,7 +383,9 @@ fun LibraryScreen(
             ItemAnimation.suspended = true
             try {
             when (effTab) {
-                HOME_TAB -> homeState.headerJump(kind, -1)
+                HOME_TAB ->
+                    if (mostPlayedOpen) mostPlayedState.headerJump(kind, mostPlayedCurrentIdx)
+                    else homeState.headerJump(kind, -1)
                 0 -> songsState.headerJump(kind, titleList.indexOfFirst { it.id.toString() == curId })
                 1 -> {
                     val name = openAlbum
@@ -768,6 +773,8 @@ fun LibraryScreen(
                     onShufflePlay = onShufflePlay,
                     onAddToPlaylist = { addSong = it },
                     onToggleFavorite = onToggleFavorite,
+                    listState = mostPlayedState,
+                    onCurrentIndexChanged = { mostPlayedCurrentIdx = it },
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
