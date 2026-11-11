@@ -10,8 +10,8 @@ android {
         applicationId = "io.github.ichibinekoi.chibineko"
         minSdk = 31
         targetSdk = 36
-        versionCode = 20908
-        versionName = "2.9.8"
+        versionCode = 20909
+        versionName = "2.9.9"
     }
     signingConfigs {
         create("musik") {
