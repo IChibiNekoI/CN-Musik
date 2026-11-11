@@ -4,7 +4,7 @@
 
 # Musik
 
-<img width="1374" height="2863" alt="CN-Music1" src="https://github.com/user-attachments/assets/1f18d1c7-9f44-4e73-9c51-d06b8e815e6e" />
+<img width="916" height="1908" alt="CN Music 1 0,75" src="https://github.com/user-attachments/assets/6dd79382-1266-4515-82d6-248a10b76eba" />
 
 **A lightweight, local-first music player for Android.**
 
