@@ -209,7 +209,7 @@
     <string name="home_recent_tracks">Zuletzt gehörte Titel</string>
     <string name="home_recent_empty">Hier erscheinen die Titel, die du zuletzt gehört hast.</string>
     <string name="most_played_title">Meistens gespielt</string>
-    <string name="most_played_card_title">Letzte 30 Tage</string>
+    <string name="most_played_card_title">Deine Charts</string>
     <string name="most_played_empty">In diesem Zeitraum wurde nichts gespielt.</string>
     <string name="most_played_save">Als Playlist speichern</string>
     <string name="most_played_saved">Playlist „%1$s“ gespeichert</string>
