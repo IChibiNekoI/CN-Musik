@@ -207,7 +207,7 @@
     <string name="home_recent_tracks">Escuchadas recientemente</string>
     <string name="home_recent_empty">Aquí aparecerán las canciones que escuches.</string>
     <string name="most_played_title">Más escuchado</string>
-    <string name="most_played_card_title">Últimos 30 días</string>
+    <string name="most_played_card_title">Tu top de canciones</string>
     <string name="most_played_empty">No se reprodujo nada en este periodo.</string>
     <string name="most_played_save">Guardar como lista</string>
     <string name="most_played_saved">Lista «%1$s» guardada</string>
