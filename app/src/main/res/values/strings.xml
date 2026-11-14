@@ -209,7 +209,7 @@
     <string name="home_recent_tracks">Recently played</string>
     <string name="home_recent_empty">The tracks you listen to will show up here.</string>
     <string name="most_played_title">Most played</string>
-    <string name="most_played_card_title">Last 30 days</string>
+    <string name="most_played_card_title">Your charts</string>
     <string name="most_played_empty">Nothing was played in this period.</string>
     <string name="most_played_save">Save as playlist</string>
     <string name="most_played_saved">Playlist “%1$s” saved</string>
