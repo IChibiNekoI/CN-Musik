@@ -129,6 +129,11 @@
         <item quantity="many">%d de canciones</item>
         <item quantity="other">%d canciones</item>
     </plurals>
+    <plurals name="n_plays">
+        <item quantity="one">%d reproducción</item>
+        <item quantity="many">%d de reproducciones</item>
+        <item quantity="other">%d reproducciones</item>
+    </plurals>
     <plurals name="n_songs">
         <item quantity="one">%d canción</item>
         <item quantity="many">%d de canciones</item>
@@ -170,6 +175,7 @@
     <string name="playlist_export_failed">Error al exportar</string>
     <string name="playlist_image_title">Imagen de la lista</string>
     <string name="playlist_image_pick">Elegir del almacenamiento</string>
+    <string name="swipe_header">Gestos de deslizamiento en la cabecera</string>
     <string name="song_duration">Mostrar duración de la canción</string>
     <string name="song_duration_summary">Se muestra en las listas de canciones junto al botón de menú</string>
     <string name="output_device_summary">Se muestra cuando hay auriculares conectados</string>
@@ -291,6 +297,10 @@
     <string name="stats_completed_albums">Álbumes completados</string>
     <string name="stats_listen_total">Tiempo total de escucha</string>
     <string name="stats_decades">Décadas</string>
+    <string name="stats_audio">Audio</string>
+    <string name="stats_bitrate">Tasa de bits</string>
+    <string name="stats_lossless">Sin pérdida</string>
+    <string name="stats_lossy">Otros</string>
     <string name="stats_show_more">Mostrar más</string>
     <string name="stats_show_less">Mostrar menos</string>
     <plurals name="n_days">
