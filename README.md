@@ -1,6 +1,5 @@
 <div align="center">
 
-<img src="app/src/main/res/drawable/title_logo.png" width="200" height="120" alt="Logo">
 
 # Musik
 
@@ -80,6 +79,7 @@ Listen to the music on your device with playlists, favorites, a built-in tag edi
 
 ## 📱 Screenshots
 
+<img src="app/src/main/res/drawable/title_logo.png" width="200" height="120" alt="Logo">
 <p align="center">
   <img src="https://github.com/user-attachments/assets/6fbbb03a-2253-4b00-af4a-fd5e198c6ca7" alt="ChibiNeko Music screenshot — library" width="49%" />
   <img src="https://github.com/user-attachments/assets/fae7b6bd-f2a1-400c-a6b0-21f202a14049" alt="ChibiNeko Music screenshot — player" width="49%" />
