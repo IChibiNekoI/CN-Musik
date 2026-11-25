@@ -2,6 +2,11 @@ name: Build APK
 on:
   push:
   workflow_dispatch:
+    inputs:
+      upload:
+        description: "APK als Artifact hochladen"
+        type: boolean
+        default: false
 permissions:
   contents: write
 jobs:
@@ -48,13 +53,17 @@ jobs:
           cp app/build/outputs/apk/debug/app-debug.apk "out/$NAME debug.apk"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v6
+        if: ${{ inputs.upload }}
         with:
           name: ${{ steps.apk.outputs.name }}
           path: out/${{ steps.apk.outputs.name }}.apk
+          retention-days: 3
       - uses: actions/upload-artifact@v6
+        if: ${{ inputs.upload }}
         with:
           name: ${{ steps.apk.outputs.name }} debug
           path: out/${{ steps.apk.outputs.name }} debug.apk
+          retention-days: 3
       - name: Release mit APK veroeffentlichen (nur bei Tags wie v1.0.0)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
