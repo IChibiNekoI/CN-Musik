@@ -251,6 +251,8 @@ private fun NowPlayingSheetContent(
     val queueProgress = remember { Animatable(0f).apply { updateBounds(0f, 1f) } }
     var queueShown by remember { mutableStateOf(false) }
     var queueZoneTop by remember { mutableFloatStateOf(Float.MAX_VALUE) }
+    // Wo Fortschrittsbalken und Tasten sitzen: dort zeigen die Partikel sich nicht
+    val particleKeepOut = remember { ParticleKeepOut() }
     var dragFromQueueZone by remember { mutableStateOf(false) }
     var queueFollowing by remember { mutableStateOf(false) }   // Warteschlange hängt gerade am Finger
     var upDrag by remember { mutableFloatStateOf(0f) }
@@ -434,7 +436,8 @@ private fun NowPlayingSheetContent(
             // Hintergrund hinter den Bedienelementen: Einfarbig, Farbverlauf oder verschwommenes Cover
             PlayerBackdrop(song, CornerSettings.playerBg, open)
             // Optional: Partikel über dem ganzen Hintergrund, hinter den Bedienelementen
-            if (CornerSettings.playerParticles) PlayerParticles(open)
+            // (nur bei laufender Musik, beim Pausieren blenden sie aus)
+            if (CornerSettings.playerParticles) PlayerParticles(open, isPlaying, particleKeepOut)
             BoxWithConstraints(
                 Modifier
                     .fillMaxSize()
@@ -454,6 +457,7 @@ private fun NowPlayingSheetContent(
                         Modifier
                             .fillMaxWidth()
                             .onGloballyPositioned { queueGeo.headerBottom = it.boundsInRoot().bottom }
+                            .onGloballyPositioned { particleKeepOut.header = it.boundsInRoot() }
                             .reveal({ open.value }, 0.30f, 0.75f, 0.dp)
                     ) {
                         // 0 = Player offen, 1 = Kopfzeilen-Symbole ganz flach (wird nur beim Zeichnen gelesen)
@@ -610,6 +614,7 @@ private fun NowPlayingSheetContent(
                     Column(
                         Modifier
                             .onGloballyPositioned { queueGeo.title = it.boundsInRoot() }
+                            .onGloballyPositioned { particleKeepOut.title = it.boundsInRoot() }
                             .layout { measurable, constraints ->
                                 // Beim Öffnen der Warteschlange wird der Text schmaler (Platz neben dem kleinen Cover).
                                 // Die gemeldete Breite bleibt gleich, damit die Spalte nicht mittig rutscht.
@@ -658,7 +663,12 @@ private fun NowPlayingSheetContent(
                     }
                 }
                 val progressBlock: @Composable () -> Unit = {
-                    Column(Modifier.fillMaxWidth().reveal({ open.value }, 0.45f, 0.92f)) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { particleKeepOut.progress = it.boundsInRoot() }
+                            .reveal({ open.value }, 0.45f, 0.92f)
+                    ) {
                         val progressValue = { if (dragging) dragFraction else frac.floatValue }
                         val progressChange: (Float) -> Unit = { dragging = true; dragFraction = it }
                         val progressDone = {
@@ -701,7 +711,11 @@ private fun NowPlayingSheetContent(
                 val controlsBlock: @Composable () -> Unit = {
                     Row(
                         // Lage der Tastenreihe merken: die Warteschlange wächst als Blase direkt darunter heraus
-                        Modifier.fillMaxWidth().onGloballyPositioned { queueAnchor.coords = it }.reveal({ open.value }, 0.50f, 1.0f, 32.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .onGloballyPositioned { queueAnchor.coords = it }
+                            .onGloballyPositioned { particleKeepOut.controls = it.boundsInRoot() }
+                            .reveal({ open.value }, 0.50f, 1.0f, 32.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
