@@ -69,6 +69,13 @@ class SheetMotion {
      */
     var onLanded: ((Float) -> Unit)? = null
 
+    /**
+     * Wo der Player zuletzt wirklich zur Ruhe kam (0 = Miniplayer, 1 = Vollbild).
+     * Daran wird gemessen, ob die Bewegung ein Stück unterwegs war, nicht am Stand beim Loslassen:
+     * Wer den Player mit dem Finger ganz bis zum Anschlag zieht, startet die Feder schon am Ziel.
+     */
+    private var restingAt = 0f
+
     /** Der Finger bestimmt den Fortschritt direkt */
     fun follow(value: Float) {
         cmds.trySend(Follow(value.coerceIn(0f, 1f)))
@@ -85,7 +92,8 @@ class SheetMotion {
 
     /** Sofort auf einen Wert setzen (nur für Fälle ohne Fingerbewegung, z. B. Öffnen über die Benachrichtigung) */
     suspend fun snapTo(value: Float) {
-        progress.snapTo(value.coerceIn(0f, 1f))
+        restingAt = value.coerceIn(0f, 1f)
+        progress.snapTo(restingAt)
     }
 
     /** Muss einmal in einem LaunchedEffect laufen */
@@ -96,8 +104,14 @@ class SheetMotion {
                 is Settle -> {
                     cmd.from?.let { progress.snapTo(it.coerceIn(0f, 1f)) }
                     var peak = kotlin.math.abs(cmd.velocity)
-                    val travels = kotlin.math.abs(progress.value - cmd.target) > 0.08f
+                    // War der Player seit der letzten Ruhe ein Stück unterwegs? (auch wenn der Finger ihn schon ganz hingezogen hat)
+                    val travels = kotlin.math.abs(restingAt - cmd.target) > 0.08f
                     var landed = false
+                    // Schon am Ziel (Finger hat bis zum Anschlag gezogen): es gibt nichts mehr zu animieren, also sofort einrasten
+                    if (travels && kotlin.math.abs(progress.value - cmd.target) < 0.025f) {
+                        landed = true
+                        onLanded?.invoke(cmd.target)
+                    }
                     progress.animateTo(cmd.target, sheetSpring(), cmd.velocity) {
                         peak = maxOf(peak, kotlin.math.abs(velocity))
                         if (travels && !landed && kotlin.math.abs(value - cmd.target) < 0.025f) {
@@ -105,6 +119,7 @@ class SheetMotion {
                             onLanded?.invoke(cmd.target)
                         }
                     }
+                    restingAt = cmd.target
                     lastSettleSpeed = peak
                     cmd.onEnd?.invoke()
                 }
