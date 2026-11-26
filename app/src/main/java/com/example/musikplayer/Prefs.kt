@@ -22,6 +22,13 @@ fun saveAutoGain(ctx: Context, on: Boolean) {
     prefs(ctx).edit().putBoolean("auto_gain", on).apply()
 }
 
+/** Partikel im Hintergrund des Players. Ohne eigene Wahl aus. */
+fun readPlayerParticles(ctx: Context): Boolean = prefs(ctx).getBoolean("player_particles", false)
+
+fun savePlayerParticles(ctx: Context, on: Boolean) {
+    prefs(ctx).edit().putBoolean("player_particles", on).apply()
+}
+
 fun readSort(ctx: Context): SortMode =
     when (prefs(ctx).getString("sort", "date")) {
         "name" -> SortMode.NAME

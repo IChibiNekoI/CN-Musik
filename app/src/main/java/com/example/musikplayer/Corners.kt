@@ -39,6 +39,8 @@ object CornerSettings {
     var showHome by mutableStateOf(true)
     /** Auto-Gain (angeglichene Lautstärke), standardmäßig an */
     var autoGain by mutableStateOf(true)
+    /** Aufsteigende Partikel im Hintergrund des Players, optional */
+    var playerParticles by mutableStateOf(false)
     private var loaded = false
 
     /** Gespeicherte Wahl einmal beim Start laden (vor der ersten Anzeige) */
@@ -55,6 +57,7 @@ object CornerSettings {
             swipeHeader = readSwipeHeader(ctx)
             showHome = readShowHome(ctx)
             autoGain = readAutoGain(ctx)
+            playerParticles = readPlayerParticles(ctx)
         }
     }
 }

@@ -433,6 +433,8 @@ private fun NowPlayingSheetContent(
         ) {
             // Hintergrund hinter den Bedienelementen: Einfarbig, Farbverlauf oder verschwommenes Cover
             PlayerBackdrop(song, CornerSettings.playerBg, open)
+            // Optional: Partikel über dem ganzen Hintergrund, hinter den Bedienelementen
+            if (CornerSettings.playerParticles) PlayerParticles(open)
             BoxWithConstraints(
                 Modifier
                     .fillMaxSize()

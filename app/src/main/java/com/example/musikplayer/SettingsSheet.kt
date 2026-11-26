@@ -732,6 +732,19 @@ fun AppSettingsSheet(
                         saveCoverShadow(shadowCtx, on)
                     }
                 )
+                // Partikel im Hintergrund des Players
+                val particlesCtx = LocalContext.current
+                val particlesOn = CornerSettings.playerParticles
+                ListItem(
+                    headlineContent = { Text(str(R.string.particles)) },
+                    trailingContent = { Switch(checked = particlesOn, onCheckedChange = null) },
+                    colors = clear,
+                    modifier = Modifier.bounceClick(pressedScale = 0.97f) {
+                        val on = !particlesOn
+                        CornerSettings.playerParticles = on
+                        savePlayerParticles(particlesCtx, on)
+                    }
+                )
                 Spacer(Modifier.height(32.dp + bottomExtra))
             }
             "albumView" -> {
