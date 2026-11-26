@@ -39,12 +39,16 @@ import kotlin.math.sin
 /** Linienstärke auf dem 24er-Raster (1.8 / 24 = 7,5 %, wie beim Zahnrad) */
 private const val ICON_STROKE = 1.8f
 
+/** Linienstärke des Zufall-Symbols (8,5 % der Größe) auf dem 24er-Raster: 0,085 * 24 */
+const val PLUS_MATCHING_SHUFFLE_STROKE = 2.04f
+
 @Composable
 private fun LineIcon(
     modifier: Modifier,
     iconSize: Dp,
     tint: Color,
     description: String?,
+    strokeWidth: Float = ICON_STROKE,
     draw: DrawScope.(Color, Stroke, Float) -> Unit
 ) {
     Canvas(
@@ -53,7 +57,7 @@ private fun LineIcon(
             .semantics { if (description != null) contentDescription = description }
     ) {
         val k = size.minDimension / 24f
-        val line = Stroke(width = ICON_STROKE * k, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val line = Stroke(width = strokeWidth * k, cap = StrokeCap.Round, join = StrokeJoin.Round)
         this.draw(tint, line, k)
     }
 }
@@ -388,13 +392,17 @@ fun PlaylistAddIcon(
     }
 }
 
-/** Plus */
+/**
+ * Plus. [strokeWidth] auf dem 24er-Raster; neben dem Zufall-Symbol [PLUS_MATCHING_SHUFFLE_STROKE] mit
+ * gleicher iconSize wie [ShuffleIcon] (26.dp) nehmen, dann sind beide gleich dick.
+ */
 @Composable
 fun PlusIcon(
     modifier: Modifier = Modifier, iconSize: Dp = 24.dp,
-    tint: Color = LocalContentColor.current, description: String? = null
+    tint: Color = LocalContentColor.current, description: String? = null,
+    strokeWidth: Float = ICON_STROKE
 ) {
-    LineIcon(modifier, iconSize, tint, description) { c, st, k ->
+    LineIcon(modifier, iconSize, tint, description, strokeWidth) { c, st, k ->
         seg(c, st, k, 12f, 5f, 12f, 19f)
         seg(c, st, k, 5f, 12f, 19f, 12f)
     }

@@ -1011,7 +1011,12 @@ fun LibraryScreen(
                         action = if (list.isNotEmpty()) {
                             {
                                 BounceIconButton(onClick = { pickFor = pl.id }) {
-                                    PlusIcon(description = str(R.string.add_songs))
+                                    // gleiche Größe und Strichdicke wie das Zufall-Symbol daneben
+                                    PlusIcon(
+                                        iconSize = 26.dp,
+                                        strokeWidth = PLUS_MATCHING_SHUFFLE_STROKE,
+                                        description = str(R.string.add_songs)
+                                    )
                                 }
                                 BounceIconButton(onClick = { onShufflePlay(list) }) {
                                     ShuffleIcon(description = str(R.string.cd_shuffle))
